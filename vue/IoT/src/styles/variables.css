@@ -1,0 +1,46 @@
+:root {
+  /* 背景色 */
+  --bg-primary: #0f172a;
+  --bg-card: #1e293b;
+  --bg-sidebar: #0c1222;
+  --bg-header: rgba(15, 23, 42, 0.85);
+
+  /* 文字色 */
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+
+  /* 主题色 */
+  --color-green: #10b981;
+  --color-red: #ef4444;
+  --color-blue: #3b82f6;
+  --color-yellow: #f59e0b;
+  --color-purple: #8b5cf6;
+
+  /* 发光色 */
+  --glow-green: rgba(16, 185, 129, 0.5);
+  --glow-red: rgba(239, 68, 68, 0.5);
+  --glow-blue: rgba(59, 130, 246, 0.5);
+  --glow-yellow: rgba(245, 158, 11, 0.5);
+
+  /* 边框 */
+  --border-color: rgba(255, 255, 255, 0.06);
+
+  /* 间距 */
+  --spacing-xs: 0.5rem;
+  --spacing-sm: 0.75rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+
+  /* 圆角 */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+
+  /* 侧边栏 */
+  --sidebar-width: 240px;
+  --sidebar-collapsed-width: 64px;
+  --header-height: 56px;
+}
