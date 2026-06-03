@@ -17,13 +17,16 @@
 ```
 ESP32/ESP8266 ──MQTT──▶ broker.emqx.io ──订阅──▶ Java ──JPA──▶ TiDB Cloud
                            ▲                       │
-                           │                       ├── WebSocket ──▶ Vue (实时监控)
+                           │                       ├── WebSocket ──▶ Cloudflare Pages (前端)
                            │                       │
                            └── 发布控制 ────────────┘ (设备控制)
 
-                           Google OAuth2 ──▶ Java ──JWT──▶ Vue (登录认证)
-                           DeepSeek API ──▶ Java ──▶ Vue (AI 助手)
-                           支付宝沙箱 ──▶ Java ──▶ Vue (支付测试)
+                           Google OAuth2 ──▶ Java ──JWT──▶ Cloudflare Pages (前端)
+                           DeepSeek API ──▶ Java ──▶ Cloudflare Pages (前端)
+                           支付宝沙箱 ──▶ Java ──▶ Cloudflare Pages (前端)
+
+前端部署: Cloudflare Pages (iot-9qn.pages.dev) ──HTTPS──▶ VPS nginx:8443 ──▶ Java:8080
+后端部署: VPS (38.47.98.235) ── nginx:80 (HTTP) + nginx:8443 (HTTPS/SSL)
 ```
 
 ## 功能模块
@@ -63,20 +66,28 @@ cd vue/IoT && npm install && npm run dev  # → http://localhost:5173
 
 ## 生产部署
 
-已部署在 VPS：`http://38.47.98.235` (支持 nip.io 域名)
+**前端**: Cloudflare Pages (`https://iot-9qn.pages.dev`)，连接 GitHub 仓库自动构建部署。
+**后端**: VPS (`38.47.98.235`)，nginx 提供 HTTP(80) + HTTPS(8443) 双端口。
+
+| 组件 | 地址 | 说明 |
+|------|------|------|
+| 前端 | `https://iot-9qn.pages.dev` | Cloudflare Pages，推送 GitHub 自动部署 |
+| 后端 HTTP | `http://38.47.98.235` | 端口 80，OAuth 回调用 |
+| 后端 HTTPS | `https://38.47.98.235.nip.io:8443` | 端口 8443，Let's Encrypt 证书 |
 
 ```bash
-# 更新后端
+# 更新后端 (手动部署)
 cd java && ./mvnw clean package -DskipTests
 scp target/IoTSystem-0.0.1-SNAPSHOT.jar root@38.47.98.235:/opt/iot/
 ssh root@38.47.98.235 "systemctl restart iot"
 
-# 更新前端
-cd vue/IoT && npm run build
-scp -r dist/* root@38.47.98.235:/var/www/iot/
+# 更新前端 (推送 GitHub → Cloudflare Pages 自动构建)
+git add . && git commit -m "描述改动" && git push origin main
 ```
 
-生产环境前端 `.env.production` 留空使用同源地址。
+**前端构建** (Cloudflare Pages 自动执行):
+- 构建命令: `cd vue/IoT && npm install && npm run build`
+- 输出目录: `vue/IoT/dist`
 
 ## 前置依赖
 

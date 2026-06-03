@@ -228,21 +228,54 @@ Pay.vue → POST /api/alipay/create {amount, subject}
 
 ## 九、生产部署
 
-部署在 VPS (38.47.98.235)：
+前端部署在 **Cloudflare Pages**（`https://iot-9qn.pages.dev`），后端部署在 **VPS**（`38.47.98.235`）。
+
+### Cloudflare Pages 配置
+
+| 配置项 | 值 |
+|--------|-----|
+| 仓库 | `github.com/gzxxxxxx178-ship-it/Iot` |
+| 分支 | `main` |
+| 构建命令 | `cd vue/IoT && npm install && npm run build` |
+| 输出目录 | `vue/IoT/dist` |
+
+推送 GitHub 自动触发构建部署，无需手动 scp。
+
+### 环境变量
+
 ```bash
-npm run build
-scp -r dist/* root@38.47.98.235:/var/www/iot/
+# .env.production — 前端部署到 Cloudflare Pages 后的配置
+VITE_API_BASE_URL=https://38.47.98.235.nip.io:8443
+VITE_WS_BASE_URL=wss://38.47.98.235.nip.io:8443
 ```
 
-- `.env.production` 中 `VITE_API_BASE_URL` 和 `VITE_WS_BASE_URL` 留空 → 前端自动走同源
-- `request.js` 生产环境 baseURL 为空，API 请求同源
-- `Login.vue` 生产环境 Google 登录使用 nip.io 域名
-- `useWebSocket.js` 生产环境 WebSocket URL 由 `window.location.origin` 推导
+- `request.js` 生产环境使用 `VITE_API_BASE_URL`（不为空），不再走同源
+- `Login.vue` Google 登录从 `VITE_API_BASE_URL` 推导后端地址
+- `useWebSocket.js` 使用 `VITE_WS_BASE_URL` 连接 WSS
+
+### VPS 端口架构
+
+| 端口 | 协议 | 用途 |
+|------|------|------|
+| 80 | HTTP | nginx，供 OAuth 回调等兼容 |
+| 443 | TLS | s-ui 代理面板 |
+| 8443 | HTTPS | nginx + Let's Encrypt，前端 API/WS 入口 |
+| 8080 | HTTP | Java 后端（本地） |
+
+### OAuth 流程（跨域）
+
+```
+Cloudflare Pages → VPS:8443/oauth2/authorization/google → Google 授权
+  → Google 回调 VPS:80/login/oauth2/code/google
+  → 后端 OAuth2SuccessHandler → 302 跳回 Cloudflare Pages
+```
 
 **已修复的坑**:
 - nginx `Connection "upgrade"` 引号不能被转义，否则 WebSocket 握手失败
 - nginx 必须代理 `/esp/` 路径，否则传感器数据接口返回 index.html
 - OAuth 回调 redirect-uri 必须和 Google Console 一致（使用 nip.io 域名而不是裸 IP）
+- Cloudflare Pages 强制 HTTPS，VPS 必须提供 SSL 否则浏览器阻止 mixed content
+- Let's Encrypt 证书每 90 天自动 renew（certbot 已配置定时任务）
 
 ---
 

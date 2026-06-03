@@ -267,9 +267,18 @@ Pay.vue → POST /api/alipay/create {amount, subject}
 
 ## 十、生产部署
 
-部署在 VPS (38.47.98.235)，使用 TiDB Cloud 作为数据库。
+后端部署在 VPS (38.47.98.235)，前端部署在 Cloudflare Pages (`iot-9qn.pages.dev`)。
 
-**服务器配置**: Ubuntu 22 / 1GB RAM / systemd 自启 / Nginx 反向代理
+**服务器配置**: Ubuntu 22 / 1GB RAM / systemd 自启 / Nginx 反向代理 / TiDB Cloud
+
+**VPS 端口架构**:
+
+| 端口 | 协议 | 用途 |
+|------|------|------|
+| 80 | HTTP | nginx → Java:8080（OAuth 回调、兼容） |
+| 443 | TLS | s-ui 代理面板 |
+| 8443 | HTTPS | nginx SSL → Java:8080（前端 API 入口） |
+| 8080 | HTTP | Java 后端（本地） |
 
 **配置文件**: `/opt/iot/application-prod.properties` (通过 `--spring.profiles.active=prod` 激活)
 
@@ -280,7 +289,9 @@ systemctl restart iot      # 重启
 journalctl -u iot -f       # 查看日志
 ```
 
-**nginx 代理规则**: `/` (静态) → Vue; `/api/`、`/esp/`、`/oauth2/`、`/login/oauth2/`、`/ws/` → Java:8080
+**nginx 代理规则**: 端口 80 和 8443 两条独立 server block：
+- `/api/`、`/esp/`、`/oauth2/`、`/login/oauth2/`、`/ws/` → Java:8080
+- `/` → `/var/www/iot/index.html` (保留旧部署兼容)
 
 **重新部署**:
 ```bash
@@ -294,5 +305,6 @@ ssh root@38.47.98.235 "systemctl restart iot"
 
 **生产环境变量** (`application-prod.properties`):
 - `spring.datasource.url`: TiDB Cloud 连接
-- `app.oauth2.redirect-uri`: `http://38.47.98.235.nip.io`
-- `spring.security.oauth2.client.registration.google.redirect-uri`: `http://38.47.98.235.nip.io/login/oauth2/code/google`
+- `app.oauth2.redirect-uri`: `https://iot-9qn.pages.dev`（OAuth 成功后跳回 Cloudflare Pages）
+- `spring.security.oauth2.client.registration.google.redirect-uri`: `http://38.47.98.235.nip.io/login/oauth2/code/google`（Google 回调走 HTTP 80）
+- VPS HTTPS 证书: Let's Encrypt `/etc/letsencrypt/live/38.47.98.235.nip.io/`，certbot 自动 renew
