@@ -22,8 +22,7 @@ onMounted(() => {
 })
 
 function googleLogin() {
-  const isDev = import.meta.env.DEV
-  const base = isDev ? 'http://localhost:8080' : 'http://38.47.98.235.nip.io'
+  const base = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:8080' : window.location.origin)
   window.location.href = base + '/oauth2/authorization/google'
 }
 
