@@ -28,7 +28,7 @@ graph TB
         BROKER[broker.emqx.io<br/>topic: agri/device001/data<br/>topic: agri/device001/control]
     end
 
-    subgraph VPS["VPS (38.47.98.235)"]
+    subgraph VPS["VPS (海外服务器)"]
         NGINX80[nginx :80 HTTP]
         NGINX8443[nginx :8443 HTTPS<br/>Let's Encrypt SSL]
         JAVA[Java Spring Boot :8080]
@@ -97,19 +97,17 @@ graph TB
 ### 部署拓扑
 
 ```
-ESP32 ──WiFi──▶ broker.emqx.io:1883 ◀──订阅── VPS:8080 (Java)
-                                                  │
-                        ┌─────────────────────────┤
-                        │                         │
-                  nginx :80 (HTTP)          nginx :8443 (HTTPS)
-                  仅 API 代理                   SSL 终止
-                  OAuth 回调入口              前端 API 入口
-                        │                         │
-                        └──────────┬──────────────┘
-                                   │
-                        Cloudflare Pages
-                     iot-9qn.pages.dev
-                        (Vue 3 前端)
+ESP32 ──MQTT──▶ 公共 Broker ──订阅──▶ Java ──JPA──▶ 云数据库
+                                       │
+            ┌──────────────────────────┤
+            │                          │
+      nginx (HTTP)              nginx (HTTPS)
+       仅 API 代理                SSL 终止 + WSS
+            │                          │
+            └──────────┬───────────────┘
+                       │
+               Cloudflare Pages
+                  (Vue 3 前端)
 ```
 
 ## 功能模块
@@ -149,20 +147,14 @@ cd vue/IoT && npm install && npm run dev  # → http://localhost:5173
 
 ## 生产部署
 
-**前端**: Cloudflare Pages (`https://iot-9qn.pages.dev`)，连接 GitHub 仓库自动构建部署。
-**后端**: VPS (`38.47.98.235`)，nginx 提供 HTTP(80) + HTTPS(8443) 双端口。
-
-| 组件 | 地址 | 说明 |
-|------|------|------|
-| 前端 | `https://iot-9qn.pages.dev` | Cloudflare Pages，推送 GitHub 自动部署 |
-| 后端 HTTP | `http://38.47.98.235` | 端口 80，OAuth 回调用 |
-| 后端 HTTPS | `https://38.47.98.235.nip.io:8443` | 端口 8443，Let's Encrypt 证书 |
+**前端**: Cloudflare Pages，连接 GitHub 仓库自动构建部署。
+**后端**: VPS，nginx 提供 HTTP + HTTPS (Let's Encrypt) 双端口。
 
 ```bash
 # 更新后端 (手动部署)
 cd java && ./mvnw clean package -DskipTests
-scp target/IoTSystem-0.0.1-SNAPSHOT.jar root@38.47.98.235:/opt/iot/
-ssh root@38.47.98.235 "systemctl restart iot"
+scp target/IoTSystem-0.0.1-SNAPSHOT.jar root@<VPS_IP>:/opt/iot/
+ssh root@<VPS_IP> "systemctl restart iot"
 
 # 更新前端 (推送 GitHub → Cloudflare Pages 自动构建)
 git add . && git commit -m "描述改动" && git push origin main

@@ -267,18 +267,11 @@ Pay.vue → POST /api/alipay/create {amount, subject}
 
 ## 十、生产部署
 
-后端部署在 VPS (38.47.98.235)，前端部署在 Cloudflare Pages (`iot-9qn.pages.dev`)。
+后端部署在 VPS，前端部署在 Cloudflare Pages。
 
-**服务器配置**: Ubuntu 22 / 1GB RAM / systemd 自启 / Nginx 反向代理 / TiDB Cloud
+**服务器配置**: Ubuntu / 1GB RAM / systemd 自启 / Nginx 反向代理 / TiDB Cloud
 
-**VPS 端口架构**:
-
-| 端口 | 协议 | 用途 |
-|------|------|------|
-| 80 | HTTP | nginx → Java:8080（OAuth 回调、兼容） |
-| 443 | TLS | s-ui 代理面板 |
-| 8443 | HTTPS | nginx SSL → Java:8080（前端 API 入口） |
-| 8080 | HTTP | Java 后端（本地） |
+**nginx 代理**: HTTP 和 HTTPS 双端口，反向代理 `/api/`、`/esp/`、`/oauth2/`、`/login/oauth2/`、`/ws/` 到 Java:8080。HTTPS 证书由 Let's Encrypt 提供，certbot 自动 renew。
 
 **配置文件**: `/opt/iot/application-prod.properties` (通过 `--spring.profiles.active=prod` 激活)
 
@@ -289,22 +282,17 @@ systemctl restart iot      # 重启
 journalctl -u iot -f       # 查看日志
 ```
 
-**nginx 代理规则**: 端口 80 和 8443 两条独立 server block：
-- `/api/`、`/esp/`、`/oauth2/`、`/login/oauth2/`、`/ws/` → Java:8080
-- `/` → `/var/www/iot/index.html` (保留旧部署兼容)
-
 **重新部署**:
 ```bash
 # 本地构建
 ./mvnw clean package -DskipTests
 # 上传
-scp target/IoTSystem-0.0.1-SNAPSHOT.jar root@38.47.98.235:/opt/iot/
+scp target/IoTSystem-0.0.1-SNAPSHOT.jar root@<VPS_IP>:/opt/iot/
 # 重启
-ssh root@38.47.98.235 "systemctl restart iot"
+ssh root@<VPS_IP> "systemctl restart iot"
 ```
 
 **生产环境变量** (`application-prod.properties`):
 - `spring.datasource.url`: TiDB Cloud 连接
-- `app.oauth2.redirect-uri`: `https://iot-9qn.pages.dev`（OAuth 成功后跳回 Cloudflare Pages）
-- `spring.security.oauth2.client.registration.google.redirect-uri`: `http://38.47.98.235.nip.io/login/oauth2/code/google`（Google 回调走 HTTP 80）
-- VPS HTTPS 证书: Let's Encrypt `/etc/letsencrypt/live/38.47.98.235.nip.io/`，certbot 自动 renew
+- `app.oauth2.redirect-uri`: Cloudflare Pages 地址（OAuth 成功后跳回前端）
+- `spring.security.oauth2.client.registration.google.redirect-uri`: nip.io 域名的 `/login/oauth2/code/google`（Google 回调走 HTTP，需要和 Google Console 注册的一致）

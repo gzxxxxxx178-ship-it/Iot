@@ -228,13 +228,12 @@ Pay.vue → POST /api/alipay/create {amount, subject}
 
 ## 九、生产部署
 
-前端部署在 **Cloudflare Pages**（`https://iot-9qn.pages.dev`），后端部署在 **VPS**（`38.47.98.235`）。
+前端部署在 **Cloudflare Pages**，后端部署在 **VPS**。
 
 ### Cloudflare Pages 配置
 
 | 配置项 | 值 |
 |--------|-----|
-| 仓库 | `github.com/gzxxxxxx178-ship-it/Iot` |
 | 分支 | `main` |
 | 构建命令 | `cd vue/IoT && npm install && npm run build` |
 | 输出目录 | `vue/IoT/dist` |
@@ -243,11 +242,7 @@ Pay.vue → POST /api/alipay/create {amount, subject}
 
 ### 环境变量
 
-```bash
-# .env.production — 前端部署到 Cloudflare Pages 后的配置
-VITE_API_BASE_URL=https://38.47.98.235.nip.io:8443
-VITE_WS_BASE_URL=wss://38.47.98.235.nip.io:8443
-```
+生产环境 `.env.production` 中设置 `VITE_API_BASE_URL` 和 `VITE_WS_BASE_URL` 指向后端 VPS 的 HTTPS 地址，注意使用 `wss://` 协议以支持 WebSocket。
 
 - `request.js` 生产环境使用 `VITE_API_BASE_URL`（不为空），不再走同源
 - `Login.vue` Google 登录从 `VITE_API_BASE_URL` 推导后端地址
@@ -255,18 +250,13 @@ VITE_WS_BASE_URL=wss://38.47.98.235.nip.io:8443
 
 ### VPS 端口架构
 
-| 端口 | 协议 | 用途 |
-|------|------|------|
-| 80 | HTTP | nginx，供 OAuth 回调等兼容 |
-| 443 | TLS | s-ui 代理面板 |
-| 8443 | HTTPS | nginx + Let's Encrypt，前端 API/WS 入口 |
-| 8080 | HTTP | Java 后端（本地） |
+VPS 上 nginx 监听 HTTP 和 HTTPS 双端口作为反向代理，Java 后端在本地 8080 端口，Let's Encrypt 提供 SSL 证书并自动续期。
 
 ### OAuth 流程（跨域）
 
 ```
-Cloudflare Pages → VPS:8443/oauth2/authorization/google → Google 授权
-  → Google 回调 VPS:80/login/oauth2/code/google
+Cloudflare Pages → VPS HTTPS /oauth2/authorization/google → Google 授权
+  → Google 回调 VPS HTTP /login/oauth2/code/google
   → 后端 OAuth2SuccessHandler → 302 跳回 Cloudflare Pages
 ```
 
