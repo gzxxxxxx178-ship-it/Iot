@@ -31,3 +31,10 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Spring Boot 敏感配置（仅本地保留，不提交 git）
+application-dev.properties
+application-prod.properties
+
+# MQTT 客户端本地持久化
+java_client_fixed-*/

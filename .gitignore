@@ -16,3 +16,7 @@ target/
 Thumbs.db
 .git.bak/
 client_secret_*.json
+
+# Spring Boot 敏感配置（仅本地/VPS 保留，不提交 git）
+**/application-dev.properties
+**/application-prod.properties
