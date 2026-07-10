@@ -5,6 +5,7 @@ import DeviceCard from '../components/device/DeviceCard.vue'
 
 const devices = ref([])
 
+// 加载所有设备的列表和最新读数
 async function fetchDevices() {
   try {
     devices.value = await getDeviceList()
@@ -24,6 +25,7 @@ onMounted(fetchDevices)
       <el-tag type="info" effect="dark" size="small">{{ devices.length }} 台设备</el-tag>
     </div>
 
+    <!-- 设备卡片网格，响应式列宽 -->
     <div v-if="devices.length" class="device-grid">
       <DeviceCard v-for="d in devices" :key="d.deviceId" :device="d" />
     </div>

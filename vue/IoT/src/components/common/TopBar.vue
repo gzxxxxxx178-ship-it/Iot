@@ -7,6 +7,7 @@ import { getUsername, removeToken, removeUsername } from '../../utils/auth'
 
 const route = useRoute()
 
+// 从 route.matched 链中提取有 title 的层生成面包屑
 const breadcrumbs = computed(() => {
   const matched = route.matched.filter((r) => r.meta?.title)
   return matched.map((r) => r.meta.title)
@@ -14,10 +15,12 @@ const breadcrumbs = computed(() => {
 
 const displayName = ref('')
 
+// 从 localStorage 读取当前登录用户名
 onMounted(() => {
   displayName.value = getUsername() || ''
 })
 
+// 退出登录：清除 token 和用户名，跳转登录页
 function logout() {
   ElMessage.success('已退出登录')
   removeToken()

@@ -1,6 +1,7 @@
 <script setup>
 import { formatDateTime } from '../../utils/format'
 
+// 设备信息卡片：显示状态灯 + 设备 ID/温度/湿度/水位/信号/联动/最后在线
 defineProps({
   device: { type: Object, default: () => ({}) },
 })
@@ -9,6 +10,7 @@ defineProps({
 <template>
   <el-card class="device-card" shadow="hover">
     <div class="device-card-header">
+      <!-- 在线状态指示灯：绿色在线，红色离线 -->
       <div class="device-status-dot" :class="{ online: device.status === 'online' }"></div>
       <h3>{{ device.name || device.deviceId || '未知设备' }}</h3>
     </div>

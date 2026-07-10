@@ -3,6 +3,7 @@ import { ref, nextTick, onMounted } from 'vue'
 import { sendMessage, getHistory, clearHistory as clearRemoteHistory } from '../api/chat'
 import { ChatDotRound, Delete } from '@element-plus/icons-vue'
 
+// 默认欢迎消息
 const defaultMessages = [
   {
     role: 'assistant',
@@ -13,6 +14,7 @@ const defaultMessages = [
 
 const messages = ref([...defaultMessages])
 
+// 加载历史消息，覆盖默认欢迎消息
 onMounted(async () => {
   try {
     const history = await getHistory()
@@ -22,6 +24,7 @@ onMounted(async () => {
   } catch {}
 })
 
+// 清除远程聊天记录，重置为默认欢迎消息
 async function clearHistory() {
   try {
     await clearRemoteHistory()
@@ -33,6 +36,7 @@ const inputText = ref('')
 const loading = ref(false)
 const chatBodyRef = ref(null)
 
+// 发送消息：追加用户消息 → POST /api/chat → 追加 AI 回复
 async function handleSend() {
   const text = inputText.value.trim()
   if (!text || loading.value) return
@@ -57,12 +61,14 @@ async function handleSend() {
   }
 }
 
+// 滚动到消息列表底部
 function scrollToBottom() {
   if (chatBodyRef.value) {
     chatBodyRef.value.scrollTop = chatBodyRef.value.scrollHeight
   }
 }
 
+// Enter 发送，Shift+Enter 换行
 function handleKeydown(e) {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault()
@@ -73,174 +79,88 @@ function handleKeydown(e) {
 
 <template>
   <div class="chat-page">
-    <div class="chat-container">
-      <div class="chat-header">
-        <el-icon :size="20"><ChatDotRound /></el-icon>
-        <span>AI 智能助手</span>
-        <el-tag size="small" effect="dark" type="info">DeepSeek V4 Pro</el-tag>
-        <el-button text size="small" @click="clearHistory" title="清空对话">
-          <el-icon :size="16"><Delete /></el-icon>
-        </el-button>
+    <div class="page-header">
+      <div>
+        <h1>AI 助手</h1>
+        <p>基于 DeepSeek 的智慧农业 AI 对话</p>
       </div>
+      <el-button text :icon="Delete" @click="clearHistory">清除历史</el-button>
+    </div>
 
+    <el-card class="chat-card">
+      <!-- 消息列表区域 -->
       <div class="chat-body" ref="chatBodyRef">
         <div
-          v-for="(msg, i) in messages"
+          v-for="(m, i) in messages"
           :key="i"
           class="chat-message"
-          :class="msg.role"
+          :class="m.role"
         >
-          <div class="message-bubble">
-            <pre class="message-text">{{ msg.content }}</pre>
-          </div>
+          <span class="msg-avatar">{{ m.role === 'user' ? '👤' : '🤖' }}</span>
+          <div class="msg-bubble" v-text="m.content" />
         </div>
-
+        <!-- 加载动画 -->
         <div v-if="loading" class="chat-message assistant">
-          <div class="message-bubble loading">
-            <span class="dot-pulse"></span>
+          <span class="msg-avatar">🤖</span>
+          <div class="msg-bubble loading-bubble">
+            <span class="dot-pulse" />
           </div>
         </div>
       </div>
 
-      <div class="chat-footer">
+      <!-- 输入区域 -->
+      <div class="chat-input-area">
         <el-input
           v-model="inputText"
           type="textarea"
           :rows="2"
-          placeholder="输入你的问题，按 Enter 发送..."
+          placeholder="输入消息，Enter 发送..."
           @keydown="handleKeydown"
-          resize="none"
           :disabled="loading"
         />
-        <el-button
-          type="success"
-          :icon="ChatDotRound"
-          circle
-          class="send-btn"
-          @click="handleSend"
-          :loading="loading"
-        />
+        <el-button type="primary" :icon="ChatDotRound" :loading="loading" @click="handleSend">
+          发送
+        </el-button>
       </div>
-    </div>
+    </el-card>
   </div>
 </template>
 
 <style scoped>
-.chat-page {
-  height: 100%;
-  display: flex;
-  justify-content: center;
-}
+.chat-page { max-width: 800px; margin: 0 auto; }
+.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+.page-header h1 { font-size: 1.5rem; margin: 0; }
+.page-header p { color: var(--text-secondary); margin: 0.25rem 0 0; font-size: 0.85rem; }
 
-.chat-container {
-  width: 100%;
-  max-width: 800px;
-  display: flex;
-  flex-direction: column;
-  height: calc(100vh - 56px - var(--spacing-xl) * 2);
-  background: rgba(30, 41, 59, 0.4);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-}
-
-.chat-header {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-md) var(--spacing-lg);
-  border-bottom: 1px solid var(--border-color);
-  background: rgba(0, 0, 0, 0.15);
-}
-
-.chat-header span {
-  font-weight: 600;
-  flex: 1;
-}
+.chat-card { height: calc(100vh - 200px); display: flex; flex-direction: column; }
 
 .chat-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: var(--spacing-lg);
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-md);
+  flex: 1; overflow-y: auto; padding: 1rem;
+  display: flex; flex-direction: column; gap: 1rem;
+  background: rgba(15, 23, 42, 0.3);
 }
 
-.chat-message {
-  display: flex;
-  max-width: 85%;
-}
+.chat-message { display: flex; gap: 0.5rem; max-width: 85%; }
+.chat-message.user { align-self: flex-end; flex-direction: row-reverse; }
+.chat-message.assistant { align-self: flex-start; }
 
-.chat-message.user {
-  align-self: flex-end;
-}
+.msg-avatar { font-size: 1.5rem; flex-shrink: 0; }
 
-.chat-message.assistant {
-  align-self: flex-start;
+.msg-bubble {
+  padding: 0.65rem 0.9rem; border-radius: 12px; font-size: 0.9rem; line-height: 1.6;
+  white-space: pre-wrap; word-break: break-word;
 }
+.chat-message.user .msg-bubble { background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.2); }
+.chat-message.assistant .msg-bubble { background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255, 255, 255, 0.06); }
 
-.message-bubble {
-  padding: var(--spacing-sm) var(--spacing-md);
-  border-radius: var(--radius-md);
-  line-height: 1.6;
-}
-
-.chat-message.user .message-bubble {
-  background: var(--color-green);
-  color: #fff;
-  border-bottom-right-radius: 4px;
-}
-
-.chat-message.assistant .message-bubble {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--border-color);
-  border-bottom-left-radius: 4px;
-}
-
-.message-text {
-  margin: 0;
-  font-family: inherit;
-  font-size: 0.9rem;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.message-bubble.loading {
-  padding: var(--spacing-md) var(--spacing-lg);
-  display: flex;
-  align-items: center;
-}
-
-.dot-pulse {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--text-secondary);
-  animation: pulse 1.2s infinite ease-in-out;
-}
-
-@keyframes pulse {
-  0%, 80%, 100% {
-    opacity: 0.3;
-    transform: scale(0.8);
-  }
-  40% {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.chat-footer {
-  display: flex;
-  align-items: flex-end;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-md) var(--spacing-lg);
+.chat-input-area {
+  display: flex; gap: 0.5rem; padding: 0.75rem 1rem;
   border-top: 1px solid var(--border-color);
-  background: rgba(0, 0, 0, 0.1);
+  align-items: flex-end;
 }
+.chat-input-area .el-textarea { flex: 1; }
 
-.send-btn {
-  flex-shrink: 0;
-}
+.loading-bubble { display: flex; align-items: center; min-width: 40px; min-height: 20px; }
+.dot-pulse { width: 6px; height: 6px; background: var(--text-muted); border-radius: 50%; display: block; animation: pulse 0.8s infinite alternate; }
+@keyframes pulse { to { opacity: 0.3; transform: scale(0.8); } }
 </style>

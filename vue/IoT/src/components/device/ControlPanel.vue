@@ -7,6 +7,7 @@ const emit = defineEmits(['command-sent'])
 const status = ref('')
 const loading = ref(false)
 
+// 发送设备控制指令（start/stop），通过 MQTT 下发到 ESP32
 async function sendCommand(cmd) {
   const label = cmd === 'start' ? '启动' : '停止'
   loading.value = true
@@ -46,6 +47,7 @@ async function sendCommand(cmd) {
         停止设备
       </el-button>
     </div>
+    <!-- 指令发送状态提示 -->
     <div v-if="status" class="control-status">
       {{ status }}
     </div>

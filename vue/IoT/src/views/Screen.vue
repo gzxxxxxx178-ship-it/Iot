@@ -11,6 +11,7 @@ import StatusPie from '../components/charts/StatusPie.vue'
 
 const router = useRouter()
 
+// 统计数据
 const stats = ref({ deviceCount: 0, onlineCount: 0, avgTemp: '--', avgHum: '--' })
 const pieData = ref([])
 const timeLabels = ref([])
@@ -22,6 +23,7 @@ const latestLinkage = ref(null)
 const currentTime = ref('')
 let clockTimer = null
 
+// WebSocket 实时接收传感器数据，保留最多 60 个数据点
 const ws = useWebSocket((item) => {
   timeLabels.value.push(formatTime(item.serverReceivedTime || item.timestamp))
   tempSeries.value.push(item.temperature)
@@ -36,6 +38,7 @@ const ws = useWebSocket((item) => {
   }
 })
 
+// 每秒更新页面时钟
 function updateClock() {
   const now = new Date()
   currentTime.value = now.toLocaleString('zh-CN', {
@@ -44,6 +47,7 @@ function updateClock() {
   })
 }
 
+// 挂载时加载仪表盘和历史数据，启动时钟
 onMounted(async () => {
   updateClock()
   clockTimer = setInterval(updateClock, 1000)
@@ -66,246 +70,87 @@ onMounted(async () => {
   ]
 })
 
+// 卸载时清除时钟
 onUnmounted(() => clearInterval(clockTimer))
 </script>
 
 <template>
   <div class="screen">
-    <div class="screen-bg"></div>
-
+    <!-- 顶部信息栏：时钟 + 设备统计 + 关闭按钮 -->
     <div class="screen-header">
-      <h1>智慧农业数据大屏</h1>
-      <div class="header-right">
-        <span class="clock">{{ currentTime }}</span>
-        <el-button circle :icon="Close" size="small" @click="router.push('/dashboard')" />
+      <h1 class="screen-title">智慧农业数据大屏</h1>
+      <div class="screen-stats">
+        <span>设备总数: {{ stats.deviceCount }}</span>
+        <span>在线: {{ stats.onlineCount }}</span>
+        <span>{{ currentTime }}</span>
+      </div>
+      <el-button class="close-btn" :icon="Close" circle @click="router.push('/dashboard')" title="退出大屏" />
+    </div>
+
+    <!-- 中部：饼图 + 联动状态 + 信号强度 -->
+    <div class="screen-body">
+      <div class="screen-left">
+        <StatusPie :data="pieData" />
+        <div class="info-cards">
+          <div class="info-card"><span>联动</span><el-tag :type="latestLinkage ? 'success' : 'danger'" size="large">{{ latestLinkage ? 'ON' : 'OFF' }}</el-tag></div>
+          <div class="info-card"><span>信号</span><b>{{ latestRssi }} dBm</b></div>
+          <div class="info-card"><span>水位</span><b>{{ latestWater }}</b></div>
+        </div>
+      </div>
+      <!-- 趋势大图 -->
+      <div class="screen-chart">
+        <TempHumChart :timeLabels="timeLabels" :tempSeries="tempSeries" :humSeries="humSeries" height="400px" />
       </div>
     </div>
 
-    <div class="screen-body">
-      <div class="col col-side">
-        <div class="panel">
-          <div class="panel-title">设备总览</div>
-          <div class="stat-row">
-            <div class="stat-item">
-              <div class="stat-num" style="color: var(--color-blue)">{{ stats.deviceCount }}</div>
-              <div class="stat-label">设备总数</div>
-            </div>
-            <div class="stat-item">
-              <div class="stat-num" style="color: var(--color-green)">{{ stats.onlineCount }}</div>
-              <div class="stat-label">在线设备</div>
-            </div>
-          </div>
-        </div>
-        <div class="panel flex-1">
-          <div class="panel-title">设备状态分布</div>
-          <StatusPie :data="pieData" />
-        </div>
-        <div class="panel">
-          <div class="panel-title">设备状态</div>
-          <div class="info-row">
-            <span>联动状态</span>
-            <el-tag :type="latestLinkage ? 'success' : 'info'" size="small" effect="dark">
-              {{ latestLinkage === null ? '--' : latestLinkage ? '已联动' : '未联动' }}
-            </el-tag>
-          </div>
-          <div class="info-row">
-            <span>信号强度</span>
-            <strong>{{ latestRssi }} dBm</strong>
-          </div>
-        </div>
-      </div>
-
-      <div class="col col-main">
-        <div class="panel flex-1">
-          <div class="panel-title">实时传感器数据</div>
-          <TempHumChart :timeLabels="timeLabels" :tempSeries="tempSeries" :humSeries="humSeries" height="calc(100% - 40px)" />
-        </div>
-        <div class="gauge-row">
-          <div class="panel gauge-panel">
-            <div class="panel-title">实时温度</div>
-            <div class="big-num" style="color: var(--color-green)">
-              {{ formatDecimal(tempSeries.value.at(-1)) }}<small>°C</small>
-            </div>
-          </div>
-          <div class="panel gauge-panel">
-            <div class="panel-title">实时湿度</div>
-            <div class="big-num" style="color: var(--color-blue)">
-              {{ formatDecimal(humSeries.value.at(-1)) }}<small>%</small>
-            </div>
-          </div>
-          <div class="panel gauge-panel">
-            <div class="panel-title">水位</div>
-            <div class="big-num" style="color: var(--color-yellow)">
-              {{ formatDecimal(latestWater) }}<small>cm</small>
-            </div>
-          </div>
-          <div class="panel gauge-panel">
-            <div class="panel-title">信号</div>
-            <div class="big-num" style="color: var(--color-purple)">
-              {{ latestRssi }}<small>dBm</small>
-            </div>
-          </div>
-        </div>
-      </div>
+    <!-- 底部四个大号指标 -->
+    <div class="screen-footer">
+      <div class="big-card"><span>平均温度</span><b>{{ formatDecimal(stats.avgTemp) }}°C</b></div>
+      <div class="big-card"><span>平均湿度</span><b>{{ formatDecimal(stats.avgHum) }}%</b></div>
+      <div class="big-card"><span>在线设备</span><b>{{ stats.onlineCount }}</b></div>
+      <div class="big-card"><span>离线设备</span><b>{{ stats.deviceCount - stats.onlineCount }}</b></div>
     </div>
   </div>
 </template>
 
 <style scoped>
 .screen {
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
-  position: relative;
-  background: #0a0f1a;
-  display: flex;
-  flex-direction: column;
-}
-
-.screen-bg {
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(ellipse at 20% 30%, rgba(16, 185, 129, 0.06), transparent 50%),
-    radial-gradient(ellipse at 80% 60%, rgba(59, 130, 246, 0.06), transparent 50%);
-  pointer-events: none;
+  min-height: 100vh; background: #0b1120; color: #e2e8f0;
+  padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem;
 }
 
 .screen-header {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 2rem;
-  height: 70px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: space-between;
+  padding-bottom: 1rem; border-bottom: 1px solid rgba(255,255,255,0.06);
 }
-
-.screen-header h1 {
-  font-size: 1.6rem;
-  letter-spacing: 2px;
-  margin: 0;
-  background: linear-gradient(90deg, var(--color-green), var(--color-blue));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-lg);
-}
-
-.clock {
-  font-size: 1.1rem;
-  color: var(--text-secondary);
-  font-family: 'Courier New', monospace;
-}
+.screen-title { font-size: 1.8rem; margin: 0; font-weight: 700; letter-spacing: 2px; }
+.screen-stats { display: flex; gap: 2rem; font-size: 0.9rem; color: var(--text-secondary); }
 
 .screen-body {
-  flex: 1;
-  display: flex;
-  gap: var(--spacing-md);
-  padding: var(--spacing-md);
-  position: relative;
-  z-index: 1;
-  min-height: 0;
+  display: grid; grid-template-columns: 280px 1fr; gap: 1.5rem; flex: 1;
+}
+@media (max-width: 900px) { .screen-body { grid-template-columns: 1fr; } }
+
+.screen-left { display: flex; flex-direction: column; gap: 1rem; }
+.info-cards { display: flex; gap: 1rem; }
+.info-card {
+  flex: 1; background: rgba(30,41,59,0.6); border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; text-align: center;
+}
+.info-card span { font-size: 0.8rem; color: var(--text-muted); }
+.info-card b { font-size: 1.3rem; }
+
+.screen-chart {
+  background: rgba(30,41,59,0.35); border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 16px; padding: 1.5rem;
 }
 
-.col {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-md);
+.screen-footer { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+@media (max-width: 768px) { .screen-footer { grid-template-columns: repeat(2, 1fr); } }
+.big-card {
+  background: rgba(30,41,59,0.6); border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 16px; padding: 1.5rem; display: flex; flex-direction: column; gap: 0.5rem; text-align: center;
 }
-
-.col-side {
-  width: 300px;
-  flex-shrink: 0;
-}
-
-.col-main {
-  flex: 1;
-  min-width: 0;
-}
-
-.panel {
-  background: rgba(20, 30, 48, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 12px;
-  padding: var(--spacing-md);
-  backdrop-filter: blur(8px);
-}
-
-.panel.flex-1 {
-  flex: 1;
-}
-
-.panel-title {
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-  margin-bottom: var(--spacing-sm);
-  font-weight: 600;
-  letter-spacing: 0.5px;
-}
-
-.stat-row {
-  display: flex;
-  gap: var(--spacing-md);
-}
-
-.stat-item {
-  flex: 1;
-  text-align: center;
-}
-
-.stat-num {
-  font-size: 2rem;
-  font-weight: 700;
-}
-
-.stat-label {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  margin-top: 0.25rem;
-}
-
-.gauge-row {
-  display: flex;
-  gap: var(--spacing-md);
-}
-
-.gauge-panel {
-  flex: 1;
-  text-align: center;
-}
-
-.big-num {
-  font-size: 1.8rem;
-  font-weight: 700;
-  margin-top: 0.5rem;
-}
-
-.big-num small {
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-}
-
-.info-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.5rem 0;
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-}
-
-.info-row:not(:last-child) {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-}
-
-.info-row strong {
-  color: var(--text-primary);
-}
+.big-card span { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+.big-card b { font-size: 2.5rem; font-weight: 700; }
 </style>

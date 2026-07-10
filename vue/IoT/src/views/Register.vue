@@ -12,6 +12,7 @@ const form = reactive({ username: '', password: '', confirmPassword: '' })
 const loading = ref(false)
 const errorMsg = ref('')
 
+// 注册提交：校验 → 调用 API → 自动登录 → 跳转 Dashboard
 async function onSubmit() {
   if (!form.username || !form.password) {
     errorMsg.value = '请输入用户名和密码'
@@ -29,6 +30,7 @@ async function onSubmit() {
   errorMsg.value = ''
   try {
     const res = await registerApi({ username: form.username, password: form.password })
+    // 注册成功自动登录
     setToken(res.token)
     setUsername(res.username)
     ElMessage.success('注册成功')

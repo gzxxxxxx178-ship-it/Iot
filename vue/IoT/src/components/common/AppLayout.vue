@@ -3,6 +3,7 @@ import SideMenu from './SideMenu.vue'
 import TopBar from './TopBar.vue'
 </script>
 
+<!-- 主布局壳：左侧 SideMenu + 右侧 (TopBar + router-view 中间内容区) -->
 <template>
   <div class="app-layout">
     <aside class="layout-sidebar">
@@ -13,6 +14,7 @@ import TopBar from './TopBar.vue'
         <TopBar />
       </header>
       <main class="layout-main">
+        <!-- 路由视图，fade 过渡动画 -->
         <router-view v-slot="{ Component }">
           <transition name="fade" mode="out-in">
             <component :is="Component" />

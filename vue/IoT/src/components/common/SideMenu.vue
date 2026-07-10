@@ -6,6 +6,7 @@ import { Monitor, Odometer, Setting, Bell, Histogram, DataAnalysis, Aim, ChatDot
 const route = useRoute()
 const router = useRouter()
 
+// 菜单配置：路由路径、标签文字、对应图标
 const menuItems = [
   { path: '/dashboard', label: '仪表盘', icon: Odometer },
   { path: '/monitor', label: '实时监控', icon: Monitor },
@@ -18,8 +19,10 @@ const menuItems = [
   { path: '/screen', label: '数据大屏', icon: Aim },
 ]
 
+// 根据当前路由路径高亮对应菜单项
 const activePath = computed(() => route.path)
 
+// 点击菜单项跳转到对应路由
 function navigate(path) {
   router.push(path)
 }

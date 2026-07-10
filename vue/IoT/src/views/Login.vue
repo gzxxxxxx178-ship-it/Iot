@@ -15,17 +15,20 @@ const form = reactive({ username: '', password: '' })
 const loading = ref(false)
 const errorMsg = ref('')
 
+// 检测 URL 中是否有 OAuth 登录失败错误信息
 onMounted(() => {
   if (route.query.oauth_error) {
     errorMsg.value = 'Google 登录失败: ' + route.query.oauth_error
   }
 })
 
+// Google OAuth2 登录：跳转到后端 /oauth2/authorization/google 触发 Spring Security 授权流程
 function googleLogin() {
   const base = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:8080' : window.location.origin)
   window.location.href = base + '/oauth2/authorization/google'
 }
 
+// 表单提交：本地用户名密码登录 → 存储 JWT token → 跳转 Dashboard
 async function onSubmit() {
   if (!form.username || !form.password) {
     errorMsg.value = '请输入用户名和密码'
@@ -61,6 +64,7 @@ async function onSubmit() {
         <p>登录您的账号</p>
       </div>
 
+      <!-- 错误提示：表单验证错误或 OAuth 回调错误 -->
       <el-alert v-if="errorMsg" :title="errorMsg" type="error" show-icon :closable="false" class="auth-alert" />
 
       <el-form @submit.prevent="onSubmit" label-position="top">

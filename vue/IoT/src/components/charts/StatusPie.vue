@@ -2,6 +2,7 @@
 import { useChart } from '../../composables/useChart'
 import { onMounted, watch } from 'vue'
 
+// 设备状态环形饼图：内径 55%，外径 80%，无标签，hover 显示详情
 const props = defineProps({
   data: { type: Array, default: () => [] },
 })
@@ -28,10 +29,12 @@ const chartOption = {
   }],
 }
 
+// 挂载时初始化图表
 onMounted(() => {
   init(chartOption)
 })
 
+// 数据变化时仅更新 series 数据
 watch(() => props.data, (val) => {
   setOption({ series: [{ data: val }] })
 }, { deep: true })

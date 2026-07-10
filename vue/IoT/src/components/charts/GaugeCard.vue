@@ -1,4 +1,5 @@
 <script setup>
+// 指标卡片组件：显示标签 + 数值 + 单位，顶部色条由 color prop 控制
 defineProps({
   label: { type: String, required: true },
   value: { type: [String, Number], default: '--' },
@@ -29,6 +30,7 @@ defineProps({
   overflow: hidden;
 }
 
+/* 顶部色条，颜色由 --card-accent CSS 变量控制 */
 .gauge-card::before {
   content: '';
   position: absolute;

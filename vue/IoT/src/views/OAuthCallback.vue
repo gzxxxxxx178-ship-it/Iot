@@ -6,6 +6,7 @@ import { setToken, setUsername } from '../utils/auth'
 const router = useRouter()
 const route = useRoute()
 
+// Google OAuth2 回调处理：从 URL query 中提取 JWT token 和 username → 存储 → 跳转 Dashboard
 onMounted(() => {
   console.log('[OAuthCallback] route.query:', JSON.stringify(route.query))
   console.log('[OAuthCallback] location.href:', window.location.href)
@@ -16,6 +17,7 @@ onMounted(() => {
     setUsername(username || '')
     router.push('/dashboard')
   } else {
+    // 无 token 说明回调异常，跳回登录页
     console.warn('[OAuthCallback] no token in query, redirecting to /login')
     router.push('/login')
   }

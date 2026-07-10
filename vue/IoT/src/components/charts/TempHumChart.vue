@@ -2,6 +2,7 @@
 import { useChart } from '../../composables/useChart'
 import { watch, onMounted } from 'vue'
 
+// 温湿度趋势折线图：双 Y 轴，绿色温度线 + 蓝色湿度线，渐变填充 + 发光阴影
 const props = defineProps({
   timeLabels: { type: Array, default: () => [] },
   tempSeries: { type: Array, default: () => [] },
@@ -61,10 +62,12 @@ const chartOption = {
   ],
 }
 
+// 挂载时初始化图表
 onMounted(() => {
   init(chartOption)
 })
 
+// 监听 props 变化，仅更新数据部分（高性能更新）
 watch([() => props.timeLabels, () => props.tempSeries, () => props.humSeries], () => {
   setOption({
     xAxis: { data: props.timeLabels },

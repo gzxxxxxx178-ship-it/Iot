@@ -15,6 +15,7 @@ const paidAmount = ref('')
 const qrCanvas = ref(null)
 let pollTimer = null
 
+// 监听 qrCode 变化，渲染二维码到 canvas
 watch(qrCode, async (val) => {
   if (val) {
     await nextTick()
@@ -22,6 +23,7 @@ watch(qrCode, async (val) => {
   }
 })
 
+// 创建支付订单 → 获取二维码 → 启动轮询
 async function doCreateOrder() {
   loading.value = true
   payStatus.value = ''
@@ -39,6 +41,7 @@ async function doCreateOrder() {
   }
 }
 
+// 每 3 秒轮询订单状态，支付成功则停止
 function startPolling() {
   pollTimer = setInterval(async () => {
     try {
@@ -50,11 +53,12 @@ function startPolling() {
         stopPolling()
       }
     } catch (e) {
-      // 轮询静默处理
+      // 轮询静默处理错误
     }
   }, 3000)
 }
 
+// 停止轮询
 function stopPolling() {
   if (pollTimer) {
     clearInterval(pollTimer)
@@ -62,6 +66,7 @@ function stopPolling() {
   }
 }
 
+// 组件卸载时清理定时器
 onUnmounted(() => {
   stopPolling()
 })
@@ -72,110 +77,47 @@ onUnmounted(() => {
     <h2 class="page-title">支付测试</h2>
     <p class="page-desc">支付宝沙箱环境 — 扫码支付演示</p>
 
+    <!-- 下单表单 -->
     <el-card class="pay-card" v-if="payStatus !== 'SUCCESS'">
       <el-form label-width="80px">
         <el-form-item label="金额(元)">
           <el-input-number v-model="amount" :min="0.01" :step="0.01" :precision="2" controls-position="right" />
         </el-form-item>
         <el-form-item label="商品描述">
-          <el-input v-model="subject" placeholder="请输入描述" />
+          <el-input v-model="subject" />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" :loading="loading" @click="doCreateOrder">
-            生成支付二维码
-          </el-button>
+          <el-button type="primary" :loading="loading" @click="doCreateOrder">生成支付二维码</el-button>
         </el-form-item>
       </el-form>
 
-      <div v-if="qrCode" class="qrcode-section">
-        <el-divider />
-        <p class="qrcode-tip">请使用 <strong>支付宝沙箱版 App</strong> 扫描二维码</p>
-        <canvas ref="qrCanvas" class="qrcode-canvas"></canvas>
-        <div class="order-info">
-          <span>订单号: {{ outTradeNo }}</span>
-          <span class="order-status">等待支付中...</span>
-        </div>
+      <!-- 二维码展示区 -->
+      <div v-if="qrCode" class="qr-section">
+        <p class="qr-tip">请使用支付宝沙箱版 App 扫码支付</p>
+        <canvas ref="qrCanvas" class="qr-canvas" />
+        <p class="order-no">订单号: {{ outTradeNo }}</p>
+        <p class="polling-tip">等待支付中...</p>
       </div>
     </el-card>
 
-    <el-card class="pay-card success-card" v-else>
-      <el-result icon="success" title="支付成功" sub-title="感谢您的支付">
-        <template #extra>
-          <el-descriptions :column="2" border>
-            <el-descriptions-item label="订单号">{{ outTradeNo }}</el-descriptions-item>
-            <el-descriptions-item label="支付金额">{{ paidAmount }} 元</el-descriptions-item>
-            <el-descriptions-item label="交易流水号">{{ tradeNo }}</el-descriptions-item>
-            <el-descriptions-item label="支付状态">
-              <el-tag type="success">已支付</el-tag>
-            </el-descriptions-item>
-          </el-descriptions>
-        </template>
-      </el-result>
-      <div style="text-align: center; margin-top: 1rem;">
-        <el-button type="primary" @click="payStatus = ''; qrCode = ''; outTradeNo = ''; tradeNo = ''">
-          继续支付
-        </el-button>
-      </div>
-    </el-card>
+    <!-- 支付成功 -->
+    <el-result v-else icon="success" title="支付成功" :sub-title="`金额: ¥${paidAmount} | 流水号: ${tradeNo}`">
+      <template #extra>
+        <el-button type="primary" @click="payStatus = ''; qrCode = ''; tradeNo = ''; paidAmount = ''">再次支付</el-button>
+      </template>
+    </el-result>
   </div>
 </template>
 
 <style scoped>
-.pay-page {
-  max-width: 520px;
-  margin: 0 auto;
-}
+.pay-page { max-width: 500px; margin: 0 auto; }
+.page-title { font-size: 1.5rem; margin: 0 0 0.25rem; }
+.page-desc { color: var(--text-secondary); margin: 0 0 1.5rem; font-size: 0.85rem; }
+.pay-card { background: rgba(30, 41, 59, 0.5) !important; border-color: rgba(255, 255, 255, 0.06) !important; }
 
-.page-title {
-  margin-bottom: 0.25rem;
-}
-
-.page-desc {
-  color: var(--text-secondary);
-  font-size: 0.85rem;
-  margin-bottom: 1.5rem;
-}
-
-.pay-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-}
-
-.qrcode-section {
-  text-align: center;
-}
-
-.qrcode-tip {
-  margin-bottom: 1rem;
-  color: var(--text-secondary);
-  font-size: 0.85rem;
-}
-
-.qrcode-canvas {
-  display: block;
-  margin: 0 auto;
-  background: #fff;
-  padding: 12px;
-  border-radius: 8px;
-}
-
-.order-info {
-  margin-top: 1rem;
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.8rem;
-  color: var(--text-muted);
-}
-
-.order-status {
-  color: var(--color-yellow);
-}
-
-.success-card :deep(.el-result__title) {
-  color: var(--text-primary);
-}
-
-.success-card :deep(.el-result__subtitle) {
-  color: var(--text-secondary);
-}
+.qr-section { text-align: center; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color); }
+.qr-tip { color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.5rem; }
+.qr-canvas { background: white; border-radius: 8px; padding: 8px; }
+.order-no { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem; word-break: break-all; }
+.polling-tip { font-size: 0.8rem; color: var(--color-yellow); }
 </style>
