@@ -19,3 +19,8 @@ export function getDeviceList() {
 export function getSensorHistory(params) {
   return request.get('/esp/history/range', { params }).then((res) => res.data)
 }
+
+// 分页查询传感器历史：GET /esp/history/page?start=xxx&end=xxx&page=0&size=20
+export function getSensorHistoryPage(params) {
+  return request.get('/esp/history/page', { params }).then((res) => res.data)
+}

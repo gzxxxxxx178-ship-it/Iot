@@ -58,6 +58,8 @@ public class SecurityConfig {
                 .authorizeRequests()
                 .antMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .antMatchers("/api/auth/**", "/login/oauth2/**", "/oauth2/**", "/api/alipay/notify").permitAll()
+                // Swagger UI & API docs (开发/测试用)
+                .antMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-resources/**", "/webjars/**").permitAll()
                 .anyRequest().authenticated()
                 .and()
                 .oauth2Login()

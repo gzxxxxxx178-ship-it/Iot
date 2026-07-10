@@ -7,6 +7,8 @@ import com.ruoyi.iotsystem.dto.LoginRequest;
 import com.ruoyi.iotsystem.dto.RegisterRequest;
 import com.ruoyi.iotsystem.entity.UserEntity;
 import com.ruoyi.iotsystem.service.UserService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,6 +20,7 @@ import javax.validation.Valid;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+@Tag(name = "认证管理", description = "用户登录、注册、个人信息的 REST API")
 @RestController
 @RequestMapping("/api/auth")
 @CrossOrigin(origins = "*")
@@ -31,7 +34,7 @@ public class AuthController {
     @Autowired
     private JwtUtil jwtUtil;
 
-    // 用户名密码登录：认证成功返回 JWT 令牌，失败由全局异常处理器统一处理
+    @Operation(summary = "用户登录", description = "用户名密码登录，成功返回 JWT token")
     @PostMapping("/login")
     public ApiResponse<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         AuthResponse resp = userService.login(request);
@@ -39,7 +42,7 @@ public class AuthController {
         return ApiResponse.success(resp);
     }
 
-    // 用户注册：校验唯一性、加密密码、返回 JWT。用户名已存在时抛 RuntimeException，由全局异常处理器统一返回错误信息
+    @Operation(summary = "用户注册", description = "注册新用户，用户名不能重复，密码至少6位。成功自动返回 JWT token")
     @PostMapping("/register")
     public ApiResponse<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
         AuthResponse resp = userService.register(request);
@@ -47,7 +50,7 @@ public class AuthController {
         return ApiResponse.success(resp);
     }
 
-    // 获取当前登录用户信息：从 SecurityContext 读取认证用户，查询数据库返回用户名和创建时间
+    @Operation(summary = "获取当前用户信息", description = "从 SecurityContext 读取已登录用户，返回用户名和创建时间")
     @GetMapping("/me")
     public ApiResponse<Map<String, Object>> me() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();

@@ -3,6 +3,9 @@ package com.ruoyi.iotsystem.controller;
 import com.alipay.api.AlipayApiException;
 import com.ruoyi.iotsystem.dto.ApiResponse;
 import com.ruoyi.iotsystem.service.AlipayService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,10 +14,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
-import javax.validation.Valid;
 import java.util.HashMap;
 import java.util.Map;
 
+@Tag(name = "支付宝支付", description = "支付宝沙箱支付：下单、查询、异步通知")
 @RestController
 @RequestMapping("/api/alipay")
 public class AlipayController {
@@ -24,9 +27,9 @@ public class AlipayController {
     @Autowired
     private AlipayService alipayService;
 
-    // 创建支付订单：从 SecurityContext 获取当前用户名，调用支付宝预下单，返回二维码和订单号
+    @Operation(summary = "创建支付订单", description = "生成预支付订单，返回支付宝扫码二维码")
     @PostMapping("/create")
-    public ApiResponse<Map<String, String>> create(@Valid @RequestBody Map<String, String> body) throws AlipayApiException {
+    public ApiResponse<Map<String, String>> create(@RequestBody Map<String, String> body) throws AlipayApiException {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String username = auth.getName();
 
@@ -41,14 +44,15 @@ public class AlipayController {
         return ApiResponse.success(result);
     }
 
-    // 查询订单支付状态：调用支付宝查询接口，已支付则更新数据库，返回订单状态
+    @Operation(summary = "查询支付状态", description = "根据商户订单号查询支付宝支付结果")
     @GetMapping("/query")
-    public ApiResponse<Map<String, Object>> query(@RequestParam String outTradeNo) throws AlipayApiException {
+    public ApiResponse<Map<String, Object>> query(
+            @Parameter(description = "商户订单号") @RequestParam String outTradeNo) throws AlipayApiException {
         Map<String, Object> result = alipayService.queryOrder(outTradeNo);
         return ApiResponse.success(result);
     }
 
-    // 接收支付宝异步支付通知：验签、更新订单。此端点不需要认证，直接返回 "success"/"fail" 给支付宝
+    @Operation(summary = "支付宝异步通知", description = "接收支付宝支付结果异步回调，无需认证")
     @PostMapping("/notify")
     public String notify(HttpServletRequest request) {
         Map<String, String> params = new HashMap<>();

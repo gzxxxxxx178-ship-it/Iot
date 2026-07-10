@@ -137,7 +137,8 @@ VITE_WS_BASE_URL=ws://localhost:8080
 | | register(data) | POST `/api/auth/register` | 用户注册 |
 | | getMe() | GET `/api/auth/me` | 获取当前用户 |
 | `device.js` | getHistoryData() | GET `/esp/history` | 最近 20 条数据 |
-| | getSensorHistory(params) | GET `/esp/history/range` | 时间范围查询 |
+| | getSensorHistory(params) | GET `/esp/history/range` | 时间范围查询（不分页） |
+| | getSensorHistoryPage(params) | GET `/esp/history/page` | 分页查询，返回 `{content, totalElements, ...}` |
 | | getDeviceList() | GET `/esp/devices` | 设备列表 |
 | | controlDevice(command) | POST `/api/device/control` | 发送控制命令 |
 | `dashboard.js` | getDashboardStats() | GET `/api/dashboard/stats` | 仪表盘统计 |

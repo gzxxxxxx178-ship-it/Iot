@@ -20,6 +20,7 @@ Spring Boot 2.7.18 后端服务，负责 MQTT 消息处理、数据持久化、W
 | 安全 | Spring Security 5.7 + JWT (jjwt 0.9.1) + OAuth2 Client |
 | 密码加密 | BCryptPasswordEncoder |
 | 支付 | 支付宝沙箱 (alipay-sdk-java) |
+| API 文档 | SpringDoc OpenAPI (Swagger UI: /swagger-ui/index.html) |
 | AI API | DeepSeek API (OpenAI 兼容格式) |
 
 ## 启动
@@ -71,6 +72,7 @@ IoTSystemApplication.java         # Spring Boot 入口，main()
 | 文件 | 说明 |
 |------|------|
 | `GlobalExceptionHandler.java` | @RestControllerAdvice 全局异常处理器。统一捕获 BadCredentialsException → 401、RuntimeException → 400、AlipayApiException → 500、Exception → 500，全部包装为 ApiResponse 格式返回。Controller 层不再需要手动 try-catch |
+| `OpenApiConfig.java` | SpringDoc OpenAPI 配置。Swagger UI 路径: `/swagger-ui/index.html`，API 文档 JSON: `/v3/api-docs` |
 
 ---
 
@@ -306,6 +308,8 @@ Pay.vue → POST /api/alipay/create {amount, subject}
 - **MQTT 数据接收**: 后端订阅 `agri/device001/data`，支持 `device` 和 `deviceId` 两种 JSON 字段名
 - **统一异常处理**: Controller 层不再需要 try-catch。业务异常抛 RuntimeException (自动返回 400)，认证异常抛 BadCredentialsException (自动返回 401)，`@Valid` 校验失败抛 MethodArgumentNotValidException (自动返回 400+具体字段错误)。所有异常由 GlobalExceptionHandler 统一转换为 ApiResponse 格式
 - **ApiResponse 格式**: 所有接口统一返回 `{code, message, data}`。前端 axios 拦截器自动解包 data 字段，401 时清除登录态并跳转登录页
+- **分页 (Pageable)**: 大数据量端点使用 Spring Data Pageable 分页，返回 `PagedResponse<T>` 格式 `{content, page, size, totalElements, totalPages}`。前端 el-pagination 对应展示
+- **Swagger 文档**: 启动后访问 `http://localhost:8080/swagger-ui/index.html` 查看交互式 API 文档。SecurityConfig 已放行 `/swagger-ui/**` 和 `/v3/api-docs/**`
 - **参数校验 (@Valid)**: 后端 DTO + Entity 使用 Bean Validation 注解（`@NotBlank`/`@NotNull`/`@Size`），Controller 用 `@Valid` 触发。前端 Element Plus el-form 配合 `rules` 做客户端校验。校验失败后端返回具体字段错误信息，前端在对应字段下方显示红色提示
 
 ## 十、测试

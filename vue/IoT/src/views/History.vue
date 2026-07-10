@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { Download } from '@element-plus/icons-vue'
-import { getSensorHistory } from '../api/device'
+import { getSensorHistoryPage } from '../api/device'
 import { formatTime, formatDateTime } from '../utils/format'
 import TempHumChart from '../components/charts/TempHumChart.vue'
 
@@ -11,6 +11,11 @@ const timeLabels = ref([])
 const tempSeries = ref([])
 const humSeries = ref([])
 const loading = ref(false)
+
+// 分页状态
+const currentPage = ref(1)
+const pageSize = ref(20)
+const totalElements = ref(0)
 
 // 将查询结果构建为图表数据序列
 function buildChartData(data) {
@@ -24,7 +29,7 @@ function buildChartData(data) {
   })
 }
 
-// 按时间范围查询传感器历史
+// 按时间范围分页查询传感器历史
 async function query() {
   if (!dateRange.value?.length) return
   loading.value = true
@@ -32,13 +37,29 @@ async function query() {
     const params = {
       start: dateRange.value[0].toISOString(),
       end: dateRange.value[1].toISOString(),
+      page: currentPage.value - 1, // Element Plus 页码从1开始，后端从0开始
+      size: pageSize.value,
     }
-    const data = await getSensorHistory(params)
-    tableData.value = data
-    buildChartData(data)
+    const result = await getSensorHistoryPage(params)
+    // ApiResponse 拦截器已解包 → result = {content, page, size, totalElements, totalPages}
+    tableData.value = result.content || []
+    totalElements.value = result.totalElements || 0
+    buildChartData(result.content || [])
   } catch {} finally {
     loading.value = false
   }
+}
+
+// 翻页/切换每页条数
+function onPageChange(page) {
+  currentPage.value = page
+  query()
+}
+
+function onSizeChange(size) {
+  pageSize.value = size
+  currentPage.value = 1
+  query()
 }
 
 // 导出 CSV 文件：包含设备ID、温度、湿度、时间
@@ -95,7 +116,7 @@ onMounted(() => {
     </div>
     <el-empty v-else description="暂无数据，请调整时间范围" />
 
-    <!-- 数据表格 -->
+    <!-- 数据表格 + 分页 -->
     <el-card v-if="tableData.length" style="margin-top: 1.5rem;">
       <el-table :data="tableData" max-height="450" stripe size="small">
         <el-table-column prop="deviceId" label="设备 ID" width="140" />
@@ -115,6 +136,20 @@ onMounted(() => {
           </template>
         </el-table-column>
       </el-table>
+      <!-- 分页组件 -->
+      <div class="pagination-wrap">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :total="totalElements"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          background
+          small
+          @current-change="onPageChange"
+          @size-change="onSizeChange"
+        />
+      </div>
     </el-card>
   </div>
 </template>
@@ -137,5 +172,12 @@ onMounted(() => {
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 16px;
   padding: 1rem;
+}
+
+.pagination-wrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+  padding-top: 0.5rem;
 }
 </style>
