@@ -308,7 +308,39 @@ Pay.vue → POST /api/alipay/create {amount, subject}
 - **ApiResponse 格式**: 所有接口统一返回 `{code, message, data}`。前端 axios 拦截器自动解包 data 字段，401 时清除登录态并跳转登录页
 - **参数校验 (@Valid)**: 后端 DTO + Entity 使用 Bean Validation 注解（`@NotBlank`/`@NotNull`/`@Size`），Controller 用 `@Valid` 触发。前端 Element Plus el-form 配合 `rules` 做客户端校验。校验失败后端返回具体字段错误信息，前端在对应字段下方显示红色提示
 
-## 十、生产部署
+## 十、测试
+
+### 测试策略
+
+| 层级 | 框架 | 覆盖范围 |
+|------|------|----------|
+| Service 单元测试 | JUnit 5 + Mockito (`@ExtendWith(MockitoExtension.class)`) | UserService, EspService |
+| Controller 接口测试 | JUnit 5 + MockMvc (`@WebMvcTest` + `@AutoConfigureMockMvc`) | AuthController REST 端点 |
+
+### 现有测试文件
+
+| 文件 | 测试数 | 说明 |
+|------|--------|------|
+| `UserServiceTest.java` | 7 | 注册成功/重复、登录成功/失败、用户查询/不存在 |
+| `EspServiceTest.java` | 4 | 传感器保存、JSON响应生成成功/失败、历史查询 |
+| `AuthControllerTest.java` | 8 | 登录 200/401/校验失败、注册 200/400/校验失败、/me 认证/未认证 |
+| `IoTSystemApplicationTests.java` | 1 | Spring 上下文加载 |
+
+### 运行
+
+```bash
+cd java && ./mvnw test    # 运行全部测试
+```
+
+### MockMvc 注意事项
+
+- Controller 测试使用 `@AutoConfigureMockMvc(addFilters = false)` 绕过 Spring Security 过滤器链
+- 这样可以直接测试 Controller 层的业务逻辑（参数校验、异常处理、响应格式），而不依赖完整的 JWT/OAuth 认证流程
+- `/api/auth/me` 端点在无认证时，`SecurityContextHolder` 返回 null，Controller 自身返回 401
+
+---
+
+## 十一、生产部署
 
 后端部署在 VPS，前端部署在 Cloudflare Pages。
 
