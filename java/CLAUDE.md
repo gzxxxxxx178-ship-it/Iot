@@ -203,25 +203,45 @@ IoTSystemApplication.java         # Spring Boot 入口，main()
 
 ---
 
-## 七、application.properties 关键配置
+## 七、配置管理 — 多环境 Profile
+
+本项目使用 Spring Boot Profile 隔离敏感信息，解决「本地能调试 + git 不泄露密钥」的矛盾。
+
+### 配置文件分层
+
+| 文件 | 提交 git? | 内容 |
+|------|-----------|------|
+| `application.properties` | ✅ 提交 | 公开配置 + 占位符。`spring.profiles.active=dev` |
+| `application-dev.properties` | ❌ gitignore | 本地开发真实密钥（数据库密码、JWT、API Key 等） |
+| `application-prod.properties` | ❌ gitignore | VPS 生产环境真实密钥（在 VPS `/opt/iot/` 目录） |
+
+### 工作原理
+
+```
+本地启动: mvn spring-boot:run
+  → spring.profiles.active=dev
+  → 加载 application.properties + application-dev.properties
+  → 占位符被 application-dev.properties 覆盖
+
+VPS 启动: java -jar app.jar --spring.profiles.active=prod
+  → 加载 application.properties + application-prod.properties
+  → 占位符被 application-prod.properties 覆盖
+```
+
+### 添加新密钥的步骤
+
+1. `application.properties` → 写占位符：`my.secret=占位符-由profile覆盖`
+2. `application-dev.properties` → 写本地真实值
+3. VPS `/opt/iot/application-prod.properties` → 写生产真实值
+
+### application.properties 参考
 
 ```properties
-spring.datasource.url=jdbc:mysql://localhost:3306/iot  # 数据库连接
-spring.jpa.hibernate.ddl-auto=update                     # 自动建表/更新
-deepseek.api.key=sk-xxx                                  # DeepSeek API Key (不要提交到公开仓库!)
-deepseek.api.url=https://api.deepseek.com/v1/chat/completions
-jwt.secret=<Base64编码的密钥>
-jwt.expiration=86400000                                  # 24小时
-# Google OAuth2 (需在 Google Cloud Console 申请)
-spring.security.oauth2.client.registration.google.client-id=xxx
-spring.security.oauth2.client.registration.google.client-secret=xxx
-app.oauth2.redirect-uri=http://localhost:5173             # OAuth 成功后前端回调地址
-# 支付宝沙箱 (需在 openhome.alipay.com 沙箱应用获取)
-alipay.app-id=沙箱APPID
-alipay.private-key=应用私钥
-alipay.alipay-public-key=支付宝公钥
-alipay.gateway=https://openapi-sandbox.dl.alipaydev.com/gateway.do
-alipay.notify-url=http://外网地址/api/alipay/notify
+spring.profiles.active=dev               # 默认激活开发环境
+spring.datasource.password=占位符-由profile覆盖
+jwt.secret=占位符-由profile覆盖
+deepseek.api.key=占位符-由profile覆盖
+# ... 其他敏感值同理
 ```
 
 ## 八、数据流
