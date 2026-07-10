@@ -2,7 +2,7 @@ import request from './request'
 
 // 设备控制：POST /api/device/control，发送 start/stop 命令
 export function controlDevice(command) {
-  return request.post('/api/device/control', { command })
+  return request.post('/api/device/control', { command }).then((res) => res.data)
 }
 
 // 获取最近传感器数据：GET /esp/history，返回最近 20 条记录

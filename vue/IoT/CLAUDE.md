@@ -154,8 +154,10 @@ VITE_WS_BASE_URL=ws://localhost:8080
 
 ### axios 拦截器 (`request.js`)
 
-- **请求拦截**: 读取 localStorage token → 注入 `Authorization: Bearer <token>` 头。console.log 调试日志
-- **响应拦截**: 401 → 清除 token/username → 跳转 `/#/login`。其他错误 → ElMessage.error 提示
+- **请求拦截**: 读取 localStorage token → 注入 `Authorization: Bearer <token>` 头
+- **响应拦截 (成功)**: 自动识别后端统一响应格式 `{code, message, data}`。code=200 → 自动解包返回 `data` 字段；code≠200 → ElMessage.error 弹窗提示。非统一格式（如纯文本）原样返回
+- **响应拦截 (错误)**: HTTP 401 → 清除 token/username → 跳转 `/#/login`。其他 HTTP 错误 → 优先使用响应体 `message` 字段，兜底 `error.message`
+- **调用方影响**: API 函数中的 `.then(r => r.data)` 获取的是解包后的业务数据，无需手动处理 `code`/`message` 包装
 
 ---
 

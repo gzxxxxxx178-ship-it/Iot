@@ -20,17 +20,36 @@ request.interceptors.request.use(
   (error) => Promise.reject(error),
 )
 
-// 响应拦截器：401 时清除登录态并跳转登录页，其他错误弹出提示
+// 响应拦截器：自动解包后端统一响应格式 {code, message, data}，401 时清除登录态
 request.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const body = response.data
+    // 识别统一响应格式 {code, message, data} 并自动解包
+    if (body && typeof body === 'object' && 'code' in body) {
+      if (body.code === 200) {
+        // 成功 → 只返回 data 字段，调用方无需再 .data
+        return body.data
+      }
+      // 业务错误 (code != 200) → 弹出错误提示
+      ElMessage.error(body.message || '请求失败')
+      return Promise.reject(new Error(body.message || '请求失败'))
+    }
+    // 非统一格式（如纯文本响应），原样返回
+    return body
+  },
   (error) => {
+    // HTTP 级别错误（网络异常、Spring Security 401 等）
     if (error.response && error.response.status === 401) {
       removeToken()
       removeUsername()
       window.location.hash = '#/login'
       return Promise.reject(error)
     }
-    const msg = error.response?.data?.message || error.message || '请求失败'
+    // 如果响应体是 ApiResponse 格式，优先使用其 message
+    const body = error.response?.data
+    const msg = (body && typeof body === 'object' && body.message)
+      ? body.message
+      : error.message || '请求失败'
     ElMessage.error(msg)
     return Promise.reject(error)
   },

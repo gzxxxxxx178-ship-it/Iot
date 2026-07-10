@@ -1,8 +1,8 @@
 package com.ruoyi.iotsystem.controller;
 
+import com.ruoyi.iotsystem.dto.ApiResponse;
 import com.ruoyi.iotsystem.service.MqttMessageService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -15,18 +15,18 @@ public class DeviceControlController {
     @Autowired
     private MqttMessageService mqttMessageService;
 
-    // 发送设备控制指令(start/stop)到MQTT
+    // 发送设备控制指令 (start/stop) 到 MQTT，ESP32 订阅后执行
     @PostMapping("/control")
-    public ResponseEntity<String> controlDevice(@RequestBody Map<String, String> payload) {
+    public ApiResponse<String> controlDevice(@RequestBody Map<String, String> payload) {
         String command = payload.get("command");
         if (command == null || (!command.equalsIgnoreCase("start") && !command.equalsIgnoreCase("stop"))) {
-            return ResponseEntity.badRequest().body("Invalid command. Use 'start' or 'stop'.");
+            return ApiResponse.fail("无效指令，请使用 'start' 或 'stop'");
         }
 
-        // Send command to MQTT topic
+        // 发布控制指令到 MQTT 主题
         String topic = "agri/device001/control";
         mqttMessageService.publish(topic, command);
 
-        return ResponseEntity.ok("Command '" + command + "' sent successfully to " + topic);
+        return ApiResponse.success("指令 '" + command + "' 已成功发送到 " + topic);
     }
 }

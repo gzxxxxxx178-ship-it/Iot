@@ -33,12 +33,12 @@ cd java && ./mvnw spring-boot:run
 
 ```
 IoTSystemApplication.java         # Spring Boot 入口，main()
-├── config/                       # 配置 & 基础设施 (11 文件)
+├── config/                       # 配置 & 基础设施 (12 文件)
 ├── controller/                   # REST 控制器 (6 文件)
 ├── service/                      # 业务逻辑 (5 文件)
 ├── entity/                       # JPA 实体 (4 文件)
 ├── repository/                   # 数据访问 (4 文件)
-└── dto/                          # 数据传输对象 (4 文件)
+└── dto/                          # 数据传输对象 (5 文件)
 ```
 
 ---
@@ -66,6 +66,12 @@ IoTSystemApplication.java         # Spring Boot 入口，main()
 | `SensorWebSocketHandler.java` | TextWebSocketHandler，CopyOnWriteArrayList 维护连接池。broadcast(String) 向所有客户端推送 |
 | `RedisConfig.java` | RedisTemplate<String, String> Bean，StringRedisSerializer 序列化 |
 
+### 全局基础设施
+
+| 文件 | 说明 |
+|------|------|
+| `GlobalExceptionHandler.java` | @RestControllerAdvice 全局异常处理器。统一捕获 BadCredentialsException → 401、RuntimeException → 400、AlipayApiException → 500、Exception → 500，全部包装为 ApiResponse 格式返回。Controller 层不再需要手动 try-catch |
+
 ---
 
 ## 二、controller/ — REST API
@@ -76,9 +82,9 @@ IoTSystemApplication.java         # Spring Boot 入口，main()
 
 | 端点 | 方法 | 说明 |
 |------|------|------|
-| `/api/auth/login` | POST | 用户名密码登录。Body: `{username, password}` → 返回 `{token, username}`。密码错误返回 401 |
-| `/api/auth/register` | POST | 用户注册。Body: `{username, password}` → 返回 `{token, username}`。用户名重复返回 400 |
-| `/api/auth/me` | GET | 获取当前用户信息。返回 `{username, createdAt}`。从 SecurityContext 读取 |
+| `/api/auth/login` | POST | 用户名密码登录。Body: `{username, password}` → 返回 `ApiResponse<{token, username}>`。密码错误由全局异常处理器返回 401 |
+| `/api/auth/register` | POST | 用户注册。Body: `{username, password}` → 返回 `ApiResponse<{token, username}>`。用户名重复抛 RuntimeException → 全局异常处理器返回 400 |
+| `/api/auth/me` | GET | 获取当前用户信息。返回 `ApiResponse<{username, createdAt}>`。未登录返回 401 |
 
 ### 传感器数据
 
@@ -176,10 +182,24 @@ IoTSystemApplication.java         # Spring Boot 入口，main()
 
 | 文件 | 字段 |
 |------|------|
+| `ApiResponse.java` | 统一响应体。`{code, message, data}` 泛型包装。静态工厂: success(data) / fail(code, msg) / error(msg)。所有 Controller 统一返回此格式 |
 | `AuthResponse.java` | token, username |
 | `LoginRequest.java` | username, password |
 | `RegisterRequest.java` | username, password |
 | `ChatRequest.java` | sessionId, messages (List<Map<String,String>>) |
+
+### 统一响应格式
+
+所有 API 返回 `ApiResponse<T>` 结构，HTTP 状态码统一为 200，通过 `code` 字段区分业务状态：
+
+| code | 含义 |
+|------|------|
+| 200 | 成功，data 含业务数据 |
+| 400 | 业务错误（参数校验失败、用户名重复等） |
+| 401 | 认证失败（用户名密码错误、Token 过期） |
+| 500 | 服务器内部错误 |
+
+前端 axios 响应拦截器自动解包 `data` 字段，因此 API 函数中的 `.then(r => r.data)` 得到的是解包后的业务数据，无需关心 `code`/`message` 包装。
 
 ---
 
@@ -264,6 +284,8 @@ Pay.vue → POST /api/alipay/create {amount, subject}
 - **data-dir**: JPA ddl-auto=update，首次启动会自动创建 users / chat_messages / payment_orders 表，esp_data 表需已存在
 - **支付宝沙箱**: 开发用沙箱环境，需在 openhome.alipay.com 获取 APPID/私钥/公钥。本地无法接收异步回调时，前端轮询替代
 - **MQTT 数据接收**: 后端订阅 `agri/device001/data`，支持 `device` 和 `deviceId` 两种 JSON 字段名
+- **统一异常处理**: Controller 层不再需要 try-catch。业务异常抛 RuntimeException (自动返回 400)，认证异常抛 BadCredentialsException (自动返回 401)。所有异常由 GlobalExceptionHandler 统一转换为 ApiResponse 格式
+- **ApiResponse 格式**: 所有接口统一返回 `{code, message, data}`。前端 axios 拦截器自动解包 data 字段，401 时清除登录态并跳转登录页
 
 ## 十、生产部署
 

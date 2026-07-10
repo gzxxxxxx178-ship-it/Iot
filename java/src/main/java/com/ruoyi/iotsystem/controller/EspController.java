@@ -1,5 +1,6 @@
 package com.ruoyi.iotsystem.controller;
 
+import com.ruoyi.iotsystem.dto.ApiResponse;
 import com.ruoyi.iotsystem.entity.EspEntity;
 import com.ruoyi.iotsystem.repository.EspRepository;
 import com.ruoyi.iotsystem.service.EspService;
@@ -7,7 +8,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -26,15 +26,15 @@ public class EspController {
     @Autowired
     private EspRepository espRepository;
 
-    // 健康检查端点
+    // 健康检查端点，返回服务器当前时间
     @GetMapping("/test")
-    public String test() {
-        return "ESP8266 Controller is working! Current time: " + LocalDateTime.now();
+    public ApiResponse<String> test() {
+        return ApiResponse.success("ESP8266 Controller is working! Current time: " + LocalDateTime.now());
     }
 
-    // 接收ESP8266传感器数据
+    // 接收 ESP8266 传感器数据：记录日志 → 持久化 → WebSocket 广播
     @PostMapping("/sensor/data")
-    public ResponseEntity<String> receiveSensorData(@RequestBody EspEntity sensorData) {
+    public ApiResponse<String> receiveSensorData(@RequestBody EspEntity sensorData) {
         logger.info("Received data from device: {}", sensorData.getDeviceId());
         logger.info("Temperature: {}°C", sensorData.getTemperature());
         logger.info("Humidity: {}%", sensorData.getHumidity());
@@ -42,26 +42,28 @@ public class EspController {
         logger.info("Server received time: {}", LocalDateTime.now());
 
         String response = espService.processDataAndGenerateResponse(sensorData);
-        return ResponseEntity.ok(response);
+        return ApiResponse.success(response);
     }
 
-    // 获取最近20条传感器历史数据
+    // 获取最近 20 条传感器历史数据
     @GetMapping("/history")
-    public List<EspEntity> getRecentData() {
-        return espService.getRecentData();
+    public ApiResponse<List<EspEntity>> getRecentData() {
+        List<EspEntity> data = espService.getRecentData();
+        return ApiResponse.success(data);
     }
 
     // 按时间范围查询传感器历史数据
     @GetMapping("/history/range")
-    public List<EspEntity> getHistoryByRange(
+    public ApiResponse<List<EspEntity>> getHistoryByRange(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end) {
-        return espRepository.findByServerReceivedTimeBetweenOrderByServerReceivedTimeDesc(start, end);
+        List<EspEntity> data = espRepository.findByServerReceivedTimeBetweenOrderByServerReceivedTimeDesc(start, end);
+        return ApiResponse.success(data);
     }
 
-    // 获取所有设备及其最新读数
+    // 获取所有设备及其最新读数，汇总为设备列表
     @GetMapping("/devices")
-    public List<Map<String, Object>> getDevices() {
+    public ApiResponse<List<Map<String, Object>>> getDevices() {
         List<String> deviceIds = espRepository.findDistinctDeviceIds();
         List<Map<String, Object>> devices = new ArrayList<>();
         for (String id : deviceIds) {
@@ -80,6 +82,6 @@ public class EspController {
                 devices.add(map);
             }
         }
-        return devices;
+        return ApiResponse.success(devices);
     }
 }
