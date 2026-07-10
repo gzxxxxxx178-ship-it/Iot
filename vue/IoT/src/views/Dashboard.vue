@@ -58,6 +58,9 @@ onMounted(async () => {
 
     <!-- 状态卡片 + 趋势图 -->
     <div class="dashboard-grid">
+		<div class="chart-col">
+		  <TempHumChart :timeLabels="deviceStore.timeLabels" :tempSeries="deviceStore.tempSeries" :humSeries="deviceStore.humSeries" height="300px" />
+		</div>
       <div class="stats-col">
         <el-card class="stat-card">
           <span class="stat-label">设备数量</span>
@@ -72,9 +75,7 @@ onMounted(async () => {
           <span class="stat-value">{{ recentMessages }}</span>
         </el-card>
       </div>
-      <div class="chart-col">
-        <TempHumChart :timeLabels="deviceStore.timeLabels" :tempSeries="deviceStore.tempSeries" :humSeries="deviceStore.humSeries" height="300px" />
-      </div>
+
     </div>
 
     <!-- 饼图 -->
@@ -99,7 +100,7 @@ onMounted(async () => {
 
 .dashboard-grid {
   display: grid;
-  grid-template-columns: 240px 1fr;
+  grid-template-columns: 1050px 1fr;
   gap: var(--spacing-md);
 }
 @media (max-width: 768px) { .dashboard-grid { grid-template-columns: 1fr; } }
