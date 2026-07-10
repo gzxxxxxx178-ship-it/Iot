@@ -1,11 +1,12 @@
 <script setup>
-import { computed, ref, onMounted } from 'vue'
+import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { ArrowRight, User, SwitchButton } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { getUsername, removeToken, removeUsername } from '../../utils/auth'
+import { useAuthStore } from '../../stores/auth'
 
 const route = useRoute()
+const authStore = useAuthStore()
 
 // 从 route.matched 链中提取有 title 的层生成面包屑
 const breadcrumbs = computed(() => {
@@ -13,18 +14,10 @@ const breadcrumbs = computed(() => {
   return matched.map((r) => r.meta.title)
 })
 
-const displayName = ref('')
-
-// 从 localStorage 读取当前登录用户名
-onMounted(() => {
-  displayName.value = getUsername() || ''
-})
-
-// 退出登录：清除 token 和用户名，跳转登录页
+// 退出登录：调用 Pinia authStore.logout() 清除状态 → 跳转登录页
 function logout() {
   ElMessage.success('已退出登录')
-  removeToken()
-  removeUsername()
+  authStore.logout()
   window.location.hash = '#/login'
 }
 </script>
@@ -42,9 +35,9 @@ function logout() {
       </template>
     </div>
     <div class="topbar-right">
-      <div class="user-info" v-if="displayName">
+      <div class="user-info" v-if="authStore.username">
         <el-icon :size="14"><User /></el-icon>
-        <span class="username">{{ displayName }}</span>
+        <span class="username">{{ authStore.username }}</span>
         <el-button text size="small" :icon="SwitchButton" @click="logout" title="退出登录" />
       </div>
       <span class="time">{{ new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }) }}</span>

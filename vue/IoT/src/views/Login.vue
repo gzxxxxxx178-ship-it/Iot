@@ -3,13 +3,13 @@ import { reactive, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { User, Lock } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { login as loginApi } from '../api/auth'
-import { setToken, setUsername } from '../utils/auth'
+import { useAuthStore } from '../stores/auth'
 
 import { onMounted } from 'vue'
 
 const router = useRouter()
 const route = useRoute()
+const authStore = useAuthStore()
 
 const formRef = ref(null)
 const form = reactive({ username: '', password: '' })
@@ -35,7 +35,7 @@ function googleLogin() {
   window.location.href = base + '/oauth2/authorization/google'
 }
 
-// 表单提交：Element Plus 校验 → 调用登录 API → 存储 JWT → 跳转 Dashboard
+// 表单提交：Element Plus 校验 → Pinia authStore.login() → 跳转 Dashboard
 async function onSubmit() {
   if (!formRef.value) return
   try {
@@ -46,9 +46,7 @@ async function onSubmit() {
   loading.value = true
   errorMsg.value = ''
   try {
-    const res = await loginApi({ username: form.username, password: form.password })
-    setToken(res.token)
-    setUsername(res.username)
+    await authStore.login({ username: form.username, password: form.password })
     ElMessage.success('登录成功')
     const redirect = route.query.redirect
     router.push(redirect || '/dashboard')

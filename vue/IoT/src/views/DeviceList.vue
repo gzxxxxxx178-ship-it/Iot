@@ -1,18 +1,12 @@
 <script setup>
-import { ref, onMounted } from 'vue'
-import { getDeviceList } from '../api/device'
+import { onMounted } from 'vue'
+import { useDeviceStore } from '../stores/device'
 import DeviceCard from '../components/device/DeviceCard.vue'
 
-const devices = ref([])
+const deviceStore = useDeviceStore()
 
-// 加载所有设备的列表和最新读数
-async function fetchDevices() {
-  try {
-    devices.value = await getDeviceList()
-  } catch {}
-}
-
-onMounted(fetchDevices)
+// 加载所有设备的列表和最新读数（通过 Pinia deviceStore 共享缓存）
+onMounted(() => deviceStore.fetchDevices())
 </script>
 
 <template>
@@ -22,12 +16,12 @@ onMounted(fetchDevices)
         <h1>设备管理</h1>
         <p>当前系统中的 IoT 设备及其最新数据</p>
       </div>
-      <el-tag type="info" effect="dark" size="small">{{ devices.length }} 台设备</el-tag>
+      <el-tag type="info" effect="dark" size="small">{{ deviceStore.devices.length }} 台设备</el-tag>
     </div>
 
     <!-- 设备卡片网格，响应式列宽 -->
-    <div v-if="devices.length" class="device-grid">
-      <DeviceCard v-for="d in devices" :key="d.deviceId" :device="d" />
+    <div v-if="deviceStore.devices.length" class="device-grid">
+      <DeviceCard v-for="d in deviceStore.devices" :key="d.deviceId" :device="d" />
     </div>
     <el-empty v-else description="暂无设备数据" />
   </div>

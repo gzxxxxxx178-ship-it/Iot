@@ -1,24 +1,20 @@
 <script setup>
 import { onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { setToken, setUsername } from '../utils/auth'
+import { useAuthStore } from '../stores/auth'
 
 const router = useRouter()
 const route = useRoute()
+const authStore = useAuthStore()
 
-// Google OAuth2 回调处理：从 URL query 中提取 JWT token 和 username → 存储 → 跳转 Dashboard
+// Google OAuth2 回调处理：从 URL query 提取 JWT → Pinia setAuth() → 跳转 Dashboard
 onMounted(() => {
-  console.log('[OAuthCallback] route.query:', JSON.stringify(route.query))
-  console.log('[OAuthCallback] location.href:', window.location.href)
   const { token, username } = route.query
   if (token) {
-    console.log('[OAuthCallback] token received, storing and redirecting to /dashboard')
-    setToken(token)
-    setUsername(username || '')
+    authStore.setAuth(token, username || '')
     router.push('/dashboard')
   } else {
     // 无 token 说明回调异常，跳回登录页
-    console.warn('[OAuthCallback] no token in query, redirecting to /login')
     router.push('/login')
   }
 })

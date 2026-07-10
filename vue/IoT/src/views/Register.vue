@@ -3,10 +3,10 @@ import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { User, Lock } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { register as registerApi } from '../api/auth'
-import { setToken, setUsername } from '../utils/auth'
+import { useAuthStore } from '../stores/auth'
 
 const router = useRouter()
+const authStore = useAuthStore()
 
 const formRef = ref(null)
 const form = reactive({ username: '', password: '', confirmPassword: '' })
@@ -35,7 +35,7 @@ const rules = {
   ],
 }
 
-// 注册提交：Element Plus 校验 → 调用注册 API → 自动登录 → 跳转 Dashboard
+// 注册提交：Element Plus 校验 → Pinia authStore.register() → 自动登录 → 跳转 Dashboard
 async function onSubmit() {
   if (!formRef.value) return
   try {
@@ -46,10 +46,7 @@ async function onSubmit() {
   loading.value = true
   errorMsg.value = ''
   try {
-    const res = await registerApi({ username: form.username, password: form.password })
-    // 注册成功自动登录
-    setToken(res.token)
-    setUsername(res.username)
+    await authStore.register({ username: form.username, password: form.password })
     ElMessage.success('注册成功')
     router.push('/dashboard')
   } catch (e) {

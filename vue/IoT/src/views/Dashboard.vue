@@ -1,47 +1,37 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-import { getHistoryData } from '../api/device'
+import { useDeviceStore } from '../stores/device'
 import GaugeCard from '../components/charts/GaugeCard.vue'
 import TempHumChart from '../components/charts/TempHumChart.vue'
 import StatusPie from '../components/charts/StatusPie.vue'
-import { formatTime } from '../utils/format'
 
-// 仪表盘统计数据
+const deviceStore = useDeviceStore()
+
+// 仪表盘本地统计数据（基于 deviceStore 数据计算）
 const stats = ref({ deviceCount: 0, onlineCount: 0, avgTemp: '--', avgHum: '--', avgWater: '--', latestRssi: '--', latestLinkage: null })
 const pieData = ref([])
-const timeLabels = ref([])
-const tempSeries = ref([])
-const humSeries = ref([])
 const recentMessages = ref(0)
 
 // 加载历史数据 → 计算各项统计指标 → 填充图表
 onMounted(async () => {
-  try {
-    const history = await getHistoryData()
-    if (history.length) {
-      const latest = history[history.length - 1]
-      const temps = history.map((h) => h.temperature).filter(Boolean)
-      const hums = history.map((h) => h.humidity).filter(Boolean)
-      const waters = history.map((h) => h.water).filter(Boolean)
+  await deviceStore.fetchHistory()
+  const history = deviceStore.dataPoints
 
-      // 计算平均值
-      stats.value.avgTemp = temps.length ? (temps.reduce((a, b) => a + b, 0) / temps.length).toFixed(1) : '--'
-      stats.value.avgHum = hums.length ? (hums.reduce((a, b) => a + b, 0) / hums.length).toFixed(1) : '--'
-      stats.value.avgWater = waters.length ? (waters.reduce((a, b) => a + b, 0) / waters.length).toFixed(1) : '--'
-      stats.value.latestRssi = latest.rssi ?? '--'
-      stats.value.latestLinkage = latest.linkage
-      stats.value.deviceCount = new Set(history.map((h) => h.deviceId)).size
-      stats.value.onlineCount = stats.value.deviceCount
-      recentMessages.value = history.reduce((sum, h) => sum + (h.sendCount || 0), 0)
+  if (history.length) {
+    const temps = history.map((h) => h.temperature).filter(Boolean)
+    const hums = history.map((h) => h.humidity).filter(Boolean)
+    const waters = history.map((h) => h.water).filter(Boolean)
 
-      // 填充趋势图数据（最新数据在末端）
-      history.reverse().forEach((item) => {
-        timeLabels.value.push(formatTime(item.serverReceivedTime || item.timestamp))
-        tempSeries.value.push(item.temperature)
-        humSeries.value.push(item.humidity)
-      })
-    }
-  } catch {}
+    // 计算平均值
+    stats.value.avgTemp = temps.length ? (temps.reduce((a, b) => a + b, 0) / temps.length).toFixed(1) : '--'
+    stats.value.avgHum = hums.length ? (hums.reduce((a, b) => a + b, 0) / hums.length).toFixed(1) : '--'
+    stats.value.avgWater = waters.length ? (waters.reduce((a, b) => a + b, 0) / waters.length).toFixed(1) : '--'
+    stats.value.latestRssi = deviceStore.latest?.rssi ?? '--'
+    stats.value.latestLinkage = deviceStore.latest?.linkage ?? null
+    stats.value.deviceCount = new Set(history.map((h) => h.deviceId || 'device001')).size
+    stats.value.onlineCount = stats.value.deviceCount
+    recentMessages.value = history.reduce((sum, h) => sum + (h.sendCount || 0), 0)
+  }
 
   // 饼图数据
   pieData.value = [
@@ -83,7 +73,7 @@ onMounted(async () => {
         </el-card>
       </div>
       <div class="chart-col">
-        <TempHumChart :timeLabels="timeLabels" :tempSeries="tempSeries" :humSeries="humSeries" height="300px" />
+        <TempHumChart :timeLabels="deviceStore.timeLabels" :tempSeries="deviceStore.tempSeries" :humSeries="deviceStore.humSeries" height="300px" />
       </div>
     </div>
 

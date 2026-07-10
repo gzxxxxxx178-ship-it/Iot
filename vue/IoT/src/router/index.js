@@ -1,5 +1,5 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
-import { getToken } from '../utils/auth'
+import { useAuthStore } from '../stores/auth'
 
 const routes = [
   {
@@ -85,13 +85,15 @@ const router = createRouter({
   routes,
 })
 
+// 路由守卫：使用 Pinia authStore 检查登录态
 router.beforeEach((to, from, next) => {
-  const token = getToken()
+  const authStore = useAuthStore()
+  authStore.restore() // 从 localStorage 恢复登录态
   const isAuthPage = to.path === '/login' || to.path === '/register' || to.path === '/oauth-callback'
 
-  if (!token && !isAuthPage) {
+  if (!authStore.isLoggedIn && !isAuthPage) {
     next('/login')
-  } else if (token && isAuthPage) {
+  } else if (authStore.isLoggedIn && isAuthPage) {
     next('/dashboard')
   } else {
     next()

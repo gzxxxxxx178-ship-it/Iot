@@ -1,50 +1,42 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { VideoPlay, VideoPause, Connection } from '@element-plus/icons-vue'
+import { Connection } from '@element-plus/icons-vue'
 import { useWebSocket } from '../composables/useWebSocket'
-import { getHistoryData } from '../api/device'
-import { formatTime, formatDecimal } from '../utils/format'
+import { useDeviceStore } from '../stores/device'
+import { formatDecimal } from '../utils/format'
 import TempHumChart from '../components/charts/TempHumChart.vue'
 import GaugeCard from '../components/charts/GaugeCard.vue'
 import ControlPanel from '../components/device/ControlPanel.vue'
 
-// 实时数据序列（最多 50 个点）
-const timeLabels = ref([])
-const tempSeries = ref([])
-const humSeries = ref([])
-const waterSeries = ref([])
+const deviceStore = useDeviceStore()
+
+// 本地实时指标（结合 WebSocket + deviceStore）
 const latestRssi = ref('--')
 const latestLinkage = ref(null)
 const latestSendCount = ref('--')
 
 // 计算最新值用于 GaugeCard 展示
-const latestTemp = computed(() => tempSeries.value.at(-1) ?? '--')
-const latestHum = computed(() => humSeries.value.at(-1) ?? '--')
-const latestWater = computed(() => waterSeries.value.at(-1) ?? '--')
+const latestTemp = computed(() => {
+  const arr = deviceStore.tempSeries
+  return arr.length ? arr[arr.length - 1] : '--'
+})
+const latestHum = computed(() => {
+  const arr = deviceStore.humSeries
+  return arr.length ? arr[arr.length - 1] : '--'
+})
+const latestWater = computed(() => deviceStore.latest?.water ?? '--')
 
 const linkageText = computed(() => {
   if (latestLinkage.value === null) return '--'
   return latestLinkage.value ? '已联动' : '未联动'
 })
 
-// 处理每条 WebSocket/历史数据，追加到序列，超出 50 点则丢弃最早数据
+// 处理每条 WebSocket/历史数据，追加到 deviceStore
 function processDataPoint(item) {
-  const time = formatTime(item.serverReceivedTime || item.timestamp)
-  timeLabels.value.push(time)
-  tempSeries.value.push(item.temperature)
-  humSeries.value.push(item.humidity)
-  waterSeries.value.push(item.water)
+  deviceStore.addDataPoint(item)
   latestRssi.value = item.rssi ?? '--'
   latestLinkage.value = item.linkage
   latestSendCount.value = item.sendCount ?? '--'
-
-  // 保持数据窗口不超过 50 条
-  if (timeLabels.value.length > 50) {
-    timeLabels.value.shift()
-    tempSeries.value.shift()
-    humSeries.value.shift()
-    waterSeries.value.shift()
-  }
 }
 
 // 建立 WebSocket 实时连接
@@ -59,12 +51,9 @@ const connectionLabel = computed(() => {
   }
 })
 
-// 挂载时先加载历史数据作为初始展示
+// 挂载时先加载 deviceStore 历史数据作为初始展示
 onMounted(async () => {
-  try {
-    const data = await getHistoryData()
-    data.reverse().forEach(processDataPoint)
-  } catch {}
+  await deviceStore.fetchHistory()
 })
 </script>
 
@@ -96,13 +85,13 @@ onMounted(async () => {
 
     <div class="monitor-grid">
       <div class="chart-col">
-        <TempHumChart :timeLabels="timeLabels" :tempSeries="tempSeries" :humSeries="humSeries" height="350px" />
+        <TempHumChart :timeLabels="deviceStore.timeLabels" :tempSeries="deviceStore.tempSeries" :humSeries="deviceStore.humSeries" height="350px" />
       </div>
       <div class="control-col">
         <div class="info-cards">
           <el-card class="info-card">
             <span class="info-label">数据点数</span>
-            <span class="info-value">{{ timeLabels.length }}</span>
+            <span class="info-value">{{ deviceStore.dataPoints.length }}</span>
           </el-card>
           <el-card class="info-card">
             <span class="info-label">发送次数</span>

@@ -3,39 +3,29 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Close } from '@element-plus/icons-vue'
 import { useWebSocket } from '../composables/useWebSocket'
-import { getDashboardStats } from '../api/dashboard'
-import { getHistoryData } from '../api/device'
-import { formatTime, formatDecimal } from '../utils/format'
+import { useDeviceStore } from '../stores/device'
+import { formatDecimal } from '../utils/format'
 import TempHumChart from '../components/charts/TempHumChart.vue'
 import StatusPie from '../components/charts/StatusPie.vue'
 
 const router = useRouter()
+const deviceStore = useDeviceStore()
 
 // 统计数据
 const stats = ref({ deviceCount: 0, onlineCount: 0, avgTemp: '--', avgHum: '--' })
 const pieData = ref([])
-const timeLabels = ref([])
-const tempSeries = ref([])
-const humSeries = ref([])
 const latestWater = ref('--')
 const latestRssi = ref('--')
 const latestLinkage = ref(null)
 const currentTime = ref('')
 let clockTimer = null
 
-// WebSocket 实时接收传感器数据，保留最多 60 个数据点
+// WebSocket 实时接收传感器数据 → 追加到 deviceStore
 const ws = useWebSocket((item) => {
-  timeLabels.value.push(formatTime(item.serverReceivedTime || item.timestamp))
-  tempSeries.value.push(item.temperature)
-  humSeries.value.push(item.humidity)
+  deviceStore.addDataPoint(item)
   latestWater.value = item.water ?? '--'
   latestRssi.value = item.rssi ?? '--'
   latestLinkage.value = item.linkage
-  if (timeLabels.value.length > 60) {
-    timeLabels.value.shift()
-    tempSeries.value.shift()
-    humSeries.value.shift()
-  }
 })
 
 // 每秒更新页面时钟
@@ -47,22 +37,23 @@ function updateClock() {
   })
 }
 
-// 挂载时加载仪表盘和历史数据，启动时钟
+// 挂载时加载 deviceStore 历史数据，启动时钟
 onMounted(async () => {
   updateClock()
   clockTimer = setInterval(updateClock, 1000)
 
-  try {
-    const [s, h] = await Promise.allSettled([getDashboardStats(), getHistoryData()])
-    if (s.status === 'fulfilled') stats.value = s.value
-    if (h.status === 'fulfilled') {
-      h.value.reverse().forEach((item) => {
-        timeLabels.value.push(formatTime(item.serverReceivedTime || item.timestamp))
-        tempSeries.value.push(item.temperature)
-        humSeries.value.push(item.humidity)
-      })
-    }
-  } catch {}
+  await deviceStore.fetchHistory()
+
+  // 基于 deviceStore 数据计算统计值
+  const history = deviceStore.dataPoints
+  if (history.length) {
+    const temps = history.map((h) => h.temperature).filter(Boolean)
+    const hums = history.map((h) => h.humidity).filter(Boolean)
+    stats.value.avgTemp = temps.length ? (temps.reduce((a, b) => a + b, 0) / temps.length).toFixed(1) : '--'
+    stats.value.avgHum = hums.length ? (hums.reduce((a, b) => a + b, 0) / hums.length).toFixed(1) : '--'
+    stats.value.deviceCount = new Set(history.map((h) => h.deviceId || 'device001')).size
+    stats.value.onlineCount = stats.value.deviceCount
+  }
 
   pieData.value = [
     { value: stats.value.onlineCount, name: '在线', itemStyle: { color: '#10b981' } },
@@ -99,7 +90,7 @@ onUnmounted(() => clearInterval(clockTimer))
       </div>
       <!-- 趋势大图 -->
       <div class="screen-chart">
-        <TempHumChart :timeLabels="timeLabels" :tempSeries="tempSeries" :humSeries="humSeries" height="400px" />
+        <TempHumChart :timeLabels="deviceStore.timeLabels" :tempSeries="deviceStore.tempSeries" :humSeries="deviceStore.humSeries" height="400px" />
       </div>
     </div>
 
