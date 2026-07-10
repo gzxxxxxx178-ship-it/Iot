@@ -304,8 +304,9 @@ Pay.vue → POST /api/alipay/create {amount, subject}
 - **data-dir**: JPA ddl-auto=update，首次启动会自动创建 users / chat_messages / payment_orders 表，esp_data 表需已存在
 - **支付宝沙箱**: 开发用沙箱环境，需在 openhome.alipay.com 获取 APPID/私钥/公钥。本地无法接收异步回调时，前端轮询替代
 - **MQTT 数据接收**: 后端订阅 `agri/device001/data`，支持 `device` 和 `deviceId` 两种 JSON 字段名
-- **统一异常处理**: Controller 层不再需要 try-catch。业务异常抛 RuntimeException (自动返回 400)，认证异常抛 BadCredentialsException (自动返回 401)。所有异常由 GlobalExceptionHandler 统一转换为 ApiResponse 格式
+- **统一异常处理**: Controller 层不再需要 try-catch。业务异常抛 RuntimeException (自动返回 400)，认证异常抛 BadCredentialsException (自动返回 401)，`@Valid` 校验失败抛 MethodArgumentNotValidException (自动返回 400+具体字段错误)。所有异常由 GlobalExceptionHandler 统一转换为 ApiResponse 格式
 - **ApiResponse 格式**: 所有接口统一返回 `{code, message, data}`。前端 axios 拦截器自动解包 data 字段，401 时清除登录态并跳转登录页
+- **参数校验 (@Valid)**: 后端 DTO + Entity 使用 Bean Validation 注解（`@NotBlank`/`@NotNull`/`@Size`），Controller 用 `@Valid` 触发。前端 Element Plus el-form 配合 `rules` 做客户端校验。校验失败后端返回具体字段错误信息，前端在对应字段下方显示红色提示
 
 ## 十、生产部署
 

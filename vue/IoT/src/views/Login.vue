@@ -11,9 +11,16 @@ import { onMounted } from 'vue'
 const router = useRouter()
 const route = useRoute()
 
+const formRef = ref(null)
 const form = reactive({ username: '', password: '' })
 const loading = ref(false)
 const errorMsg = ref('')
+
+// 表单校验规则：用户名和密码均不能为空
+const rules = {
+  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
+}
 
 // 检测 URL 中是否有 OAuth 登录失败错误信息
 onMounted(() => {
@@ -28,11 +35,13 @@ function googleLogin() {
   window.location.href = base + '/oauth2/authorization/google'
 }
 
-// 表单提交：本地用户名密码登录 → 存储 JWT token → 跳转 Dashboard
+// 表单提交：Element Plus 校验 → 调用登录 API → 存储 JWT → 跳转 Dashboard
 async function onSubmit() {
-  if (!form.username || !form.password) {
-    errorMsg.value = '请输入用户名和密码'
-    return
+  if (!formRef.value) return
+  try {
+    await formRef.value.validate()
+  } catch {
+    return // 校验不通过，Element Plus 会自动显示错误提示
   }
   loading.value = true
   errorMsg.value = ''
@@ -44,11 +53,7 @@ async function onSubmit() {
     const redirect = route.query.redirect
     router.push(redirect || '/dashboard')
   } catch (e) {
-    if (e.response && e.response.status === 401) {
-      errorMsg.value = '用户名或密码错误'
-    } else {
-      errorMsg.value = typeof e.response?.data === 'string' ? e.response.data : '登录失败'
-    }
+    errorMsg.value = e.message || '登录失败'
   } finally {
     loading.value = false
   }
@@ -64,14 +69,14 @@ async function onSubmit() {
         <p>登录您的账号</p>
       </div>
 
-      <!-- 错误提示：表单验证错误或 OAuth 回调错误 -->
+      <!-- 服务端错误提示：认证失败或 OAuth 回调错误 -->
       <el-alert v-if="errorMsg" :title="errorMsg" type="error" show-icon :closable="false" class="auth-alert" />
 
-      <el-form @submit.prevent="onSubmit" label-position="top">
-        <el-form-item label="用户名">
+      <el-form ref="formRef" :model="form" :rules="rules" @submit.prevent="onSubmit" label-position="top">
+        <el-form-item label="用户名" prop="username">
           <el-input v-model="form.username" placeholder="请输入用户名" :prefix-icon="User" size="large" />
         </el-form-item>
-        <el-form-item label="密码">
+        <el-form-item label="密码" prop="password">
           <el-input
             v-model="form.password"
             type="password"

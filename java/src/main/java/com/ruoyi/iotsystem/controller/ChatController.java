@@ -13,6 +13,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 
+import javax.validation.Valid;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,7 +35,7 @@ public class ChatController {
 
     // AI 对话：保存用户消息、调用 DeepSeek API、保存 AI 回复并返回
     @PostMapping("/api/chat")
-    public ApiResponse<Map<String, String>> chat(@RequestBody ChatRequest request) {
+    public ApiResponse<Map<String, String>> chat(@Valid @RequestBody ChatRequest request) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setBearerAuth(apiKey);

@@ -8,23 +8,40 @@ import { setToken, setUsername } from '../utils/auth'
 
 const router = useRouter()
 
+const formRef = ref(null)
 const form = reactive({ username: '', password: '', confirmPassword: '' })
 const loading = ref(false)
 const errorMsg = ref('')
 
-// 注册提交：校验 → 调用 API → 自动登录 → 跳转 Dashboard
+// 自定义校验：确认密码必须与密码一致
+const validateConfirmPassword = (rule, value, callback) => {
+  if (value !== form.password) {
+    callback(new Error('两次输入的密码不一致'))
+  } else {
+    callback()
+  }
+}
+
+// 表单校验规则
+const rules = {
+  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 6, message: '密码长度至少 6 位', trigger: 'blur' },
+  ],
+  confirmPassword: [
+    { required: true, message: '请再次输入密码', trigger: 'blur' },
+    { validator: validateConfirmPassword, trigger: 'blur' },
+  ],
+}
+
+// 注册提交：Element Plus 校验 → 调用注册 API → 自动登录 → 跳转 Dashboard
 async function onSubmit() {
-  if (!form.username || !form.password) {
-    errorMsg.value = '请输入用户名和密码'
-    return
-  }
-  if (form.password.length < 6) {
-    errorMsg.value = '密码长度不能少于 6 位'
-    return
-  }
-  if (form.password !== form.confirmPassword) {
-    errorMsg.value = '两次输入的密码不一致'
-    return
+  if (!formRef.value) return
+  try {
+    await formRef.value.validate()
+  } catch {
+    return // 校验不通过
   }
   loading.value = true
   errorMsg.value = ''
@@ -36,7 +53,7 @@ async function onSubmit() {
     ElMessage.success('注册成功')
     router.push('/dashboard')
   } catch (e) {
-    errorMsg.value = typeof e.response?.data === 'string' ? e.response.data : '注册失败'
+    errorMsg.value = e.message || '注册失败'
   } finally {
     loading.value = false
   }
@@ -54,11 +71,11 @@ async function onSubmit() {
 
       <el-alert v-if="errorMsg" :title="errorMsg" type="error" show-icon :closable="false" class="auth-alert" />
 
-      <el-form @submit.prevent="onSubmit" label-position="top">
-        <el-form-item label="用户名">
+      <el-form ref="formRef" :model="form" :rules="rules" @submit.prevent="onSubmit" label-position="top">
+        <el-form-item label="用户名" prop="username">
           <el-input v-model="form.username" placeholder="请输入用户名" :prefix-icon="User" size="large" />
         </el-form-item>
-        <el-form-item label="密码">
+        <el-form-item label="密码" prop="password">
           <el-input
             v-model="form.password"
             type="password"
@@ -68,7 +85,7 @@ async function onSubmit() {
             show-password
           />
         </el-form-item>
-        <el-form-item label="确认密码">
+        <el-form-item label="确认密码" prop="confirmPassword">
           <el-input
             v-model="form.confirmPassword"
             type="password"

@@ -6,9 +6,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import javax.validation.ConstraintViolation;
+import javax.validation.ConstraintViolationException;
+import java.util.stream.Collectors;
 
 /**
  * 全局异常处理器 — 统一捕获 Controller 层抛出的异常并转换为 {@link ApiResponse} 格式
@@ -26,7 +32,28 @@ public class GlobalExceptionHandler {
         return ApiResponse.fail(401, "用户名或密码错误");
     }
 
-    // 业务运行时异常 → 400（如用户名已存在、参数校验失败等）
+    // @Valid 校验失败（@RequestBody 参数）→ 400，返回第一个校验错误
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<?> handleValidation(MethodArgumentNotValidException e) {
+        FieldError fieldError = e.getBindingResult().getFieldError();
+        String msg = fieldError != null ? fieldError.getDefaultMessage() : "参数校验失败";
+        log.warn("参数校验失败: {}", msg);
+        return ApiResponse.fail(400, msg);
+    }
+
+    // 校验失败（@RequestParam / @PathVariable 参数）→ 400
+    @ExceptionHandler(ConstraintViolationException.class)
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<?> handleConstraintViolation(ConstraintViolationException e) {
+        String msg = e.getConstraintViolations().stream()
+                .map(ConstraintViolation::getMessage)
+                .collect(Collectors.joining("; "));
+        log.warn("参数校验失败: {}", msg);
+        return ApiResponse.fail(400, msg);
+    }
+
+    // 业务运行时异常 → 400（如用户名已存在等）
     @ExceptionHandler(RuntimeException.class)
     @ResponseStatus(HttpStatus.OK)
     public ApiResponse<?> handleRuntimeException(RuntimeException e) {

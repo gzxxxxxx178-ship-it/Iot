@@ -8,7 +8,16 @@ import { formatDateTime } from '../utils/format'
 const rules = ref([])
 const records = ref([])
 const dialogVisible = ref(false)
+const formRef = ref(null)
 const form = ref({ metric: 'temperature', operator: 'gt', threshold: 30, enabled: true })
+
+// 报警规则表单校验
+const alarmRules = {
+  threshold: [
+    { required: true, message: '请输入阈值', trigger: 'blur' },
+    { type: 'number', min: 0, message: '阈值不能为负数', trigger: 'blur' },
+  ],
+}
 
 const metricOptions = [
   { label: '温度', value: 'temperature' },
@@ -41,8 +50,14 @@ function openAdd() {
   dialogVisible.value = true
 }
 
-// 提交保存报警规则
+// 提交保存报警规则：先校验表单，通过后调用 API
 async function submitRule() {
+  if (!formRef.value) return
+  try {
+    await formRef.value.validate()
+  } catch {
+    return // 校验不通过
+  }
   try {
     await saveAlarmRule(form.value)
     ElMessage.success('规则保存成功')
@@ -117,7 +132,7 @@ onMounted(() => { fetchRules(); fetchRecords() })
 
     <!-- 添加规则弹窗 -->
     <el-dialog v-model="dialogVisible" title="添加报警规则" width="420px">
-      <el-form :model="form" label-position="top">
+      <el-form ref="formRef" :model="form" :rules="alarmRules" label-position="top">
         <el-form-item label="监控指标">
           <el-select v-model="form.metric" style="width:100%">
             <el-option v-for="m in metricOptions" :key="m.value" :label="m.label" :value="m.value" />
@@ -131,7 +146,9 @@ onMounted(() => { fetchRules(); fetchRecords() })
               </el-select>
             </el-col>
             <el-col :span="14">
-              <el-input-number v-model="form.threshold" :min="0" :step="1" controls-position="right" />
+              <el-form-item prop="threshold">
+                <el-input-number v-model="form.threshold" :min="0" :step="1" controls-position="right" />
+              </el-form-item>
             </el-col>
           </el-row>
         </el-form-item>

@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
+import javax.validation.Valid;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -34,7 +35,7 @@ public class EspController {
 
     // 接收 ESP8266 传感器数据：记录日志 → 持久化 → WebSocket 广播
     @PostMapping("/sensor/data")
-    public ApiResponse<String> receiveSensorData(@RequestBody EspEntity sensorData) {
+    public ApiResponse<String> receiveSensorData(@Valid @RequestBody EspEntity sensorData) {
         logger.info("Received data from device: {}", sensorData.getDeviceId());
         logger.info("Temperature: {}°C", sensorData.getTemperature());
         logger.info("Humidity: {}%", sensorData.getHumidity());

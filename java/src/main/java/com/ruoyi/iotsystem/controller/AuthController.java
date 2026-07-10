@@ -14,6 +14,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import javax.validation.Valid;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -32,7 +33,7 @@ public class AuthController {
 
     // 用户名密码登录：认证成功返回 JWT 令牌，失败由全局异常处理器统一处理
     @PostMapping("/login")
-    public ApiResponse<AuthResponse> login(@RequestBody LoginRequest request) {
+    public ApiResponse<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         AuthResponse resp = userService.login(request);
         logger.info("用户登录成功: {}", request.getUsername());
         return ApiResponse.success(resp);
@@ -40,7 +41,7 @@ public class AuthController {
 
     // 用户注册：校验唯一性、加密密码、返回 JWT。用户名已存在时抛 RuntimeException，由全局异常处理器统一返回错误信息
     @PostMapping("/register")
-    public ApiResponse<AuthResponse> register(@RequestBody RegisterRequest request) {
+    public ApiResponse<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
         AuthResponse resp = userService.register(request);
         logger.info("用户注册成功: {}", request.getUsername());
         return ApiResponse.success(resp);

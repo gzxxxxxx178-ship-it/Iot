@@ -5,6 +5,7 @@ import com.ruoyi.iotsystem.service.MqttMessageService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import javax.validation.Valid;
 import java.util.Map;
 
 @RestController
@@ -17,7 +18,7 @@ public class DeviceControlController {
 
     // 发送设备控制指令 (start/stop) 到 MQTT，ESP32 订阅后执行
     @PostMapping("/control")
-    public ApiResponse<String> controlDevice(@RequestBody Map<String, String> payload) {
+    public ApiResponse<String> controlDevice(@Valid @RequestBody Map<String, String> payload) {
         String command = payload.get("command");
         if (command == null || (!command.equalsIgnoreCase("start") && !command.equalsIgnoreCase("stop"))) {
             return ApiResponse.fail("无效指令，请使用 'start' 或 'stop'");

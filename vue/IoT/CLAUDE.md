@@ -158,6 +158,7 @@ VITE_WS_BASE_URL=ws://localhost:8080
 - **响应拦截 (成功)**: 自动识别后端统一响应格式 `{code, message, data}`。code=200 → 自动解包返回 `data` 字段；code≠200 → ElMessage.error 弹窗提示。非统一格式（如纯文本）原样返回
 - **响应拦截 (错误)**: HTTP 401 → 清除 token/username → 跳转 `/#/login`。其他 HTTP 错误 → 优先使用响应体 `message` 字段，兜底 `error.message`
 - **调用方影响**: API 函数中的 `.then(r => r.data)` 获取的是解包后的业务数据，无需手动处理 `code`/`message` 包装
+- **表单校验**: Login、Register、Alarm 等页面使用 Element Plus el-form `:rules` + `formRef.validate()` 做客户端校验。后端 `@Valid` + Bean Validation 做服务端双重保障。校验失败时后端返回具体字段错误，前端在对应字段下方显示红色提示
 
 ---
 

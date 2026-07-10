@@ -11,6 +11,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.validation.Valid;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -25,7 +26,7 @@ public class AlipayController {
 
     // 创建支付订单：从 SecurityContext 获取当前用户名，调用支付宝预下单，返回二维码和订单号
     @PostMapping("/create")
-    public ApiResponse<Map<String, String>> create(@RequestBody Map<String, String> body) throws AlipayApiException {
+    public ApiResponse<Map<String, String>> create(@Valid @RequestBody Map<String, String> body) throws AlipayApiException {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String username = auth.getName();
 

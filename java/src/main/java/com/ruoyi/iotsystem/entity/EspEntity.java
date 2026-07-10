@@ -1,5 +1,7 @@
 package com.ruoyi.iotsystem.entity;
 
+import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.NotNull;
 import java.time.LocalDateTime;
 import javax.persistence.*;
 
@@ -10,12 +12,17 @@ public class EspEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @NotBlank(message = "设备ID不能为空")
     @Column(name = "device_id")
     private String deviceId;
 
+    @NotNull(message = "温度不能为空")
     private Double temperature;
+
+    @NotNull(message = "湿度不能为空")
     private Double humidity;
 
+    @NotNull(message = "时间戳不能为空")
     private Long timestamp;
 
     private Double water;
