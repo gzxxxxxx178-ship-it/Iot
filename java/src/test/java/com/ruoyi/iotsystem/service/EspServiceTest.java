@@ -42,9 +42,24 @@ class EspServiceTest {
         assertEquals("device001", result.getDeviceId());
         assertEquals(25.5, result.getTemperature());
         assertEquals(65.0, result.getHumidity());
+        assertTrue(result.getQualityValid());
         verify(espRepository).save(input);
         verify(alarmService).evaluate(saved);
         verify(automationService).evaluate(saved);
+    }
+
+    // 验证越界读数会保留原始值并阻止报警与自动化执行
+    @Test
+    void saveData_温度越界_应标记异常并跳过业务规则() {
+        EspEntity input = new EspEntity("device001", 120.0, 65.0, 1700000000000L);
+        when(espRepository.save(input)).thenReturn(input);
+
+        EspEntity result = espService.saveData(input);
+
+        assertFalse(result.getQualityValid());
+        assertTrue(result.getQualityIssues().contains("TEMPERATURE_OUT_OF_RANGE"));
+        verify(alarmService, never()).evaluate(any());
+        verify(automationService, never()).evaluate(any());
     }
 
     // ==================== 数据处理和响应生成测试 ====================

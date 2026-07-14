@@ -7,6 +7,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 public class EspService {
@@ -35,6 +37,7 @@ public class EspService {
         if (espEntity.getServerReceivedTime() == null) {
             espEntity.setServerReceivedTime(LocalDateTime.now());
         }
+        evaluateDataQuality(espEntity);
         logger.info(
                 "Saving ESP data to database: DeviceId={}, Temperature={}, Humidity={}, Water={}, Linkage={}, SendCount={}, Rssi={}, Timestamp={}",
                 espEntity.getDeviceId(), espEntity.getTemperature(), espEntity.getHumidity(),
@@ -45,17 +48,11 @@ public class EspService {
 
         logger.info("Successfully saved ESP data with ID: {}", savedEntity.getId());
 
-        try {
-            alarmService.evaluate(savedEntity);
-        } catch (Exception e) {
-            logger.warn("Alarm evaluation failed for device {}: {}", savedEntity.getDeviceId(), e.getMessage());
-        }
-
-        try {
-            automationService.evaluate(savedEntity);
-        } catch (Exception e) {
-            logger.warn("Automation evaluation failed for device {}: {}",
-                    savedEntity.getDeviceId(), e.getMessage());
+        if (!Boolean.FALSE.equals(savedEntity.getQualityValid())) {
+            evaluateBusinessRules(savedEntity);
+        } else {
+            logger.warn("Skipped alarm and automation for invalid sensor data: device={}, issues={}",
+                    savedEntity.getDeviceId(), savedEntity.getQualityIssues());
         }
 
         return savedEntity;
@@ -91,5 +88,47 @@ public class EspService {
      */
     public java.util.List<EspEntity> getRecentData() {
         return espRepository.findTop20ByOrderByServerReceivedTimeDesc();
+    }
+
+    // 根据传感器物理边界标记异常数据但保留原始读数
+    private void evaluateDataQuality(EspEntity reading) {
+        List<String> issues = new ArrayList<>();
+        if (!isFiniteInRange(reading.getTemperature(), 0.0, 50.0)) {
+            issues.add("TEMPERATURE_OUT_OF_RANGE");
+        }
+        if (!isFiniteInRange(reading.getHumidity(), 0.0, 100.0)) {
+            issues.add("HUMIDITY_OUT_OF_RANGE");
+        }
+        if (reading.getWater() != null && !isFiniteInRange(reading.getWater(), 0.0, 1023.0)) {
+            issues.add("WATER_OUT_OF_RANGE");
+        }
+        if (reading.getRssi() != null && (reading.getRssi() < -120 || reading.getRssi() > 0)) {
+            issues.add("RSSI_OUT_OF_RANGE");
+        }
+        if (reading.getSendCount() != null && reading.getSendCount() < 0) {
+            issues.add("SEND_COUNT_NEGATIVE");
+        }
+        reading.setQualityValid(issues.isEmpty());
+        reading.setQualityIssues(issues.isEmpty() ? null : String.join(";", issues));
+    }
+
+    // 执行只允许有效数据进入的报警与自动化规则
+    private void evaluateBusinessRules(EspEntity savedEntity) {
+        try {
+            alarmService.evaluate(savedEntity);
+        } catch (Exception e) {
+            logger.warn("Alarm evaluation failed for device {}: {}", savedEntity.getDeviceId(), e.getMessage());
+        }
+        try {
+            automationService.evaluate(savedEntity);
+        } catch (Exception e) {
+            logger.warn("Automation evaluation failed for device {}: {}",
+                    savedEntity.getDeviceId(), e.getMessage());
+        }
+    }
+
+    // 判断可空数值是否为有限值且处于闭区间内
+    private boolean isFiniteInRange(Double value, double minimum, double maximum) {
+        return value != null && Double.isFinite(value) && value >= minimum && value <= maximum;
     }
 }

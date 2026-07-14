@@ -90,6 +90,25 @@ class DashboardServiceTest {
         assertEquals(1, result.get(1).getValue());
     }
 
+    // 验证已标记异常的数据不会进入温湿度平均值
+    @Test
+    void getStats_异常在线数据_应排除核心统计() {
+        EspEntity valid = createReading("device001", 20.0, 40.0, LocalDateTime.now().minusSeconds(5));
+        EspEntity invalid = createReading("device002", 99.0, 99.0, LocalDateTime.now().minusSeconds(5));
+        invalid.setQualityValid(false);
+        when(espRepository.findDistinctDeviceIds()).thenReturn(Arrays.asList("device001", "device002"));
+        when(espRepository.findFirstByDeviceIdOrderByServerReceivedTimeDesc("device001"))
+                .thenReturn(Optional.of(valid));
+        when(espRepository.findFirstByDeviceIdOrderByServerReceivedTimeDesc("device002"))
+                .thenReturn(Optional.of(invalid));
+
+        DashboardStatsResponse result = dashboardService.getStats();
+
+        assertEquals(2, result.getOnlineCount());
+        assertEquals(20.0, result.getAvgTemp());
+        assertEquals(40.0, result.getAvgHum());
+    }
+
     // 创建带指定服务端接收时间的测试读数
     private EspEntity createReading(
             String deviceId,

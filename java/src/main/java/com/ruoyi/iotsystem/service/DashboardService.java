@@ -79,6 +79,9 @@ public class DashboardService {
         double sum = 0.0;
         int count = 0;
         for (EspEntity reading : readings) {
+            if (Boolean.FALSE.equals(reading.getQualityValid())) {
+                continue;
+            }
             Double value = valueExtractor.apply(reading);
             if (value != null && Double.isFinite(value)) {
                 sum += value;

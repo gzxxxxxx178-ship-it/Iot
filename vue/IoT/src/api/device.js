@@ -24,3 +24,8 @@ export function getSensorHistory(params) {
 export function getSensorHistoryPage(params) {
   return request.get('/esp/history/page', { params })
 }
+
+// 导出筛选条件下的完整传感器历史CSV文件
+export function exportSensorHistoryCsv(params) {
+  return request.get('/esp/history/export', { params, responseType: 'blob' })
+}

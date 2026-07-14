@@ -107,7 +107,7 @@ ESP8266 ──MQTT TLS──▶ 私有 Broker ──订阅──▶ Java ──J
 | 传感器数据采集 | ESP8266 通过设备级 MQTT TLS Topic 上报，后端校验设备身份 | `MqttMessageService`, `EspEntity`, `MQTT.ino` |
 | 实时监控 | WebSocket 推送实时数据，前端图表动态更新 | `SensorWebSocketHandler`, `Monitor.vue` |
 | 设备管理 | 设备列表、状态展示、远程启停控制 | `DeviceControlController`, `DeviceList.vue` |
-| 历史数据 | 时间范围查询、图表展示、CSV 导出 | `EspController`, `History.vue` |
+| 历史数据 | 设备/时间组合查询、异常质量标记、保留策略和全量 CSV 导出 | `SensorHistoryService`, `SensorDataRetentionService`, `History.vue` |
 | 数据大屏 | 全屏实时仪表盘，适合展示大屏 | `Screen.vue` |
 | 报警管理 | 报警规则 CRUD + 报警记录查看 | `Alarm.vue` |
 | 自动化规则 | 持久化条件引擎，支持防抖、冷却、停用和执行审计 | `AutomationService`, `Automation.vue` |

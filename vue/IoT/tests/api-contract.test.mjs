@@ -26,3 +26,13 @@ test('业务 API 不执行二次响应解包', () => {
     assert.doesNotMatch(source, /\.then\s*\(\s*\(?\s*(?:res|r)\s*\)?\s*=>\s*(?:res|r)\.data/)
   }
 })
+
+// 验证历史数据导出由后端按完整筛选条件生成CSV文件
+test('历史数据CSV导出使用Blob响应且不依赖当前分页', () => {
+  const apiSource = readFileSync(resolve(projectRoot, 'src/api/device.js'), 'utf8')
+  const viewSource = readFileSync(resolve(projectRoot, 'src/views/History.vue'), 'utf8')
+  assert.match(apiSource, /request\.get\(['"]\/esp\/history\/export['"],\s*\{\s*params,\s*responseType:\s*['"]blob['"]\s*\}\)/)
+  assert.match(viewSource, /exportSensorHistoryCsv\(params\)/)
+  assert.match(viewSource, /start:\s*toLocalIsoString\(dateRange\.value\[0\]\)/)
+  assert.doesNotMatch(viewSource, /tableData\.value\.map\([^)]*CSV/)
+})
