@@ -15,11 +15,14 @@ public class EspService {
 
     private final EspRepository espRepository;
     private final AlarmService alarmService;
+    private final AutomationService automationService;
 
-    // 注入传感器数据仓库和报警评估服务
-    public EspService(EspRepository espRepository, AlarmService alarmService) {
+    // 注入传感器数据仓库、报警评估和自动化执行服务
+    public EspService(EspRepository espRepository, AlarmService alarmService,
+            AutomationService automationService) {
         this.espRepository = espRepository;
         this.alarmService = alarmService;
+        this.automationService = automationService;
     }
 
     /**
@@ -46,6 +49,13 @@ public class EspService {
             alarmService.evaluate(savedEntity);
         } catch (Exception e) {
             logger.warn("Alarm evaluation failed for device {}: {}", savedEntity.getDeviceId(), e.getMessage());
+        }
+
+        try {
+            automationService.evaluate(savedEntity);
+        } catch (Exception e) {
+            logger.warn("Automation evaluation failed for device {}: {}",
+                    savedEntity.getDeviceId(), e.getMessage());
         }
 
         return savedEntity;

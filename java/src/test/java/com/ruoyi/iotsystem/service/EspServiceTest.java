@@ -20,6 +20,7 @@ class EspServiceTest {
 
     @Mock private EspRepository espRepository;
     @Mock private AlarmService alarmService;
+    @Mock private AutomationService automationService;
 
     @InjectMocks
     private EspService espService;
@@ -43,6 +44,7 @@ class EspServiceTest {
         assertEquals(65.0, result.getHumidity());
         verify(espRepository).save(input);
         verify(alarmService).evaluate(saved);
+        verify(automationService).evaluate(saved);
     }
 
     // ==================== 数据处理和响应生成测试 ====================

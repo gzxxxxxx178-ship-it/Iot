@@ -2,7 +2,7 @@
 
 ## 项目概述
 
-前后端分离的智能农业物联网系统。ESP32 设备通过 MQTT 上报传感器数据，后端接收并持久化，通过 WebSocket 实时推送至前端。详细架构见 [CLAUDE.project.md](CLAUDE.project.md)。
+前后端分离的智能农业物联网系统。ESP8266 设备通过私有 MQTT TLS Broker 上报传感器数据，后端接收并持久化，通过鉴权 WebSocket 实时推送至前端。详细架构见 [CLAUDE.project.md](CLAUDE.project.md)。
 
 ## 子项目
 
@@ -10,7 +10,7 @@
 |------|------|--------|
 | Java 后端 | [java/](java/) | Spring Boot 2.7 + MQTT + WebSocket + JPA + MySQL + Redis |
 | Vue 前端 | [vue/IoT/](vue/IoT/) | Vue 3 + Element Plus + ECharts + WebSocket + axios |
-| Arduino 固件 | [arduino/](arduino/) | ESP32 + DHT11 + 水位传感器 + PubSubClient |
+| Arduino 固件 | [arduino/](arduino/) | ESP8266 + DHT11 + 水位传感器 + PubSubClient + TLS |
 
 ## 工作规范
 
@@ -28,7 +28,7 @@ cd java && ./mvnw spring-boot:run        # → http://localhost:8080
 cd vue/IoT && npm install && npm run dev  # → http://localhost:5173
 
 # 3. Arduino 上传
-# 用 Arduino IDE 打开 arduino/MQTT/MQTT.ino → 修改WiFi配置 → 上传到ESP32
+# 复制 secrets.example.h 为 secrets.h，填写 Wi-Fi 与设备 MQTT 凭据后上传到 ESP8266
 ```
 
 ## 生产部署
