@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useDeviceStore } from '../stores/device'
+import { getDeviceStatusDistribution } from '../api/dashboard'
 import GaugeCard from '../components/charts/GaugeCard.vue'
 import TempHumChart from '../components/charts/TempHumChart.vue'
 import StatusPie from '../components/charts/StatusPie.vue'
@@ -12,33 +13,44 @@ const stats = ref({ deviceCount: 0, onlineCount: 0, avgTemp: '--', avgHum: '--',
 const pieData = ref([])
 const recentMessages = ref(0)
 
-// 加载历史数据 → 计算各项统计指标 → 填充图表
-onMounted(async () => {
-  await deviceStore.fetchHistory()
+// 加载服务端统计与历史数据并填充仪表盘
+async function loadDashboard() {
+  await Promise.all([deviceStore.fetchHistory(), deviceStore.fetchStats()])
   const history = deviceStore.dataPoints
+  const backendStats = deviceStore.stats
+
+  stats.value.deviceCount = backendStats.deviceCount ?? 0
+  stats.value.onlineCount = backendStats.onlineCount ?? 0
+  stats.value.avgTemp = Number.isFinite(backendStats.avgTemp) ? backendStats.avgTemp.toFixed(1) : '--'
+  stats.value.avgHum = Number.isFinite(backendStats.avgHum) ? backendStats.avgHum.toFixed(1) : '--'
 
   if (history.length) {
-    const temps = history.map((h) => h.temperature).filter(Boolean)
-    const hums = history.map((h) => h.humidity).filter(Boolean)
-    const waters = history.map((h) => h.water).filter(Boolean)
+    const waters = history.map((h) => h.water).filter(Number.isFinite)
 
-    // 计算平均值
-    stats.value.avgTemp = temps.length ? (temps.reduce((a, b) => a + b, 0) / temps.length).toFixed(1) : '--'
-    stats.value.avgHum = hums.length ? (hums.reduce((a, b) => a + b, 0) / hums.length).toFixed(1) : '--'
+    // 计算尚未由后端提供的辅助指标
     stats.value.avgWater = waters.length ? (waters.reduce((a, b) => a + b, 0) / waters.length).toFixed(1) : '--'
     stats.value.latestRssi = deviceStore.latest?.rssi ?? '--'
     stats.value.latestLinkage = deviceStore.latest?.linkage ?? null
-    stats.value.deviceCount = new Set(history.map((h) => h.deviceId || 'device001')).size
-    stats.value.onlineCount = stats.value.deviceCount
     recentMessages.value = history.reduce((sum, h) => sum + (h.sendCount || 0), 0)
   }
 
-  // 饼图数据
-  pieData.value = [
-    { value: stats.value.onlineCount, name: '在线', itemStyle: { color: '#10b981' } },
-    { value: stats.value.deviceCount - stats.value.onlineCount, name: '离线', itemStyle: { color: '#ef4444' } },
-  ]
-})
+  try {
+    const distribution = await getDeviceStatusDistribution()
+    pieData.value = distribution.map((item) => ({
+      ...item,
+      itemStyle: { color: item.name === '在线' ? '#10b981' : '#ef4444' },
+    }))
+  } catch {
+    // 状态分布接口异常时使用统计接口结果降级展示
+    pieData.value = [
+      { value: stats.value.onlineCount, name: '在线', itemStyle: { color: '#10b981' } },
+      { value: stats.value.deviceCount - stats.value.onlineCount, name: '离线', itemStyle: { color: '#ef4444' } },
+    ]
+  }
+}
+
+// 页面挂载时加载仪表盘数据
+onMounted(loadDashboard)
 </script>
 
 <template>

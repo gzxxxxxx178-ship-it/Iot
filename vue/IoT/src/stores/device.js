@@ -32,8 +32,8 @@ export const useDeviceStore = defineStore('device', () => {
 
   // ==================== Getters ====================
 
-  /** 在线设备数 */
-  const onlineCount = computed(() => devices.value.filter((d) => d.linkage).length)
+  /** 在线设备数（由后端依据最后上报时间计算） */
+  const onlineCount = computed(() => stats.value.onlineCount || 0)
 
   /** 时间标签序列（图表用） */
   const timeLabels = computed(() => dataPoints.value.map((p) => p.time))

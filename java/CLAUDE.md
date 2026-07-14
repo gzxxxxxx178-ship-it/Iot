@@ -35,11 +35,11 @@ cd java && ./mvnw spring-boot:run
 ```
 IoTSystemApplication.java         # Spring Boot 入口，main()
 ├── config/                       # 配置 & 基础设施 (12 文件)
-├── controller/                   # REST 控制器 (6 文件)
-├── service/                      # 业务逻辑 (5 文件)
+├── controller/                   # REST 控制器 (7 文件)
+├── service/                      # 业务逻辑 (6 文件)
 ├── entity/                       # JPA 实体 (4 文件)
 ├── repository/                   # 数据访问 (4 文件)
-└── dto/                          # 数据传输对象 (5 文件)
+└── dto/                          # 数据传输对象 (7 文件)
 ```
 
 ---
@@ -100,6 +100,17 @@ IoTSystemApplication.java         # Spring Boot 入口，main()
 | `/esp/history/range` | GET | 按时间范围查询。参数: `start`, `end` (ISO 格式) |
 | `/esp/devices` | GET | 所有设备的汇总信息（每个设备的最新读数） |
 
+### 仪表盘统计
+
+**DashboardController.java** — `@RestController` `/api/dashboard`
+
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/api/dashboard/stats` | GET | 返回设备总数、在线数及在线设备最新温湿度平均值 |
+| `/api/dashboard/device-status` | GET | 返回在线与离线设备数量分布 |
+
+在线设备默认定义为最近 30 秒内收到数据，可通过 `dashboard.device-online-timeout-seconds` 调整。平均温湿度只聚合在线设备的最新读数。
+
 ### 设备控制
 
 **DeviceControlController.java** — `@RestController` `/api/device`
@@ -148,6 +159,7 @@ IoTSystemApplication.java         # Spring Boot 入口，main()
 |------|------|
 | `MqttMessageService.java` | **MQTT 核心服务**。实现 MqttCallback，订阅 `agri/device001/data`。支持 JSON 和纯文本（正则提取）两种格式。数据解析后 → JPA 保存 → WebSocket 广播。publish() 方法发布控制指令 |
 | `EspService.java` | 传感器数据服务。saveData / getRecentData / processDataAndGenerateResponse |
+| `DashboardService.java` | 仪表盘统计服务。依据最后上报时间判断在线状态，聚合在线设备最新温湿度并生成状态分布 |
 | `UserService.java` | 用户服务，实现 UserDetailsService。register: 验重→BCrypt 加密→保存→生成 JWT。login: AuthenticationManager 认证→生成 JWT。loadUserByUsername: OAuth 用户密码 null 时用空串兜底 |
 | `RedisService.java` | Redis 字符串 KV 操作: set / get / delete / exists + 过期时间支持 |
 | `AlipayService.java` | 支付宝支付服务。createOrder: 生成订单号→保存DB→调用 alipay.trade.precreate→返回二维码。queryOrder: 查支付宝→更新DB。handleNotify: 验签→更新订单。用 @PostConstruct 初始化 AlipayClient |
@@ -173,7 +185,7 @@ IoTSystemApplication.java         # Spring Boot 入口，main()
 
 | 文件 | 自定义方法 |
 |------|------------|
-| `EspRepository.java` | findTop20ByOrderByServerReceivedTimeDesc / findByServerReceivedTimeBetween / findDistinctDeviceIds / findLatestByDeviceId |
+| `EspRepository.java` | findTop20ByOrderByServerReceivedTimeDesc / findByServerReceivedTimeBetween / findDistinctDeviceIds / findLatestByDeviceId / findFirstByDeviceIdOrderByServerReceivedTimeDesc |
 | `UserRepository.java` | findByUsername / existsByUsername / findByProviderAndProviderId |
 | `ChatMessageRepository.java` | findBySessionIdOrderByCreatedTimeAsc / deleteBySessionId |
 | `PaymentOrderRepository.java` | findByOutTradeNo |
@@ -189,6 +201,8 @@ IoTSystemApplication.java         # Spring Boot 入口，main()
 | `LoginRequest.java` | username, password |
 | `RegisterRequest.java` | username, password |
 | `ChatRequest.java` | sessionId, messages (List<Map<String,String>>) |
+| `DashboardStatsResponse.java` | deviceCount, onlineCount, avgTemp, avgHum |
+| `DeviceStatusResponse.java` | name, value |
 
 ### 统一响应格式
 
@@ -201,7 +215,7 @@ IoTSystemApplication.java         # Spring Boot 入口，main()
 | 401 | 认证失败（用户名密码错误、Token 过期） |
 | 500 | 服务器内部错误 |
 
-前端 axios 响应拦截器自动解包 `data` 字段，因此 API 函数中的 `.then(r => r.data)` 得到的是解包后的业务数据，无需关心 `code`/`message` 包装。
+前端 axios 响应拦截器自动解包 `data` 字段，因此 API 函数应直接返回 `request.get/post/...`，不得再次访问 `res.data`。
 
 ---
 
