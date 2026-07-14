@@ -21,6 +21,7 @@ class EspServiceTest {
     @Mock private EspRepository espRepository;
     @Mock private AlarmService alarmService;
     @Mock private AutomationService automationService;
+    @Mock private DeviceService deviceService;
 
     @InjectMocks
     private EspService espService;
@@ -43,6 +44,7 @@ class EspServiceTest {
         assertEquals(25.5, result.getTemperature());
         assertEquals(65.0, result.getHumidity());
         assertTrue(result.getQualityValid());
+        verify(deviceService).ensureTelemetryAllowed("device001");
         verify(espRepository).save(input);
         verify(alarmService).evaluate(saved);
         verify(automationService).evaluate(saved);

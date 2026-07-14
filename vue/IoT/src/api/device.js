@@ -10,9 +10,29 @@ export function getHistoryData() {
   return request.get('/esp/history')
 }
 
-// 获取设备列表：GET /esp/devices，返回所有设备最新读数汇总
-export function getDeviceList() {
-  return request.get('/esp/devices')
+// 获取设备档案与最新状态列表
+export function getDeviceList(params = {}) {
+  return request.get('/api/devices', { params })
+}
+
+// 注册新的设备档案
+export function createDevice(data) {
+  return request.post('/api/devices', data)
+}
+
+// 更新指定设备的可编辑档案
+export function updateDevice(deviceId, data) {
+  return request.put(`/api/devices/${encodeURIComponent(deviceId)}`, data)
+}
+
+// 将指定设备软删除为归档状态
+export function archiveDevice(deviceId) {
+  return request.delete(`/api/devices/${encodeURIComponent(deviceId)}`)
+}
+
+// 恢复已经归档的设备档案
+export function restoreDevice(deviceId) {
+  return request.post(`/api/devices/${encodeURIComponent(deviceId)}/restore`)
 }
 
 // 按时间范围查询传感器历史：GET /esp/history/range?start=xxx&end=xxx

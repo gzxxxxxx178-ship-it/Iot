@@ -18,13 +18,15 @@ public class EspService {
     private final EspRepository espRepository;
     private final AlarmService alarmService;
     private final AutomationService automationService;
+    private final DeviceService deviceService;
 
-    // 注入传感器数据仓库、报警评估和自动化执行服务
+    // 注入传感器数据仓库、设备档案、报警评估和自动化执行服务
     public EspService(EspRepository espRepository, AlarmService alarmService,
-            AutomationService automationService) {
+            AutomationService automationService, DeviceService deviceService) {
         this.espRepository = espRepository;
         this.alarmService = alarmService;
         this.automationService = automationService;
+        this.deviceService = deviceService;
     }
 
     /**
@@ -34,6 +36,7 @@ public class EspService {
      * @return 保存后的实体对象
      */
     public EspEntity saveData(EspEntity espEntity) {
+        deviceService.ensureTelemetryAllowed(espEntity.getDeviceId());
         if (espEntity.getServerReceivedTime() == null) {
             espEntity.setServerReceivedTime(LocalDateTime.now());
         }

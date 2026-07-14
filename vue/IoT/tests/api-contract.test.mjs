@@ -36,3 +36,14 @@ test('历史数据CSV导出使用Blob响应且不依赖当前分页', () => {
   assert.match(viewSource, /start:\s*toLocalIsoString\(dateRange\.value\[0\]\)/)
   assert.doesNotMatch(viewSource, /tableData\.value\.map\([^)]*CSV/)
 })
+
+// 验证设备管理使用独立档案接口并以归档替代历史数据物理删除
+test('设备管理具备注册编辑归档恢复接口', () => {
+  const apiSource = readFileSync(resolve(projectRoot, 'src/api/device.js'), 'utf8')
+  const viewSource = readFileSync(resolve(projectRoot, 'src/views/DeviceList.vue'), 'utf8')
+  assert.match(apiSource, /request\.post\(['"]\/api\/devices['"],\s*data\)/)
+  assert.match(apiSource, /request\.put\(`\/api\/devices\/\$\{encodeURIComponent\(deviceId\)\}`/)
+  assert.match(apiSource, /request\.delete\(`\/api\/devices\/\$\{encodeURIComponent\(deviceId\)\}`/)
+  assert.match(apiSource, /\/restore`/)
+  assert.match(viewSource, /历史数据会继续保留/)
+})

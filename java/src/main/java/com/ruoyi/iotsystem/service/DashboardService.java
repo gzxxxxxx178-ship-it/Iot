@@ -1,51 +1,41 @@
 package com.ruoyi.iotsystem.service;
 
 import com.ruoyi.iotsystem.dto.DashboardStatsResponse;
+import com.ruoyi.iotsystem.dto.DeviceResponse;
 import com.ruoyi.iotsystem.dto.DeviceStatusResponse;
-import com.ruoyi.iotsystem.entity.EspEntity;
-import com.ruoyi.iotsystem.repository.EspRepository;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import java.util.function.Function;
 
 @Service
 public class DashboardService {
 
-    private final EspRepository espRepository;
-    private final long onlineTimeoutSeconds;
+    private final DeviceService deviceService;
 
-    // 注入传感器仓库和可配置的设备在线超时阈值
-    public DashboardService(
-            EspRepository espRepository,
-            @Value("${dashboard.device-online-timeout-seconds:30}") long onlineTimeoutSeconds) {
-        this.espRepository = espRepository;
-        this.onlineTimeoutSeconds = onlineTimeoutSeconds;
+    // 注入统一设备档案与在线状态服务
+    public DashboardService(DeviceService deviceService) {
+        this.deviceService = deviceService;
     }
 
     // 统计设备总数、在线数及在线设备最新温湿度平均值
     public DashboardStatsResponse getStats() {
-        List<String> deviceIds = espRepository.findDistinctDeviceIds();
-        List<EspEntity> latestReadings = findLatestReadings(deviceIds);
-        LocalDateTime onlineThreshold = LocalDateTime.now().minusSeconds(onlineTimeoutSeconds);
-        List<EspEntity> onlineReadings = new ArrayList<>();
+        List<DeviceResponse> devices = deviceService.listDevices(false);
+        List<DeviceResponse> onlineDevices = new ArrayList<>();
 
-        for (EspEntity reading : latestReadings) {
-            if (isOnline(reading, onlineThreshold)) {
-                onlineReadings.add(reading);
+        for (DeviceResponse device : devices) {
+            if ("online".equals(device.getStatus())) {
+                onlineDevices.add(device);
             }
         }
 
         return new DashboardStatsResponse(
-                deviceIds.size(),
-                onlineReadings.size(),
-                calculateAverage(onlineReadings, EspEntity::getTemperature),
-                calculateAverage(onlineReadings, EspEntity::getHumidity));
+                devices.size(),
+                onlineDevices.size(),
+                calculateAverage(onlineDevices, DeviceResponse::getTemperature),
+                calculateAverage(onlineDevices, DeviceResponse::getHumidity));
     }
 
     // 获取在线和离线设备数量分布
@@ -56,33 +46,17 @@ public class DashboardService {
                 new DeviceStatusResponse("离线", stats.getDeviceCount() - stats.getOnlineCount()));
     }
 
-    // 查询每个设备最新的一条传感器读数
-    private List<EspEntity> findLatestReadings(List<String> deviceIds) {
-        List<EspEntity> latestReadings = new ArrayList<>();
-        for (String deviceId : deviceIds) {
-            Optional<EspEntity> latest = espRepository.findFirstByDeviceIdOrderByServerReceivedTimeDesc(deviceId);
-            if (latest.isPresent()) {
-                latestReadings.add(latest.get());
-            }
-        }
-        return latestReadings;
-    }
-
-    // 根据服务端最近接收时间判断设备是否在线
-    private boolean isOnline(EspEntity reading, LocalDateTime onlineThreshold) {
-        return reading.getServerReceivedTime() != null
-                && !reading.getServerReceivedTime().isBefore(onlineThreshold);
-    }
-
     // 计算有效传感器字段的算术平均值并保留一位小数
-    private Double calculateAverage(List<EspEntity> readings, Function<EspEntity, Double> valueExtractor) {
+    private Double calculateAverage(
+            List<DeviceResponse> devices,
+            Function<DeviceResponse, Double> valueExtractor) {
         double sum = 0.0;
         int count = 0;
-        for (EspEntity reading : readings) {
-            if (Boolean.FALSE.equals(reading.getQualityValid())) {
+        for (DeviceResponse device : devices) {
+            if (Boolean.FALSE.equals(device.getQualityValid())) {
                 continue;
             }
-            Double value = valueExtractor.apply(reading);
+            Double value = valueExtractor.apply(device);
             if (value != null && Double.isFinite(value)) {
                 sum += value;
                 count++;

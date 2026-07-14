@@ -1,6 +1,7 @@
 package com.ruoyi.iotsystem.controller;
 
 import com.ruoyi.iotsystem.service.MqttMessageService;
+import com.ruoyi.iotsystem.service.DeviceService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,13 +20,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class DeviceControlControllerTest {
 
     @Mock private MqttMessageService mqttMessageService;
+    @Mock private DeviceService deviceService;
     private MockMvc mockMvc;
 
     // 创建仅包含设备控制器的MockMvc环境
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders.standaloneSetup(
-                new DeviceControlController(mqttMessageService)).build();
+                new DeviceControlController(mqttMessageService, deviceService)).build();
     }
 
     // 验证合法指令由服务端拼接设备级Topic并发布
@@ -37,6 +39,7 @@ class DeviceControlControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
 
+        verify(deviceService).assertControllable("device001");
         verify(mqttMessageService).publishControl("device001", "start");
     }
 
