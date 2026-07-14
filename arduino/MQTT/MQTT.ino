@@ -1,12 +1,9 @@
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 #include <DHT.h>
+#include "secrets.h"
 
-/* ================= WiFi 配置 ================= */
-// const char* ssid = "HUAPPLE 17 Pro Max 1TB";   // ← 改成你的WiFi名
-// const char* password = "51522zzwlwlbb";          // ← 改成你的WiFi密码
-const char* ssid = "WIFI机";   // ← 改成你的WiFi名
-const char* password = "51522zzwlwlbb";          // ← 改成你的WiFi密码
+/* WiFi 凭据由本地 secrets.h 提供，该文件不会提交到 Git */
 
 /* ================= MQTT 配置 ================= */
 const char* mqtt_server = "broker.emqx.io";
