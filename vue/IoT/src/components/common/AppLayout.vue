@@ -15,9 +15,9 @@ import TopBar from './TopBar.vue'
       </header>
       <main class="layout-main">
         <!-- 路由视图，fade 过渡动画 -->
-        <router-view v-slot="{ Component }">
+        <router-view v-slot="{ Component, route }">
           <transition name="fade" mode="out-in">
-            <component :is="Component" />
+            <component :is="Component" :key="route.fullPath" />
           </transition>
         </router-view>
       </main>
