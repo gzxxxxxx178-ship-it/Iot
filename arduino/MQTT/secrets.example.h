@@ -4,5 +4,7 @@
 // 复制本文件为 secrets.h，并填写设备实际连接的 Wi-Fi 信息。
 const char* ssid = "YOUR_WIFI_SSID";
 const char* password = "YOUR_WIFI_PASSWORD";
+const char* mqtt_username = "device001";
+const char* mqtt_password = "YOUR_DEVICE_MQTT_PASSWORD";
 
 #endif

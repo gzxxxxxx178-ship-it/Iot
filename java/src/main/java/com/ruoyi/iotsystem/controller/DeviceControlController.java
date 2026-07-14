@@ -1,34 +1,35 @@
 package com.ruoyi.iotsystem.controller;
 
 import com.ruoyi.iotsystem.dto.ApiResponse;
+import com.ruoyi.iotsystem.dto.DeviceControlRequest;
 import com.ruoyi.iotsystem.service.MqttMessageService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Map;
+import javax.validation.Valid;
 
-@Tag(name = "设备控制", description = "向 ESP32 设备发送启停控制指令（通过 MQTT）")
+@Tag(name = "设备控制", description = "通过设备级MQTT Topic发送控制指令")
 @RestController
 @RequestMapping("/api/device")
-@CrossOrigin(origins = "*")
 public class DeviceControlController {
 
-    @Autowired
-    private MqttMessageService mqttMessageService;
+    private final MqttMessageService mqttMessageService;
 
-    @Operation(summary = "发送控制指令", description = "向 MQTT 主题 agri/device001/control 发布 start 或 stop 指令，ESP32 订阅后执行")
+    // 注入MQTT消息服务
+    public DeviceControlController(MqttMessageService mqttMessageService) {
+        this.mqttMessageService = mqttMessageService;
+    }
+
+    // 向经过校验的目标设备发送控制指令
+    @Operation(summary = "发送设备控制指令")
     @PostMapping("/control")
-    public ApiResponse<String> controlDevice(@RequestBody Map<String, String> payload) {
-        String command = payload.get("command");
-        if (command == null || (!command.equalsIgnoreCase("start") && !command.equalsIgnoreCase("stop"))) {
-            return ApiResponse.fail("无效指令，请使用 'start' 或 'stop'");
-        }
-
-        String topic = "agri/device001/control";
-        mqttMessageService.publish(topic, command);
-
-        return ApiResponse.success("指令 '" + command + "' 已成功发送到 " + topic);
+    public ApiResponse<String> controlDevice(@Valid @RequestBody DeviceControlRequest request) {
+        mqttMessageService.publishControl(request.getDeviceId(), request.getCommand());
+        return ApiResponse.success(
+                "指令 '" + request.getCommand() + "' 已发送到设备 " + request.getDeviceId());
     }
 }

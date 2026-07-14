@@ -1,0 +1,12 @@
+# Java 后端：读取所有设备数据/状态，只向设备控制主题发布。
+user iot_backend
+topic read agri/+/data
+topic read agri/+/status
+topic write agri/+/control
+topic write agri/backend/status
+
+# device001：只能发布自身数据/状态并订阅自身控制主题。
+user device001
+topic write agri/device001/data
+topic write agri/device001/status
+topic read agri/device001/control

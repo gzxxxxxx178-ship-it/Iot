@@ -1,8 +1,8 @@
 import request from './request'
 
-// 设备控制：POST /api/device/control，发送 start/stop 命令
-export function controlDevice(command) {
-  return request.post('/api/device/control', { command })
+// 设备控制：向指定设备发送start/stop/read/status命令
+export function controlDevice(command, deviceId = 'device001') {
+  return request.post('/api/device/control', { command, deviceId })
 }
 
 // 获取最近传感器数据：GET /esp/history，返回最近 20 条记录

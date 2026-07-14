@@ -11,6 +11,9 @@
 	} from '@element-plus/icons-vue'
 
 	const emit = defineEmits(['command-sent'])
+	const props = defineProps({
+		deviceId: { type: String, default: 'device001' },
+	})
 	const status = ref('')
 	const loading = ref(false)
 
@@ -20,7 +23,7 @@
 		loading.value = true
 		status.value = `正在发送 ${label} 指令...`
 		try {
-			await controlDevice(cmd)
+			await controlDevice(cmd, props.deviceId)
 			status.value = `${label} 指令已发送`
 			emit('command-sent', cmd)
 		} catch (e) {
