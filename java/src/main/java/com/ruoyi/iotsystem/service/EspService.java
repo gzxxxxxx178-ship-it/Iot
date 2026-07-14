@@ -4,16 +4,23 @@ import com.ruoyi.iotsystem.entity.EspEntity;
 import com.ruoyi.iotsystem.repository.EspRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
 
 @Service
 public class EspService {
 
     private static final Logger logger = LoggerFactory.getLogger(EspService.class);
 
-    @Autowired
-    private EspRepository espRepository;
+    private final EspRepository espRepository;
+    private final AlarmService alarmService;
+
+    // 注入传感器数据仓库和报警评估服务
+    public EspService(EspRepository espRepository, AlarmService alarmService) {
+        this.espRepository = espRepository;
+        this.alarmService = alarmService;
+    }
 
     /**
      * 保存ESP设备数据到数据库
@@ -22,6 +29,9 @@ public class EspService {
      * @return 保存后的实体对象
      */
     public EspEntity saveData(EspEntity espEntity) {
+        if (espEntity.getServerReceivedTime() == null) {
+            espEntity.setServerReceivedTime(LocalDateTime.now());
+        }
         logger.info(
                 "Saving ESP data to database: DeviceId={}, Temperature={}, Humidity={}, Water={}, Linkage={}, SendCount={}, Rssi={}, Timestamp={}",
                 espEntity.getDeviceId(), espEntity.getTemperature(), espEntity.getHumidity(),
@@ -31,6 +41,12 @@ public class EspService {
         EspEntity savedEntity = espRepository.save(espEntity);
 
         logger.info("Successfully saved ESP data with ID: {}", savedEntity.getId());
+
+        try {
+            alarmService.evaluate(savedEntity);
+        } catch (Exception e) {
+            logger.warn("Alarm evaluation failed for device {}: {}", savedEntity.getDeviceId(), e.getMessage());
+        }
 
         return savedEntity;
     }

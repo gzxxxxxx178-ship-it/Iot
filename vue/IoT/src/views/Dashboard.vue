@@ -64,7 +64,7 @@ onMounted(loadDashboard)
     <div class="gauge-grid">
       <GaugeCard label="平均温度" :value="stats.avgTemp" unit="°C" color="var(--color-green)" />
       <GaugeCard label="平均湿度" :value="stats.avgHum" unit="%" color="var(--color-blue)" />
-      <GaugeCard label="平均水位" :value="stats.avgWater" unit="cm" color="var(--color-yellow)" />
+      <GaugeCard label="平均水位" :value="stats.avgWater" unit="ADC" color="var(--color-yellow)" />
       <GaugeCard label="信号强度" :value="stats.latestRssi" unit="dBm" color="var(--color-purple)" />
     </div>
 

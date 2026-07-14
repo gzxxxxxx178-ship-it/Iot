@@ -19,6 +19,7 @@ import static org.mockito.Mockito.*;
 class EspServiceTest {
 
     @Mock private EspRepository espRepository;
+    @Mock private AlarmService alarmService;
 
     @InjectMocks
     private EspService espService;
@@ -41,6 +42,7 @@ class EspServiceTest {
         assertEquals(25.5, result.getTemperature());
         assertEquals(65.0, result.getHumidity());
         verify(espRepository).save(input);
+        verify(alarmService).evaluate(saved);
     }
 
     // ==================== 数据处理和响应生成测试 ====================

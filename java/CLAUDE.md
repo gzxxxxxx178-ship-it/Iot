@@ -35,11 +35,11 @@ cd java && ./mvnw spring-boot:run
 ```
 IoTSystemApplication.java         # Spring Boot 入口，main()
 ├── config/                       # 配置 & 基础设施 (12 文件)
-├── controller/                   # REST 控制器 (7 文件)
-├── service/                      # 业务逻辑 (6 文件)
-├── entity/                       # JPA 实体 (4 文件)
-├── repository/                   # 数据访问 (4 文件)
-└── dto/                          # 数据传输对象 (7 文件)
+├── controller/                   # REST 控制器 (8 文件)
+├── service/                      # 业务逻辑 (7 文件)
+├── entity/                       # JPA 实体 (6 文件)
+├── repository/                   # 数据访问 (6 文件)
+└── dto/                          # 数据传输对象 (8 文件)
 ```
 
 ---
@@ -111,6 +111,20 @@ IoTSystemApplication.java         # Spring Boot 入口，main()
 
 在线设备默认定义为最近 30 秒内收到数据，可通过 `dashboard.device-online-timeout-seconds` 调整。平均温湿度只聚合在线设备的最新读数。
 
+### 报警规则与记录
+
+**AlarmController.java** — `@RestController` `/api/alarm`
+
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/api/alarm/rules` | GET | 查询全部报警规则 |
+| `/api/alarm/rules` | POST | 创建报警规则 |
+| `/api/alarm/rules/{id}` | PUT | 更新指定报警规则 |
+| `/api/alarm/rules/{id}` | DELETE | 删除指定报警规则 |
+| `/api/alarm/records` | GET | 查询最近 100 条报警记录，或通过 `start`、`end` 查询时间范围 |
+
+指标支持温度 `temperature`（℃）、湿度 `humidity`（%）和水位 `water`（原始 ADC 值）；比较运算支持 `gt`、`lt`、`eq`。设备范围使用 `*` 表示全部设备，也可指定设备编号。重复报警冷却时间默认 300 秒，允许范围为 0–86400 秒。
+
 ### 设备控制
 
 **DeviceControlController.java** — `@RestController` `/api/device`
@@ -158,8 +172,9 @@ IoTSystemApplication.java         # Spring Boot 入口，main()
 | 文件 | 说明 |
 |------|------|
 | `MqttMessageService.java` | **MQTT 核心服务**。实现 MqttCallback，订阅 `agri/device001/data`。支持 JSON 和纯文本（正则提取）两种格式。数据解析后 → JPA 保存 → WebSocket 广播。publish() 方法发布控制指令 |
-| `EspService.java` | 传感器数据服务。saveData / getRecentData / processDataAndGenerateResponse |
+| `EspService.java` | 传感器数据服务。保存读数后触发报警求值；报警求值失败不会阻断传感器数据持久化 |
 | `DashboardService.java` | 仪表盘统计服务。依据最后上报时间判断在线状态，聚合在线设备最新温湿度并生成状态分布 |
+| `AlarmService.java` | 报警规则增删改查、阈值与冷却时间校验、设备范围匹配、越限判断和报警记录生成 |
 | `UserService.java` | 用户服务，实现 UserDetailsService。register: 验重→BCrypt 加密→保存→生成 JWT。login: AuthenticationManager 认证→生成 JWT。loadUserByUsername: OAuth 用户密码 null 时用空串兜底 |
 | `RedisService.java` | Redis 字符串 KV 操作: set / get / delete / exists + 过期时间支持 |
 | `AlipayService.java` | 支付宝支付服务。createOrder: 生成订单号→保存DB→调用 alipay.trade.precreate→返回二维码。queryOrder: 查支付宝→更新DB。handleNotify: 验签→更新订单。用 @PostConstruct 初始化 AlipayClient |
@@ -174,6 +189,8 @@ IoTSystemApplication.java         # Spring Boot 入口，main()
 | `UserEntity.java` | `users` | id, username (唯一), password (可空), email (可空), avatar (可空), provider (LOCAL/GOOGLE), providerId (可空), createdAt |
 | `ChatMessageEntity.java` | `chat_messages` | id, sessionId, role (user/assistant), content (TEXT), createdTime |
 | `PaymentOrderEntity.java` | `payment_orders` | id, outTradeNo (唯一), username, amount (BigDecimal), subject, status (PENDING/SUCCESS/CLOSED), tradeNo (可空), createdAt, paidAt (可空) |
+| `AlarmRuleEntity.java` | `alarm_rules` | id, metric, operator, threshold, enabled, deviceId, cooldownSeconds, createdAt, updatedAt |
+| `AlarmRecordEntity.java` | `alarm_records` | id, ruleId, deviceId, metric, operator, threshold, actualValue, message, createdAt |
 
 **UserEntity 两个构造函数:**
 - `(username, password)` → 本地注册，provider="LOCAL"
@@ -189,6 +206,8 @@ IoTSystemApplication.java         # Spring Boot 入口，main()
 | `UserRepository.java` | findByUsername / existsByUsername / findByProviderAndProviderId |
 | `ChatMessageRepository.java` | findBySessionIdOrderByCreatedTimeAsc / deleteBySessionId |
 | `PaymentOrderRepository.java` | findByOutTradeNo |
+| `AlarmRuleRepository.java` | findByEnabledTrueOrderByIdAsc / findAllByOrderByIdDesc |
+| `AlarmRecordRepository.java` | findTop100ByOrderByCreatedAtDesc / findByCreatedAtBetweenOrderByCreatedAtDesc / findFirstByRuleIdAndDeviceIdOrderByCreatedAtDesc |
 
 ---
 
@@ -203,6 +222,7 @@ IoTSystemApplication.java         # Spring Boot 入口，main()
 | `ChatRequest.java` | sessionId, messages (List<Map<String,String>>) |
 | `DashboardStatsResponse.java` | deviceCount, onlineCount, avgTemp, avgHum |
 | `DeviceStatusResponse.java` | name, value |
+| `AlarmRuleRequest.java` | metric, operator, threshold, enabled, deviceId, cooldownSeconds；包含格式和数值范围校验 |
 
 ### 统一响应格式
 
@@ -266,6 +286,7 @@ deepseek.api.key=占位符-由profile覆盖
 ```
 ESP32/ESP8266 → MQTT(agri/device001/data) → MqttMessageService.messageArrived()
   → 解析 JSON/纯文本 → EspService.saveData() → MySQL(esp_data)
+  → AlarmService.evaluate() → 规则匹配与冷却判断 → MySQL(alarm_records)
   → SensorWebSocketHandler.broadcast() → Vue 前端实时更新
 ```
 
@@ -332,8 +353,8 @@ Pay.vue → POST /api/alipay/create {amount, subject}
 
 | 层级 | 框架 | 覆盖范围 |
 |------|------|----------|
-| Service 单元测试 | JUnit 5 + Mockito (`@ExtendWith(MockitoExtension.class)`) | UserService, EspService |
-| Controller 接口测试 | JUnit 5 + MockMvc (`@WebMvcTest` + `@AutoConfigureMockMvc`) | AuthController REST 端点 |
+| Service 单元测试 | JUnit 5 + Mockito (`@ExtendWith(MockitoExtension.class)`) | UserService, EspService, DashboardService, AlarmService |
+| Controller 接口测试 | JUnit 5 + MockMvc (`@WebMvcTest` + `@AutoConfigureMockMvc`) | AuthController、DashboardController、AlarmController REST 端点 |
 
 ### 现有测试文件
 
@@ -341,7 +362,11 @@ Pay.vue → POST /api/alipay/create {amount, subject}
 |------|--------|------|
 | `UserServiceTest.java` | 7 | 注册成功/重复、登录成功/失败、用户查询/不存在 |
 | `EspServiceTest.java` | 4 | 传感器保存、JSON响应生成成功/失败、历史查询 |
+| `DashboardServiceTest.java` | 3 | 空数据、多设备在线状态和统计口径 |
+| `AlarmServiceTest.java` | 7 | 规则创建/更新校验、越限触发、冷却抑制、设备范围和时间参数 |
 | `AuthControllerTest.java` | 8 | 登录 200/401/校验失败、注册 200/400/校验失败、/me 认证/未认证 |
+| `DashboardControllerTest.java` | 2 | 仪表盘统计与设备状态接口 |
+| `AlarmControllerTest.java` | 5 | 规则查询/创建/更新/删除与记录查询接口 |
 | `IoTSystemApplicationTests.java` | 1 | Spring 上下文加载 |
 
 ### 运行

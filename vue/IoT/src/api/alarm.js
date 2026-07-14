@@ -10,6 +10,11 @@ export function saveAlarmRule(data) {
   return request.post('/api/alarm/rules', data)
 }
 
+// 更新报警规则：PUT /api/alarm/rules/:id
+export function updateAlarmRule(id, data) {
+  return request.put(`/api/alarm/rules/${id}`, data)
+}
+
 // 删除报警规则：DELETE /api/alarm/rules/:id
 export function deleteAlarmRule(id) {
   return request.delete(`/api/alarm/rules/${id}`)
