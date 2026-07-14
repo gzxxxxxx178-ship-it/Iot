@@ -6,7 +6,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
@@ -33,12 +32,6 @@ public class SecurityConfig {
     @Autowired
     private OAuth2FailureHandler oAuth2FailureHandler;
 
-    // WebSocket端点绕过Spring Security过滤器链
-    @Bean
-    public WebSecurityCustomizer webSecurityCustomizer() {
-        return (web) -> web.ignoring().antMatchers("/ws/**");
-    }
-
     // 主安全过滤器链：CORS、CSRF、Session、公开/保护路径、OAuth2、JWT过滤器
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -58,6 +51,8 @@ public class SecurityConfig {
                 .authorizeRequests()
                 .antMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .antMatchers("/api/auth/**", "/login/oauth2/**", "/oauth2/**", "/api/alipay/notify").permitAll()
+                // WebSocket HTTP升级请求进入过滤器链，实际鉴权由一次性票据握手拦截器执行
+                .antMatchers("/ws/**").permitAll()
                 // Swagger UI & API docs (开发/测试用)
                 .antMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-resources/**", "/webjars/**").permitAll()
                 .anyRequest().authenticated()

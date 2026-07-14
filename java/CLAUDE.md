@@ -34,12 +34,12 @@ cd java && ./mvnw spring-boot:run
 
 ```
 IoTSystemApplication.java         # Spring Boot 入口，main()
-├── config/                       # 配置 & 基础设施 (12 文件)
-├── controller/                   # REST 控制器 (8 文件)
-├── service/                      # 业务逻辑 (7 文件)
+├── config/                       # 配置 & 基础设施 (13 文件)
+├── controller/                   # REST 控制器 (9 文件)
+├── service/                      # 业务逻辑 (8 文件)
 ├── entity/                       # JPA 实体 (6 文件)
 ├── repository/                   # 数据访问 (6 文件)
-└── dto/                          # 数据传输对象 (8 文件)
+└── dto/                          # 数据传输对象 (9 文件)
 ```
 
 ---
@@ -50,7 +50,7 @@ IoTSystemApplication.java         # Spring Boot 入口，main()
 
 | 文件 | 说明 |
 |------|------|
-| `SecurityConfig.java` | Spring Security 主配置。STATELESS → IF_REQUIRED (OAuth2 需要 Session)。CSRF 关闭。CORS 全放行。公开: `/api/auth/**`, `/login/oauth2/**`, `/oauth2/**`, OPTIONS。其他全部需认证。401 返回 JSON。注册 OAuth2 登录 + JWT 过滤器 |
+| `SecurityConfig.java` | Spring Security 主配置。STATELESS → IF_REQUIRED (OAuth2 需要 Session)。CSRF 关闭。WebSocket升级请求不再绕过过滤器链；`/ws/**` 的最终鉴权由一次性票据握手拦截器执行。其他受保护接口使用 JWT |
 | `AppConfig.java` | 独立的 PasswordEncoder + AuthenticationManager Bean。与 SecurityConfig 分离以打破循环依赖 |
 | `JwtAuthenticationFilter.java` | OncePerRequestFilter，提取 `Bearer <token>` → 解析 username → loadUserByUsername → 设置 SecurityContext。异常静默放行 |
 | `JwtUtil.java` | JWT 工具。HS256 签名，Base64 解码密钥，24h 过期。方法: generateToken / extractUsername / validateToken |
@@ -63,8 +63,9 @@ IoTSystemApplication.java         # Spring Boot 入口，main()
 | 文件 | 说明 |
 |------|------|
 | `MqttConfig.java` | MQTT 客户端 Bean。连接 `tcp://broker.emqx.io:1883`，clientId=`java_client_fixed` |
-| `WebSocketConfig.java` | 实现 WebSocketConfigurer，注册 `/ws/sensor` 端点，允许所有来源 |
-| `SensorWebSocketHandler.java` | TextWebSocketHandler，CopyOnWriteArrayList 维护连接池。broadcast(String) 向所有客户端推送 |
+| `WebSocketConfig.java` | 注册 `/ws/sensor`、握手鉴权拦截器和配置化来源白名单 |
+| `WebSocketAuthHandshakeInterceptor.java` | 先校验浏览器 Origin 白名单，再原子消费短期一次性票据；成功后将用户名写入会话属性 |
+| `SensorWebSocketHandler.java` | 拒绝缺少认证用户名的会话，使用 CopyOnWriteArrayList 维护连接池并广播传感器消息 |
 | `RedisConfig.java` | RedisTemplate<String, String> Bean，StringRedisSerializer 序列化 |
 
 ### 全局基础设施
@@ -87,6 +88,16 @@ IoTSystemApplication.java         # Spring Boot 入口，main()
 | `/api/auth/login` | POST | 用户名密码登录。Body: `{username, password}` → 返回 `ApiResponse<{token, username}>`。密码错误由全局异常处理器返回 401 |
 | `/api/auth/register` | POST | 用户注册。Body: `{username, password}` → 返回 `ApiResponse<{token, username}>`。用户名重复抛 RuntimeException → 全局异常处理器返回 400 |
 | `/api/auth/me` | GET | 获取当前用户信息。返回 `ApiResponse<{username, createdAt}>`。未登录返回 401 |
+
+### WebSocket认证
+
+**WebSocketTicketController.java** — `@RestController` `/api/ws`
+
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/api/ws/ticket` | POST | 当前JWT用户领取30秒有效、仅可消费一次的WebSocket握手票据 |
+
+浏览器连接 `/ws/sensor?ticket=<一次性票据>`。服务端要求请求 `Origin` 精确匹配 `websocket.allowed-origins`，缺失或非法来源返回 403，缺失、过期或重复使用票据返回 401。
 
 ### 传感器数据
 
@@ -175,6 +186,7 @@ IoTSystemApplication.java         # Spring Boot 入口，main()
 | `EspService.java` | 传感器数据服务。保存读数后触发报警求值；报警求值失败不会阻断传感器数据持久化 |
 | `DashboardService.java` | 仪表盘统计服务。依据最后上报时间判断在线状态，聚合在线设备最新温湿度并生成状态分布 |
 | `AlarmService.java` | 报警规则增删改查、阈值与冷却时间校验、设备范围匹配、越限判断和报警记录生成 |
+| `WebSocketTicketService.java` | 使用安全随机数签发内存态一次性票据，默认30秒过期，消费后立即删除 |
 | `UserService.java` | 用户服务，实现 UserDetailsService。register: 验重→BCrypt 加密→保存→生成 JWT。login: AuthenticationManager 认证→生成 JWT。loadUserByUsername: OAuth 用户密码 null 时用空串兜底 |
 | `RedisService.java` | Redis 字符串 KV 操作: set / get / delete / exists + 过期时间支持 |
 | `AlipayService.java` | 支付宝支付服务。createOrder: 生成订单号→保存DB→调用 alipay.trade.precreate→返回二维码。queryOrder: 查支付宝→更新DB。handleNotify: 验签→更新订单。用 @PostConstruct 初始化 AlipayClient |
@@ -223,6 +235,7 @@ IoTSystemApplication.java         # Spring Boot 入口，main()
 | `DashboardStatsResponse.java` | deviceCount, onlineCount, avgTemp, avgHum |
 | `DeviceStatusResponse.java` | name, value |
 | `AlarmRuleRequest.java` | metric, operator, threshold, enabled, deviceId, cooldownSeconds；包含格式和数值范围校验 |
+| `WebSocketTicketResponse.java` | ticket, expiresInSeconds |
 
 ### 统一响应格式
 
@@ -297,6 +310,13 @@ ESP32/ESP8266 → MQTT(agri/device001/data) → MqttMessageService.messageArrive
   → MQTT(agri/device001/control) → ESP32/ESP8266
 ```
 
+### WebSocket认证流
+```
+前端 axios(Bearer JWT) → POST /api/ws/ticket → 领取30秒一次性票据
+  → WebSocket /ws/sensor?ticket=... → Origin白名单校验 → 原子消费票据
+  → 建立连接；断线5秒后重新领取新票据并连接
+```
+
 ### 认证流 (本地)
 ```
 Login.vue → POST /api/auth/login → UserService.login()
@@ -353,8 +373,9 @@ Pay.vue → POST /api/alipay/create {amount, subject}
 
 | 层级 | 框架 | 覆盖范围 |
 |------|------|----------|
-| Service 单元测试 | JUnit 5 + Mockito (`@ExtendWith(MockitoExtension.class)`) | UserService, EspService, DashboardService, AlarmService |
-| Controller 接口测试 | JUnit 5 + MockMvc (`@WebMvcTest` + `@AutoConfigureMockMvc`) | AuthController、DashboardController、AlarmController REST 端点 |
+| Service 单元测试 | JUnit 5 + Mockito (`@ExtendWith(MockitoExtension.class)`) | UserService, EspService, DashboardService, AlarmService, WebSocketTicketService |
+| Controller 接口测试 | JUnit 5 + MockMvc | AuthController、DashboardController、AlarmController、WebSocketTicketController REST 端点 |
+| WebSocket安全测试 | JUnit 5 + Mockito | 来源白名单、缺失票据、有效票据和一次消费语义 |
 
 ### 现有测试文件
 
@@ -367,6 +388,9 @@ Pay.vue → POST /api/alipay/create {amount, subject}
 | `AuthControllerTest.java` | 8 | 登录 200/401/校验失败、注册 200/400/校验失败、/me 认证/未认证 |
 | `DashboardControllerTest.java` | 2 | 仪表盘统计与设备状态接口 |
 | `AlarmControllerTest.java` | 5 | 规则查询/创建/更新/删除与记录查询接口 |
+| `WebSocketTicketServiceTest.java` | 5 | 票据签发、一次消费、过期、用户名与有效期校验 |
+| `WebSocketAuthHandshakeInterceptorTest.java` | 5 | 合法握手、缺失/无效票据、非法来源和通配符配置拒绝 |
+| `WebSocketTicketControllerTest.java` | 1 | 当前认证用户领取统一格式票据 |
 | `IoTSystemApplicationTests.java` | 1 | Spring 上下文加载 |
 
 ### 运行
@@ -414,3 +438,4 @@ ssh root@<VPS_IP> "systemctl restart iot"
 - `spring.datasource.url`: TiDB Cloud 连接
 - `app.oauth2.redirect-uri`: Cloudflare Pages 地址（OAuth 成功后跳回前端）
 - `spring.security.oauth2.client.registration.google.redirect-uri`: nip.io 域名的 `/login/oauth2/code/google`（Google 回调走 HTTP，需要和 Google Console 注册的一致）
+- `websocket.allowed-origins`: Cloudflare Pages 前端完整来源；多个来源用英文逗号分隔，禁止使用 `*`

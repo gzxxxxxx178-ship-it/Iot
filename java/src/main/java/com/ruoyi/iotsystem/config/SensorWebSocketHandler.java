@@ -17,6 +17,10 @@ public class SensorWebSocketHandler extends TextWebSocketHandler {
     // WebSocket连接建立，加入会话池
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
+        if (session.getAttributes().get("authenticatedUsername") == null) {
+            session.close(CloseStatus.POLICY_VIOLATION);
+            return;
+        }
         sessions.add(session);
     }
 
