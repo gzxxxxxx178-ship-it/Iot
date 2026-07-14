@@ -197,7 +197,7 @@ onUnmounted(() => window.clearInterval(refreshTimer))
     </div>
 
     <el-card class="table-card" shadow="never">
-      <el-table v-loading="loading" :data="devices" stripe>
+      <el-table v-loading="loading" :data="devices" class="device-table">
         <el-table-column label="设备" min-width="180">
           <template #default="{ row }">
             <div class="device-title">
@@ -300,10 +300,37 @@ onUnmounted(() => window.clearInterval(refreshTimer))
 .page-header p { color: var(--text-secondary); margin: 0.25rem 0 0; font-size: 0.9rem; }
 .header-actions { display: flex; gap: 0.5rem; }
 .summary-grid { display: grid; grid-template-columns: repeat(4, minmax(150px, 1fr)); gap: 0.75rem; margin-bottom: 1rem; }
+.summary-grid :deep(.el-card) { background: #182438 !important; border-color: #2a394e !important; }
 .summary-grid :deep(.el-card__body) { display: flex; align-items: center; justify-content: space-between; }
 .summary-grid span { color: var(--text-secondary); font-size: 0.85rem; }
 .summary-grid b { font-size: 1.35rem; }
-.table-card { background: rgba(30, 41, 59, 0.35); border-color: rgba(255, 255, 255, 0.06); }
+.table-card { background: #172235 !important; border-color: #28364a !important; }
+.table-card :deep(.el-card__body) { padding: 0; }
+.device-table {
+  --el-table-bg-color: #172235;
+  --el-table-tr-bg-color: #172235;
+  --el-table-header-bg-color: #1d2a3d;
+  --el-table-row-hover-bg-color: #223149;
+  --el-table-border-color: #2a394e;
+  --el-table-text-color: #c5cfdd;
+  --el-table-header-text-color: #93a4ba;
+  background: #172235;
+}
+.device-table :deep(.el-table__inner-wrapper::before) { background-color: #2a394e; }
+.device-table :deep(th.el-table__cell) {
+  background: #1d2a3d !important;
+  border-bottom-color: #314158;
+  font-weight: 600;
+}
+.device-table :deep(td.el-table__cell) {
+  background: #172235;
+  border-bottom-color: #26354a;
+}
+.device-table :deep(.el-table__row:hover > td.el-table__cell) { background: #223149 !important; }
+.device-table :deep(td.el-table-fixed-column--right) { background: #172235; }
+.device-table :deep(.el-table__row:hover > td.el-table-fixed-column--right) { background: #223149 !important; }
+.device-table :deep(.el-table__empty-block) { background: #172235; }
+.device-table :deep(.el-table__empty-text) { color: #7f90a7; }
 .device-title { display: flex; align-items: center; gap: 0.65rem; }
 .device-title div { display: flex; flex-direction: column; gap: 0.15rem; }
 .device-title small { color: var(--text-muted); }
