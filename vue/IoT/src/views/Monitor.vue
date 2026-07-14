@@ -159,6 +159,6 @@ onMounted(async () => {
   gap: 0.25rem;
 }
 
-.info-label { color: var(--text-muted); font-size: 0.8rem; }
-.info-value { font-size: 1.3rem; font-weight: 600; }
+.info-label { color: var(--text-muted); font-size: 0.8rem; margin-right: 1.25rem;}
+.info-value { font-size: 1.3rem; font-weight: 600;}
 </style>

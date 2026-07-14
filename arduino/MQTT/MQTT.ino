@@ -3,7 +3,9 @@
 #include <DHT.h>
 
 /* ================= WiFi 配置 ================= */
-const char* ssid = "HUAPPLE 17 Pro Max 1TB";   // ← 改成你的WiFi名
+// const char* ssid = "HUAPPLE 17 Pro Max 1TB";   // ← 改成你的WiFi名
+// const char* password = "51522zzwlwlbb";          // ← 改成你的WiFi密码
+const char* ssid = "WIFI机";   // ← 改成你的WiFi名
 const char* password = "51522zzwlwlbb";          // ← 改成你的WiFi密码
 
 /* ================= MQTT 配置 ================= */
@@ -215,7 +217,7 @@ void sendStatusUpdate() {
 
 /* ================= 初始化 ================= */
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(9600);
   Serial.println("\n===== 智慧农业 IoT - ESP32 =====");
 
   dht.begin();
