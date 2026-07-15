@@ -7,6 +7,7 @@ import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.core.io.ClassPathResource;
 
 import javax.net.ssl.SSLContext;
@@ -19,6 +20,7 @@ import java.security.cert.CertificateFactory;
 import java.util.UUID;
 
 @Configuration
+@Profile("!test")
 @EnableConfigurationProperties(MqttProperties.class)
 public class MqttConfig {
 

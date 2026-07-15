@@ -391,13 +391,15 @@ Pay.vue → POST /api/alipay/create {amount, subject}
 | `WebSocketTicketServiceTest.java` | 5 | 票据签发、一次消费、过期、用户名与有效期校验 |
 | `WebSocketAuthHandshakeInterceptorTest.java` | 5 | 合法握手、缺失/无效票据、非法来源和通配符配置拒绝 |
 | `WebSocketTicketControllerTest.java` | 1 | 当前认证用户领取统一格式票据 |
-| `IoTSystemApplicationTests.java` | 1 | Spring 上下文加载 |
+| `IoTSystemApplicationTests.java` | 1 | 使用 `test` Profile、H2 和基础设施替身加载 Spring 上下文 |
 
 ### 运行
 
 ```bash
 cd java && ./mvnw test    # 运行全部测试
 ```
+
+测试命令默认由 `IoTSystemApplicationTests` 激活 `test` Profile：数据库使用 H2 内存库，MQTT 和 Redis 使用 Mockito 替身，不读取 `application-dev.properties` 或 `application-prod.properties`。CI 也通过 `-Dspring.profiles.active=test` 固定执行隔离测试。
 
 ### MockMvc 注意事项
 
