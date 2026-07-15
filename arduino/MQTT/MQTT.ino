@@ -9,7 +9,11 @@
 
 /* ================= 设备与MQTT配置 ================= */
 const char* DEVICE_ID = "device001";
+/* MQTT主机名用于TLS证书校验，IP用于DNS异常时的备用连接。 */
 const char* MQTT_SERVER = "38.47.98.235.nip.io";
+IPAddress MQTT_SERVER_IP(38, 47, 98, 235);
+/* 备用IP连接使用Broker叶子证书指纹固定，避免丢失TLS身份校验。 */
+const char* MQTT_CERT_FINGERPRINT = "A0 8F FB 39 4B 65 01 A6 99 71 A4 D6 B1 A1 5C 32 F3 56 8F 33";
 const int MQTT_PORT = 8883;
 
 String topicControl = String("agri/") + DEVICE_ID + "/control";
@@ -122,11 +126,28 @@ void callback(char* topic, byte* payload, unsigned int length) {
 }
 
 /* ================= 非阻塞指数退避重连 ================= */
+/* 先用域名+私有CA连接，DNS异常时使用IP+叶子证书指纹备用连接。 */
+bool connectMqttTls() {
+  secureClient.setTrustAnchors(&trustAnchor);
+  if (secureClient.connect(MQTT_SERVER, MQTT_PORT)) return true;
+
+  secureClient.stop();
+  secureClient.setFingerprint(MQTT_CERT_FINGERPRINT);
+  if (secureClient.connect(MQTT_SERVER_IP, MQTT_PORT)) {
+    Serial.println("MQTT TLS备用IP连接成功");
+    return true;
+  }
+
+  secureClient.stop();
+  secureClient.setTrustAnchors(&trustAnchor);
+  return false;
+}
+
 void ensureMqttConnected() {
   if (client.connected()) return;
   if ((long)(millis() - nextMqttReconnectAt) < 0) return;
 
-  if (!secureClient.connected() && !secureClient.connect(MQTT_SERVER, MQTT_PORT)) {
+  if (!secureClient.connected() && !connectMqttTls()) {
     char tlsError[160];
     int tlsErrorCode = secureClient.getLastSSLError(tlsError, sizeof(tlsError));
     Serial.printf("TLS握手失败，错误=%d，%s，可用堆=%u，%lu毫秒后重试\n",
