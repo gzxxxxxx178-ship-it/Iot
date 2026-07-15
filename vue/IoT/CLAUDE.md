@@ -278,6 +278,12 @@ Pay.vue → POST /api/alipay/create {amount, subject}
 
 推送 GitHub 自动触发构建部署，无需手动 scp。
 
+### 构建体积策略
+
+- 路由页面使用动态导入，第三方依赖通过 Vite `manualChunks` 拆分为共享块。
+- `src/utils/echarts.js` 只注册项目使用的折线图、饼图及必要组件，禁止在业务 composable 中引入完整 ECharts 包。
+- Element Plus 组件从 `element-plus/es/components/*` 显式导入；图标按页面局部导入，不在入口注册完整图标集合。
+
 ### 环境变量
 
 生产环境 `.env.production` 中设置 `VITE_API_BASE_URL` 和 `VITE_WS_BASE_URL` 指向后端 VPS 的 HTTPS 地址，注意使用 `wss://` 协议以支持 WebSocket。

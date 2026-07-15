@@ -1,5 +1,5 @@
 import { ref, onUnmounted } from 'vue'
-import * as echarts from 'echarts'
+import echarts from '../utils/echarts'
 
 // ECharts 实例生命周期管理 composable
 // 返回 chartRef（模板 ref）、init、setOption、resize、dispose
