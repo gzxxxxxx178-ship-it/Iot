@@ -18,6 +18,12 @@
 - **后端每个方法前必须写注释**，说明该方法的功能
 - **前端每个函数/API/composable 前必须写注释**，说明其功能
 
+## Git 仓库边界
+
+- 根目录是唯一 Git 仓库，`java/` 和 `vue/IoT/` 不再作为独立仓库使用。
+- 所有 Git 操作从根目录执行；子目录内不执行提交或推送。
+- 助手只创建本地中文提交，不自动推送；前端上线由用户手动执行 `git push origin main`。
+
 ## 本地开发
 
 ```bash
@@ -42,8 +48,8 @@ cd java && ./mvnw clean package -DskipTests
 scp target/IoTSystem-0.0.1-SNAPSHOT.jar root@<VPS_IP>:/opt/iot/
 ssh root@<VPS_IP> "systemctl restart iot"
 
-# 更新前端 (推送 GitHub → Cloudflare Pages 自动构建)
-git add . && git commit -m "描述改动" && git push origin main
+# 更新前端 (用户推送 GitHub → Cloudflare Pages 自动构建)
+# 在根目录完成提交后，由用户执行：git push origin main
 ```
 
 **前端构建** (Cloudflare Pages 自动执行):
