@@ -38,7 +38,7 @@ function buildChartData(data) {
   tempSeries.value = []
   humSeries.value = []
   data.filter((item) => item.qualityValid !== false).forEach((item) => {
-    timeLabels.value.push(formatTime(item.serverReceivedTime || item.timestamp))
+    timeLabels.value.push(formatTime(item.serverReceivedTime))
     tempSeries.value.push(item.temperature)
     humSeries.value.push(item.humidity)
   })
@@ -187,6 +187,7 @@ onMounted(() => {
           </template>
         </el-table-column>
         <el-table-column prop="sendCount" label="发送次数" width="100" />
+        <el-table-column prop="uptimeMillis" label="运行时长 (ms)" width="130" />
         <el-table-column label="数据质量" width="110">
           <template #default="{ row }">
             <el-tooltip v-if="row.qualityValid === false" :content="row.qualityIssues || '超出有效范围'">
@@ -198,7 +199,7 @@ onMounted(() => {
         </el-table-column>
         <el-table-column label="时间" min-width="160">
           <template #default="{ row }">
-            {{ formatDateTime(row.serverReceivedTime || row.timestamp) }}
+            {{ formatDateTime(row.serverReceivedTime) }}
           </template>
         </el-table-column>
       </el-table>

@@ -27,7 +27,8 @@ Spring Boot 2.7.18 后端服务，负责 MQTT 消息处理、数据持久化、W
 ## 启动
 
 ```bash
-cd java && ./mvnw spring-boot:run
+# 必须显式选择环境；本地使用被忽略的 application-dev.properties
+cd java && ./mvnw -Dspring-boot.run.profiles=dev spring-boot:run
 # 或 IDE 中运行 IoTSystemApplication.main()
 ```
 
@@ -51,12 +52,12 @@ IoTSystemApplication.java         # Spring Boot 入口，main()
 
 | 文件 | 说明 |
 |------|------|
-| `SecurityConfig.java` | Spring Security 主配置。STATELESS → IF_REQUIRED (OAuth2 需要 Session)。CSRF 关闭。WebSocket升级请求不再绕过过滤器链；`/ws/**` 的最终鉴权由一次性票据握手拦截器执行。其他受保护接口使用 JWT |
+| `SecurityConfig.java` | Spring Security 主配置。OAuth2 使用会话；写请求启用CSRF Cookie保护；受保护接口使用HttpOnly JWT Cookie或Bearer JWT。WebSocket升级请求由一次性票据握手拦截器鉴权 |
 | `AppConfig.java` | 独立的 PasswordEncoder + AuthenticationManager Bean。与 SecurityConfig 分离以打破循环依赖 |
-| `JwtAuthenticationFilter.java` | OncePerRequestFilter，提取 `Bearer <token>` → 解析 username → loadUserByUsername → 设置 SecurityContext。异常静默放行 |
+| `JwtAuthenticationFilter.java` | OncePerRequestFilter，优先提取 `Bearer <token>`，否则读取HttpOnly认证Cookie → 解析 username → loadUserByUsername → 设置 SecurityContext |
 | `JwtUtil.java` | JWT 工具。HS256 签名，Base64 解码密钥，24h 过期。方法: generateToken / extractUsername / validateToken |
 | `CustomOAuth2UserService.java` | 继承 DefaultOAuth2UserService。Google 回调后提取 email/name/sub/picture，首次自动注册，已有则更新头像邮箱。将数据库 username 注入 customAttributes |
-| `OAuth2SuccessHandler.java` | OAuth 登录成功 → 生成 JWT → 302 重定向到前端 `/#/oauth-callback?token=xxx&username=xxx` |
+| `OAuth2SuccessHandler.java` | OAuth 登录成功 → 写入HttpOnly JWT Cookie → 302 重定向到前端 `/#/oauth-callback` |
 | `OAuth2FailureHandler.java` | OAuth 登录失败 → 记录日志 → 302 重定向到前端 `/#/login?oauth_error=错误信息` |
 
 ### 通信基础设施
@@ -86,8 +87,9 @@ IoTSystemApplication.java         # Spring Boot 入口，main()
 
 | 端点 | 方法 | 说明 |
 |------|------|------|
-| `/api/auth/login` | POST | 用户名密码登录。Body: `{username, password}` → 返回 `ApiResponse<{token, username}>`。密码错误由全局异常处理器返回 401 |
-| `/api/auth/register` | POST | 用户注册。Body: `{username, password}` → 返回 `ApiResponse<{token, username}>`。用户名重复抛 RuntimeException → 全局异常处理器返回 400 |
+| `/api/auth/login` | POST | 用户名密码登录。Body: `{username, password}` → 写入HttpOnly JWT Cookie并返回用户名。密码错误由全局异常处理器返回 401 |
+| `/api/auth/register` | POST | 用户注册。Body: `{username, password}` → 写入HttpOnly JWT Cookie并返回用户名。用户名重复抛 RuntimeException → 全局异常处理器返回 400 |
+| `/api/auth/logout` | POST | 清除服务端HttpOnly JWT Cookie |
 | `/api/auth/me` | GET | 获取当前用户信息。返回 `ApiResponse<{username, createdAt}>`。未登录返回 401 |
 
 ### WebSocket认证
@@ -198,7 +200,7 @@ IoTSystemApplication.java         # Spring Boot 入口，main()
 
 | 实体 | 表名 | 字段 |
 |------|------|------|
-| `EspEntity.java` | `esp_data` | id, deviceId, temperature, humidity, water, linkage, sendCount, rssi, timestamp, serverReceivedTime |
+| `EspEntity.java` | `esp_data` | id, deviceId, temperature, humidity, uptimeMillis, water, linkage, sendCount, rssi, serverReceivedTime |
 | `UserEntity.java` | `users` | id, username (唯一), password (可空), email (可空), avatar (可空), provider (LOCAL/GOOGLE), providerId (可空), createdAt |
 | `ChatMessageEntity.java` | `chat_messages` | id, sessionId, role (user/assistant), content (TEXT), createdTime |
 | `PaymentOrderEntity.java` | `payment_orders` | id, outTradeNo (唯一), username, amount (BigDecimal), subject, status (PENDING/SUCCESS/CLOSED), tradeNo (可空), createdAt, paidAt (可空) |
@@ -261,21 +263,21 @@ IoTSystemApplication.java         # Spring Boot 入口，main()
 
 | 文件 | 提交 git? | 内容 |
 |------|-----------|------|
-| `application.properties` | ✅ 提交 | 公开配置 + 占位符。`spring.profiles.active=dev` |
+| `application.properties` | ✅ 提交 | 公开配置 + 占位符，不默认激活任何 Profile |
 | `application-dev.properties` | ❌ gitignore | 本地开发真实密钥（数据库密码、JWT、API Key 等） |
-| `application-prod.properties` | ❌ gitignore | VPS 生产环境真实密钥（在 VPS `/opt/iot/` 目录） |
+| `application-prod.properties` | ✅ 提交 | VPS 生产环境环境变量模板，不保存真实密钥 |
 
 ### 工作原理
 
 ```
-本地启动: mvn spring-boot:run
-  → spring.profiles.active=dev
+本地启动: mvn -Dspring-boot.run.profiles=dev spring-boot:run
+  → 显式加载 dev Profile
   → 加载 application.properties + application-dev.properties
   → 占位符被 application-dev.properties 覆盖
 
 VPS 启动: java -jar app.jar --spring.profiles.active=prod
   → 加载 application.properties + application-prod.properties
-  → 占位符被 application-prod.properties 覆盖
+  → 必需密钥从 VPS 环境变量注入，Flyway 执行数据库迁移，JPA 仅 validate
 ```
 
 ### 添加新密钥的步骤

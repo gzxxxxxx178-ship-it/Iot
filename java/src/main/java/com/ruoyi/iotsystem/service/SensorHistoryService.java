@@ -90,7 +90,7 @@ public class SensorHistoryService {
             throw new RuntimeException("导出结果超过50000条，请缩小时间范围后重试");
         }
         StringBuilder csv = new StringBuilder("\uFEFF");
-        csv.append("设备ID,温度(℃),湿度(%),水位(ADC),RSSI(dBm),联动,发送次数,设备时间戳,服务端接收时间,质量状态,质量问题\r\n");
+        csv.append("设备ID,温度(℃),湿度(%),水位(ADC),RSSI(dBm),联动,发送次数,设备运行时长(ms),服务端接收时间,质量状态,质量问题\r\n");
         for (EspEntity reading : result.getContent()) {
             appendCsvRow(csv, reading);
         }
@@ -188,7 +188,7 @@ public class SensorHistoryService {
                 .append(csvCell(reading.getRssi())).append(',')
                 .append(csvCell(reading.getLinkage())).append(',')
                 .append(csvCell(reading.getSendCount())).append(',')
-                .append(csvCell(reading.getTimestamp())).append(',')
+                .append(csvCell(reading.getUptimeMillis())).append(',')
                 .append(csvCell(formatTime(reading.getServerReceivedTime()))).append(',')
                 .append(csvCell(qualityLabel(reading.getQualityValid()))).append(',')
                 .append(csvCell(reading.getQualityIssues())).append("\r\n");

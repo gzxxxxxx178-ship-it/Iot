@@ -4,6 +4,9 @@ import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 import java.time.LocalDateTime;
 import javax.persistence.*;
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 @Entity
 @Table(name = "esp_data", indexes = {
@@ -28,8 +31,10 @@ public class EspEntity {
     @NotNull(message = "湿度不能为空")
     private Double humidity;
 
-    @NotNull(message = "时间戳不能为空")
-    private Long timestamp;
+    @NotNull(message = "设备运行时长不能为空")
+    @JsonAlias("timestamp")
+    @Column(name = "uptime_millis")
+    private Long uptimeMillis;
 
     private Double water;
     private Boolean linkage;
@@ -50,12 +55,12 @@ public class EspEntity {
     }
 
     // 创建包含完整设备采集字段的传感器实体
-    public EspEntity(String deviceId, Double temperature, Double humidity, Long timestamp,
+    public EspEntity(String deviceId, Double temperature, Double humidity, Long uptimeMillis,
             Double water, Boolean linkage, Integer sendCount, Integer rssi) {
         this.deviceId = deviceId;
         this.temperature = temperature;
         this.humidity = humidity;
-        this.timestamp = timestamp;
+        this.uptimeMillis = uptimeMillis;
         this.water = water;
         this.linkage = linkage;
         this.sendCount = sendCount;
@@ -65,8 +70,8 @@ public class EspEntity {
     }
 
     // 创建兼容旧调用方的基础传感器实体
-    public EspEntity(String deviceId, Double temperature, Double humidity, Long timestamp) {
-        this(deviceId, temperature, humidity, timestamp, null, null, null, null);
+    public EspEntity(String deviceId, Double temperature, Double humidity, Long uptimeMillis) {
+        this(deviceId, temperature, humidity, uptimeMillis, null, null, null, null);
     }
 
     // 获取数据库主键
@@ -119,14 +124,28 @@ public class EspEntity {
         this.humidity = humidity;
     }
 
-    // 获取设备侧时间戳
-    public Long getTimestamp() {
-        return timestamp;
+    // 获取设备运行时长
+    public Long getUptimeMillis() {
+        return uptimeMillis;
     }
 
-    // 设置设备侧时间戳
+    // 设置设备运行时长
+    public void setUptimeMillis(Long uptimeMillis) {
+        this.uptimeMillis = uptimeMillis;
+    }
+
+    // 兼容旧服务调用方，旧timestamp字段等同于设备运行时长
+    @Deprecated
+    @JsonIgnore
+    public Long getTimestamp() {
+        return uptimeMillis;
+    }
+
+    // 兼容旧服务调用方
+    @Deprecated
+    @JsonProperty("timestamp")
     public void setTimestamp(Long timestamp) {
-        this.timestamp = timestamp;
+        this.uptimeMillis = timestamp;
     }
 
     // 获取水位ADC读数
@@ -211,7 +230,7 @@ public class EspEntity {
                 ", linkage=" + linkage +
                 ", sendCount=" + sendCount +
                 ", rssi=" + rssi +
-                ", timestamp=" + timestamp +
+                ", uptimeMillis=" + uptimeMillis +
                 ", serverReceivedTime=" + serverReceivedTime +
                 ", qualityValid=" + qualityValid +
                 ", qualityIssues='" + qualityIssues + '\'' +

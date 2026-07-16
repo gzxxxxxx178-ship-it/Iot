@@ -206,15 +206,16 @@ public class MqttMessageService implements MqttCallbackExtended {
         }
         Double temperature = jsonNode.has("temperature") ? jsonNode.get("temperature").asDouble() : null;
         Double humidity = jsonNode.has("humidity") ? jsonNode.get("humidity").asDouble() : null;
-        Long timestamp = jsonNode.has("timestamp")
-                ? jsonNode.get("timestamp").asLong() : System.currentTimeMillis();
+        Long uptimeMillis = jsonNode.has("uptimeMillis")
+                ? jsonNode.get("uptimeMillis").asLong()
+                : (jsonNode.has("timestamp") ? jsonNode.get("timestamp").asLong() : 0L);
         Double water = jsonNode.has("water") ? jsonNode.get("water").asDouble() : null;
         Boolean linkage = jsonNode.has("linkage") ? jsonNode.get("linkage").asBoolean() : null;
         Integer sendCount = jsonNode.has("sendCount") ? jsonNode.get("sendCount").asInt() : null;
         Integer rssi = jsonNode.has("rssi") ? jsonNode.get("rssi").asInt() : null;
 
         EspEntity entity = new EspEntity(
-                expectedDeviceId, temperature, humidity, timestamp, water, linkage, sendCount, rssi);
+                expectedDeviceId, temperature, humidity, uptimeMillis, water, linkage, sendCount, rssi);
         EspEntity saved = espService.saveData(entity);
         sensorWebSocketHandler.broadcast(objectMapper.writeValueAsString(saved));
     }
@@ -229,9 +230,9 @@ public class MqttMessageService implements MqttCallbackExtended {
             Double temperature = parseDouble(findGroup(payload, "Temperature: (-?[0-9.]+)"));
             Double humidity = parseDouble(findGroup(payload, "Humidity: ([0-9.]+)"));
             String timestampText = findGroup(payload, "Timestamp: ([0-9]+)");
-            Long timestamp = timestampText == null ? System.currentTimeMillis() : Long.parseLong(timestampText);
+            Long uptimeMillis = timestampText == null ? 0L : Long.parseLong(timestampText);
             EspEntity saved = espService.saveData(
-                    new EspEntity(deviceId, temperature, humidity, timestamp));
+                    new EspEntity(deviceId, temperature, humidity, uptimeMillis));
             sensorWebSocketHandler.broadcast(objectMapper.writeValueAsString(saved));
             return true;
         } catch (Exception exception) {

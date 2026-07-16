@@ -234,7 +234,7 @@ void sendSensorData() {
   json += "\"linkage\":" + String(linkageAlarm ? "true" : "false") + ",";
   json += "\"sendCount\":" + String(sendCount) + ",";
   json += "\"rssi\":" + String(WiFi.RSSI()) + ",";
-  json += "\"timestamp\":" + String(millis()) + "}";
+    json += "\"uptimeMillis\":" + String(millis()) + "}";
 
   if (client.publish(topicData.c_str(), json.c_str())) {
     sendCount++;

@@ -66,7 +66,7 @@ export const useDeviceStore = defineStore('device', () => {
     try {
       const data = await getHistoryData()
       dataPoints.value = data.reverse().map((item) => ({
-        time: formatTime(item.serverReceivedTime || item.timestamp),
+        time: formatTime(item.serverReceivedTime),
         temperature: item.temperature,
         humidity: item.humidity,
         water: item.water,
@@ -97,7 +97,7 @@ export const useDeviceStore = defineStore('device', () => {
   // WebSocket 实时追加一条数据点，保持窗口不超过 60 条
   function addDataPoint(item) {
     const point = {
-      time: formatTime(item.serverReceivedTime || item.timestamp),
+      time: formatTime(item.serverReceivedTime),
       temperature: item.temperature,
       humidity: item.humidity,
       water: item.water,
