@@ -14,6 +14,11 @@ id iot >/dev/null 2>&1 || useradd --system --home "$APP_DIR" --shell /usr/sbin/n
 install -d -o iot -g iot -m 0750 "$APP_DIR" "$APP_DIR/releases"
 install -m 0750 -o root -g root "$SCRIPT_DIR/healthcheck.sh" "$APP_DIR/healthcheck.sh"
 install -m 0644 -o root -g root "$SCRIPT_DIR/systemd/iot.service" /etc/systemd/system/iot.service
+install -d -m 0755 /etc/systemd/journald.conf.d
+install -m 0644 -o root -g root "$SCRIPT_DIR/systemd/99-iot-journald.conf" \
+    /etc/systemd/journald.conf.d/99-iot-journald.conf
+systemctl restart systemd-journald
+journalctl --vacuum-size=200M >/dev/null
 
 if [[ ! -f "$APP_DIR/iot.env" ]]; then
     install -m 0600 -o root -g root /dev/null "$APP_DIR/iot.env"

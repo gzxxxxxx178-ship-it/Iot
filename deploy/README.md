@@ -43,3 +43,7 @@ systemctl reload nginx
 ```
 
 健康端点只返回聚合状态，不显示数据库、Redis 或 MQTT 连接细节；组件故障应从 systemd 日志和应用日志定位。
+
+## 日志保留上限
+
+`systemd/99-iot-journald.conf` 将持久化日志限制为 200MB、运行时日志限制为 100MB，并保留至少 500MB 空闲磁盘空间、最多 14 天。`install-vps.sh` 会安装该配置并执行一次 `journalctl --vacuum-size=200M`。如 VPS 磁盘小于 10GB，不建议提高该上限。
