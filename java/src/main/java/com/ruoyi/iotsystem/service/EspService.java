@@ -45,10 +45,10 @@ public class EspService {
         }
         evaluateDataQuality(espEntity);
         logger.info(
-                "Saving ESP data to database: DeviceId={}, Temperature={}, Humidity={}, Water={}, Linkage={}, SendCount={}, Rssi={}, Timestamp={}",
+                "Saving ESP data to database: DeviceId={}, Temperature={}, Humidity={}, Water={}, Linkage={}, SendCount={}, Rssi={}, UptimeMillis={}",
                 espEntity.getDeviceId(), espEntity.getTemperature(), espEntity.getHumidity(),
                 espEntity.getWater(), espEntity.getLinkage(), espEntity.getSendCount(), espEntity.getRssi(),
-                espEntity.getTimestamp());
+                espEntity.getUptimeMillis());
 
         EspEntity savedEntity = espRepository.save(espEntity);
 
