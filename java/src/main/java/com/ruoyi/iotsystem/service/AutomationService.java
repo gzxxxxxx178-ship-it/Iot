@@ -37,8 +37,18 @@ public class AutomationService {
         return ruleRepository.findAllByOrderByIdDesc();
     }
 
+    // 按当前用户查询自动化规则
+    public List<AutomationRuleEntity> getRules(String ownerUsername) {
+        return ruleRepository.findByOwnerUsernameOrderByIdDesc(ownerUsername);
+    }
+
     // 校验并持久化新的自动化规则
     public AutomationRuleEntity createRule(AutomationRuleRequest request) {
+        return createRule(request, null);
+    }
+
+    // 校验并创建归属于当前用户的自动化规则
+    public AutomationRuleEntity createRule(AutomationRuleRequest request, String ownerUsername) {
         validateThreshold(request.getMetric(), request.getThreshold());
         AutomationRuleEntity rule = new AutomationRuleEntity(
                 request.getName().trim(),
@@ -49,15 +59,21 @@ public class AutomationService {
                 request.getAction(),
                 request.getEnabled() == null ? Boolean.TRUE : request.getEnabled(),
                 request.getDebounceCount() == null ? 2 : request.getDebounceCount(),
-                request.getCooldownSeconds() == null ? 300 : request.getCooldownSeconds());
+                request.getCooldownSeconds() == null ? 300 : request.getCooldownSeconds(), ownerUsername);
         return ruleRepository.save(rule);
     }
 
     // 更新规则配置并清空旧条件累计状态
     public AutomationRuleEntity updateRule(Long id, AutomationRuleRequest request) {
+        return updateRule(id, request, null);
+    }
+
+    // 更新当前用户拥有的自动化规则
+    public AutomationRuleEntity updateRule(Long id, AutomationRuleRequest request, String ownerUsername) {
         validateThreshold(request.getMetric(), request.getThreshold());
         AutomationRuleEntity rule = ruleRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("自动化规则不存在"));
+        assertOwner(rule.getOwnerUsername(), ownerUsername);
         rule.setName(request.getName().trim());
         rule.setDeviceId(request.getDeviceId().trim());
         rule.setMetric(request.getMetric());
@@ -74,10 +90,15 @@ public class AutomationService {
 
     // 删除指定自动化规则
     public void deleteRule(Long id) {
-        if (!ruleRepository.existsById(id)) {
-            throw new RuntimeException("自动化规则不存在");
-        }
-        ruleRepository.deleteById(id);
+        deleteRule(id, null);
+    }
+
+    // 删除当前用户拥有的自动化规则
+    public void deleteRule(Long id, String ownerUsername) {
+        AutomationRuleEntity rule = ruleRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("自动化规则不存在"));
+        assertOwner(rule.getOwnerUsername(), ownerUsername);
+        ruleRepository.delete(rule);
     }
 
     // 查询最近一百条动作执行审计记录
@@ -85,13 +106,27 @@ public class AutomationService {
         return executionRepository.findTop100ByOrderByCreatedAtDesc();
     }
 
+    // 按当前用户查询自动化执行记录
+    public List<AutomationExecutionEntity> getExecutions(String ownerUsername) {
+        return executionRepository.findTop100ByOwnerUsernameOrderByCreatedAtDesc(ownerUsername);
+    }
+
     // 串行评估最新读数，避免同一实例并发更新防抖计数
     @Transactional
     public synchronized void evaluate(EspEntity reading) {
+        evaluate(reading, null);
+    }
+
+    // 使用当前用户的规则评估最新读数
+    @Transactional
+    public synchronized void evaluate(EspEntity reading, String ownerUsername) {
         if (reading == null || reading.getDeviceId() == null) {
             return;
         }
-        for (AutomationRuleEntity rule : ruleRepository.findByEnabledTrueOrderByIdAsc()) {
+        List<AutomationRuleEntity> rules = ownerUsername == null
+                ? ruleRepository.findByEnabledTrueOrderByIdAsc()
+                : ruleRepository.findByEnabledTrueAndOwnerUsernameOrderByIdAsc(ownerUsername);
+        for (AutomationRuleEntity rule : rules) {
             evaluateRule(rule, reading);
         }
     }
@@ -149,7 +184,8 @@ public class AutomationService {
     private void saveExecution(AutomationRuleEntity rule, String deviceId, Double actualValue,
             String status, String message) {
         executionRepository.save(new AutomationExecutionEntity(
-                rule.getId(), deviceId, rule.getAction(), status, actualValue, message));
+                rule.getId(), deviceId, rule.getAction(), status, actualValue, message,
+                rule.getOwnerUsername()));
     }
 
     // 条件未命中时清空已累计的连续次数
@@ -214,5 +250,12 @@ public class AutomationService {
     private String safeErrorMessage(Exception exception) {
         String message = exception.getMessage() == null ? "动作执行失败" : exception.getMessage();
         return message.length() <= 500 ? message : message.substring(0, 500);
+    }
+
+    // 校验资源归属，禁止跨用户修改或删除
+    private void assertOwner(String resourceOwner, String currentOwner) {
+        if (currentOwner != null && !currentOwner.equals(resourceOwner)) {
+            throw new SecurityException("无权访问该自动化资源");
+        }
     }
 }

@@ -14,4 +14,10 @@ public interface AlarmRuleRepository extends JpaRepository<AlarmRuleEntity, Long
 
     // 按主键倒序查询全部规则
     List<AlarmRuleEntity> findAllByOrderByIdDesc();
+
+    // 按用户查询报警规则
+    List<AlarmRuleEntity> findByOwnerUsernameOrderByIdDesc(String ownerUsername);
+
+    // 按用户查询启用的报警规则
+    List<AlarmRuleEntity> findByEnabledTrueAndOwnerUsernameOrderByIdAsc(String ownerUsername);
 }

@@ -1,6 +1,7 @@
 package com.ruoyi.iotsystem.controller;
 
 import com.ruoyi.iotsystem.dto.ApiResponse;
+import com.ruoyi.iotsystem.config.SecurityContextUtils;
 import com.ruoyi.iotsystem.dto.DeviceCreateRequest;
 import com.ruoyi.iotsystem.dto.DeviceResponse;
 import com.ruoyi.iotsystem.dto.DeviceUpdateRequest;
@@ -37,14 +38,19 @@ public class DeviceController {
     @GetMapping
     public ApiResponse<List<DeviceResponse>> listDevices(
             @RequestParam(defaultValue = "false") boolean includeArchived) {
-        return ApiResponse.success(deviceService.listDevices(includeArchived));
+        String username = SecurityContextUtils.currentUsernameOrNull();
+        return ApiResponse.success(username == null
+                ? deviceService.listDevices(includeArchived)
+                : deviceService.listDevices(includeArchived, username));
     }
 
     // 查询指定设备档案和最新状态
     @Operation(summary = "查询设备详情")
     @GetMapping("/{deviceId}")
     public ApiResponse<DeviceResponse> getDevice(@PathVariable String deviceId) {
-        return ApiResponse.success(deviceService.getDevice(deviceId));
+        String username = SecurityContextUtils.currentUsernameOrNull();
+        return ApiResponse.success(username == null
+                ? deviceService.getDevice(deviceId) : deviceService.getDevice(deviceId, username));
     }
 
     // 注册新的设备档案
@@ -52,7 +58,9 @@ public class DeviceController {
     @PostMapping
     public ApiResponse<DeviceResponse> createDevice(
             @Valid @RequestBody DeviceCreateRequest request) {
-        return ApiResponse.success(deviceService.createDevice(request));
+        String username = SecurityContextUtils.currentUsernameOrNull();
+        return ApiResponse.success(username == null
+                ? deviceService.createDevice(request) : deviceService.createDevice(request, username));
     }
 
     // 修改指定设备的可编辑档案
@@ -61,14 +69,22 @@ public class DeviceController {
     public ApiResponse<DeviceResponse> updateDevice(
             @PathVariable String deviceId,
             @Valid @RequestBody DeviceUpdateRequest request) {
-        return ApiResponse.success(deviceService.updateDevice(deviceId, request));
+        String username = SecurityContextUtils.currentUsernameOrNull();
+        return ApiResponse.success(username == null
+                ? deviceService.updateDevice(deviceId, request)
+                : deviceService.updateDevice(deviceId, request, username));
     }
 
     // 将设备软删除为归档状态并保留历史数据
     @Operation(summary = "归档设备")
     @DeleteMapping("/{deviceId}")
     public ApiResponse<Void> archiveDevice(@PathVariable String deviceId) {
-        deviceService.archiveDevice(deviceId);
+        String username = SecurityContextUtils.currentUsernameOrNull();
+        if (username == null) {
+            deviceService.archiveDevice(deviceId);
+        } else {
+            deviceService.archiveDevice(deviceId, username);
+        }
         return ApiResponse.success(null);
     }
 
@@ -76,6 +92,9 @@ public class DeviceController {
     @Operation(summary = "恢复设备")
     @PostMapping("/{deviceId}/restore")
     public ApiResponse<DeviceResponse> restoreDevice(@PathVariable String deviceId) {
-        return ApiResponse.success(deviceService.restoreDevice(deviceId));
+        String username = SecurityContextUtils.currentUsernameOrNull();
+        return ApiResponse.success(username == null
+                ? deviceService.restoreDevice(deviceId)
+                : deviceService.restoreDevice(deviceId, username));
     }
 }

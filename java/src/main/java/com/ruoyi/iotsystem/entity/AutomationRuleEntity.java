@@ -25,6 +25,9 @@ public class AutomationRuleEntity {
     @Column(name = "device_id", nullable = false, length = 64)
     private String deviceId;
 
+    @Column(name = "owner_username", length = 100)
+    private String ownerUsername;
+
     @Column(nullable = false, length = 32)
     private String metric;
 
@@ -80,6 +83,14 @@ public class AutomationRuleEntity {
         this.updatedAt = this.createdAt;
     }
 
+    // 创建带用户归属的自动化规则
+    public AutomationRuleEntity(String name, String deviceId, String metric, String operator,
+            Double threshold, String action, Boolean enabled, Integer debounceCount,
+            Integer cooldownSeconds, String ownerUsername) {
+        this(name, deviceId, metric, operator, threshold, action, enabled, debounceCount, cooldownSeconds);
+        this.ownerUsername = ownerUsername;
+    }
+
     // 获取规则主键
     public Long getId() { return id; }
     // 设置规则主键
@@ -92,6 +103,10 @@ public class AutomationRuleEntity {
     public String getDeviceId() { return deviceId; }
     // 设置目标设备ID
     public void setDeviceId(String deviceId) { this.deviceId = deviceId; }
+    // 获取规则归属用户名
+    public String getOwnerUsername() { return ownerUsername; }
+    // 设置规则归属用户名
+    public void setOwnerUsername(String ownerUsername) { this.ownerUsername = ownerUsername; }
     // 获取监控指标
     public String getMetric() { return metric; }
     // 设置监控指标

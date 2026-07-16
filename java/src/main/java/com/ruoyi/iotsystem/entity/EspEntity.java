@@ -19,6 +19,9 @@ public class EspEntity {
     @Column(name = "device_id")
     private String deviceId;
 
+    @Column(name = "owner_username", length = 100)
+    private String ownerUsername;
+
     @NotNull(message = "温度不能为空")
     private Double temperature;
 
@@ -84,6 +87,16 @@ public class EspEntity {
     // 设置设备ID
     public void setDeviceId(String deviceId) {
         this.deviceId = deviceId;
+    }
+
+    // 获取传感器记录所属用户
+    public String getOwnerUsername() {
+        return ownerUsername;
+    }
+
+    // 设置传感器记录所属用户
+    public void setOwnerUsername(String ownerUsername) {
+        this.ownerUsername = ownerUsername;
     }
 
     // 获取温度读数

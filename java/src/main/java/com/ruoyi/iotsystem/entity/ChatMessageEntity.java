@@ -14,6 +14,9 @@ public class ChatMessageEntity {
     @Column(name = "session_id", nullable = false)
     private String sessionId;
 
+    @Column(name = "username", length = 100)
+    private String username;
+
     @Column(nullable = false)
     private String role;
 
@@ -30,6 +33,12 @@ public class ChatMessageEntity {
 
     public String getSessionId() { return sessionId; }
     public void setSessionId(String sessionId) { this.sessionId = sessionId; }
+
+    // 获取聊天记录所属用户
+    public String getUsername() { return username; }
+
+    // 设置聊天记录所属用户
+    public void setUsername(String username) { this.username = username; }
 
     public String getRole() { return role; }
     public void setRole(String role) { this.role = role; }

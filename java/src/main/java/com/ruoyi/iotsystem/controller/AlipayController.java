@@ -2,6 +2,7 @@ package com.ruoyi.iotsystem.controller;
 
 import com.alipay.api.AlipayApiException;
 import com.ruoyi.iotsystem.dto.ApiResponse;
+import com.ruoyi.iotsystem.config.SecurityContextUtils;
 import com.ruoyi.iotsystem.service.AlipayService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -9,8 +10,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
@@ -30,13 +29,12 @@ public class AlipayController {
     @Operation(summary = "创建支付订单", description = "生成预支付订单，返回支付宝扫码二维码")
     @PostMapping("/create")
     public ApiResponse<Map<String, String>> create(@RequestBody Map<String, String> body) throws AlipayApiException {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        String username = auth.getName();
+        String username = SecurityContextUtils.requireUsername();
 
         String amount = body.get("amount");
         String subject = body.getOrDefault("subject", "智慧农业IoT-支付测试");
 
-        if (amount == null || amount.isEmpty()) {
+        if (amount == null || amount.trim().isEmpty()) {
             return ApiResponse.fail("金额不能为空");
         }
 
@@ -48,7 +46,8 @@ public class AlipayController {
     @GetMapping("/query")
     public ApiResponse<Map<String, Object>> query(
             @Parameter(description = "商户订单号") @RequestParam String outTradeNo) throws AlipayApiException {
-        Map<String, Object> result = alipayService.queryOrder(outTradeNo);
+        Map<String, Object> result = alipayService.queryOrder(
+                outTradeNo, SecurityContextUtils.requireUsername());
         return ApiResponse.success(result);
     }
 

@@ -22,7 +22,14 @@ public class DashboardService {
 
     // 统计设备总数、在线数及在线设备最新温湿度平均值
     public DashboardStatsResponse getStats() {
-        List<DeviceResponse> devices = deviceService.listDevices(false);
+        return getStats(null);
+    }
+
+    // 统计指定用户设备总数、在线数及最新温湿度平均值
+    public DashboardStatsResponse getStats(String ownerUsername) {
+        List<DeviceResponse> devices = ownerUsername == null
+                ? deviceService.listDevices(false)
+                : deviceService.listDevices(false, ownerUsername);
         List<DeviceResponse> onlineDevices = new ArrayList<>();
 
         for (DeviceResponse device : devices) {
@@ -40,7 +47,12 @@ public class DashboardService {
 
     // 获取在线和离线设备数量分布
     public List<DeviceStatusResponse> getDeviceStatusDistribution() {
-        DashboardStatsResponse stats = getStats();
+        return getDeviceStatusDistribution(null);
+    }
+
+    // 获取指定用户在线和离线设备数量分布
+    public List<DeviceStatusResponse> getDeviceStatusDistribution(String ownerUsername) {
+        DashboardStatsResponse stats = getStats(ownerUsername);
         return Arrays.asList(
                 new DeviceStatusResponse("在线", stats.getOnlineCount()),
                 new DeviceStatusResponse("离线", stats.getDeviceCount() - stats.getOnlineCount()));

@@ -8,9 +8,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 public interface ChatMessageRepository extends JpaRepository<ChatMessageEntity, Long> {
-    List<ChatMessageEntity> findBySessionIdOrderByCreatedTimeAsc(String sessionId);
+    List<ChatMessageEntity> findByUsernameAndSessionIdOrderByCreatedTimeAsc(String username, String sessionId);
 
     @Modifying
     @Transactional
-    void deleteBySessionId(String sessionId);
+    void deleteByUsernameAndSessionId(String username, String sessionId);
 }

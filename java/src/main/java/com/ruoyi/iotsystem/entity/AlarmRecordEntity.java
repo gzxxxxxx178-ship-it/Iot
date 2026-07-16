@@ -26,6 +26,9 @@ public class AlarmRecordEntity {
     @Column(name = "device_id", nullable = false)
     private String deviceId;
 
+    @Column(name = "owner_username", length = 100)
+    private String ownerUsername;
+
     @Column(nullable = false)
     private String metric;
 
@@ -67,6 +70,13 @@ public class AlarmRecordEntity {
         this.createdAt = LocalDateTime.now();
     }
 
+    // 创建带用户归属的报警记录
+    public AlarmRecordEntity(Long ruleId, String deviceId, String metric, String operator,
+            Double threshold, Double actualValue, String message, String ownerUsername) {
+        this(ruleId, deviceId, metric, operator, threshold, actualValue, message);
+        this.ownerUsername = ownerUsername;
+    }
+
     // 获取记录主键
     public Long getId() {
         return id;
@@ -96,6 +106,12 @@ public class AlarmRecordEntity {
     public void setDeviceId(String deviceId) {
         this.deviceId = deviceId;
     }
+
+    // 获取记录归属用户名
+    public String getOwnerUsername() { return ownerUsername; }
+
+    // 设置记录归属用户名
+    public void setOwnerUsername(String ownerUsername) { this.ownerUsername = ownerUsername; }
 
     // 获取触发指标
     public String getMetric() {

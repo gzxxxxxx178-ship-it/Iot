@@ -26,6 +26,9 @@ public class AutomationExecutionEntity {
     @Column(name = "device_id", nullable = false, length = 64)
     private String deviceId;
 
+    @Column(name = "owner_username", length = 100)
+    private String ownerUsername;
+
     @Column(nullable = false, length = 16)
     private String action;
 
@@ -57,6 +60,13 @@ public class AutomationExecutionEntity {
         this.createdAt = LocalDateTime.now();
     }
 
+    // 创建带用户归属的自动化执行记录
+    public AutomationExecutionEntity(Long ruleId, String deviceId, String action, String status,
+            Double actualValue, String message, String ownerUsername) {
+        this(ruleId, deviceId, action, status, actualValue, message);
+        this.ownerUsername = ownerUsername;
+    }
+
     // 获取记录主键
     public Long getId() { return id; }
     // 设置记录主键
@@ -69,6 +79,10 @@ public class AutomationExecutionEntity {
     public String getDeviceId() { return deviceId; }
     // 设置目标设备ID
     public void setDeviceId(String deviceId) { this.deviceId = deviceId; }
+    // 获取记录归属用户名
+    public String getOwnerUsername() { return ownerUsername; }
+    // 设置记录归属用户名
+    public void setOwnerUsername(String ownerUsername) { this.ownerUsername = ownerUsername; }
     // 获取执行动作
     public String getAction() { return action; }
     // 设置执行动作

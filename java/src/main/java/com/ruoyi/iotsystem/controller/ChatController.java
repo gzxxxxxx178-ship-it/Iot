@@ -2,6 +2,7 @@ package com.ruoyi.iotsystem.controller;
 
 import com.ruoyi.iotsystem.dto.ApiResponse;
 import com.ruoyi.iotsystem.dto.ChatRequest;
+import com.ruoyi.iotsystem.config.SecurityContextUtils;
 import com.ruoyi.iotsystem.entity.ChatMessageEntity;
 import com.ruoyi.iotsystem.repository.ChatMessageRepository;
 import io.swagger.v3.oas.annotations.Operation;
@@ -39,6 +40,8 @@ public class ChatController {
     @Operation(summary = "发送消息", description = "发送对话消息到 DeepSeek AI，保存双方消息记录，返回 AI 回复")
     @PostMapping("/api/chat")
     public ApiResponse<Map<String, String>> chat(@Valid @RequestBody ChatRequest request) {
+        String username = SecurityContextUtils.requireUsername();
+        validateMessages(request);
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setBearerAuth(apiKey);
@@ -65,10 +68,10 @@ public class ChatController {
                 if (!msgs.isEmpty()) {
                     Map<String, String> lastMsg = msgs.get(msgs.size() - 1);
                     if ("user".equals(lastMsg.get("role"))) {
-                        saveMessage(sessionId, "user", lastMsg.get("content"));
+                        saveMessage(username, sessionId, "user", lastMsg.get("content"));
                     }
                 }
-                saveMessage(sessionId, message.get("role"), message.get("content"));
+                saveMessage(username, sessionId, message.get("role"), message.get("content"));
             }
 
             Map<String, String> resp = new HashMap<>();
@@ -84,8 +87,9 @@ public class ChatController {
     @GetMapping("/api/chat/history")
     public ApiResponse<List<ChatMessageEntity>> history(
             @Parameter(description = "会话 ID") @RequestParam String sessionId) {
+        String username = SecurityContextUtils.requireUsername();
         List<ChatMessageEntity> messages =
-                chatMessageRepository.findBySessionIdOrderByCreatedTimeAsc(sessionId);
+                chatMessageRepository.findByUsernameAndSessionIdOrderByCreatedTimeAsc(username, sessionId);
         return ApiResponse.success(messages);
     }
 
@@ -93,15 +97,35 @@ public class ChatController {
     @DeleteMapping("/api/chat/history")
     public ApiResponse<Map<String, Object>> clearHistory(
             @Parameter(description = "会话 ID") @RequestParam String sessionId) {
-        chatMessageRepository.deleteBySessionId(sessionId);
+        String username = SecurityContextUtils.requireUsername();
+        chatMessageRepository.deleteByUsernameAndSessionId(username, sessionId);
         Map<String, Object> resp = new HashMap<>();
         resp.put("ok", true);
         return ApiResponse.success(resp);
     }
 
-    private void saveMessage(String sessionId, String role, String content) {
+    // 校验聊天请求规模和消息字段，限制外部AI调用成本与持久化膨胀
+    private void validateMessages(ChatRequest request) {
+        if (request.getSessionId().length() > 64 || request.getMessages().size() > 50) {
+            throw new IllegalArgumentException("会话ID最多64个字符，消息最多50条");
+        }
+        for (Map<String, String> message : request.getMessages()) {
+            String role = message == null ? null : message.get("role");
+            String content = message == null ? null : message.get("content");
+            if (!("system".equals(role) || "user".equals(role) || "assistant".equals(role))) {
+                throw new IllegalArgumentException("消息角色无效");
+            }
+            if (content == null || content.trim().isEmpty() || content.length() > 8000) {
+                throw new IllegalArgumentException("消息内容不能为空且不得超过8000个字符");
+            }
+        }
+    }
+
+    // 保存带用户归属的聊天消息
+    private void saveMessage(String username, String sessionId, String role, String content) {
         ChatMessageEntity msg = new ChatMessageEntity();
         msg.setSessionId(sessionId);
+        msg.setUsername(username);
         msg.setRole(role);
         msg.setContent(content);
         chatMessageRepository.save(msg);

@@ -3,10 +3,12 @@ package com.ruoyi.iotsystem.controller;
 import com.ruoyi.iotsystem.dto.ApiResponse;
 import com.ruoyi.iotsystem.service.RedisService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/redis")
+@Profile("dev")
 public class RedisTestController {
 
     @Autowired

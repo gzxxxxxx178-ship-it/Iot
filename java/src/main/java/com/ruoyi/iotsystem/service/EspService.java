@@ -37,6 +37,9 @@ public class EspService {
      */
     public EspEntity saveData(EspEntity espEntity) {
         deviceService.ensureTelemetryAllowed(espEntity.getDeviceId());
+        if (espEntity.getOwnerUsername() == null) {
+            espEntity.setOwnerUsername(deviceService.getOwnerUsername(espEntity.getDeviceId()));
+        }
         if (espEntity.getServerReceivedTime() == null) {
             espEntity.setServerReceivedTime(LocalDateTime.now());
         }
@@ -93,6 +96,11 @@ public class EspService {
         return espRepository.findTop20ByOrderByServerReceivedTimeDesc();
     }
 
+    // 获取指定用户最近的20条传感器数据
+    public java.util.List<EspEntity> getRecentData(String ownerUsername) {
+        return espRepository.findTop20ByOwnerUsernameOrderByServerReceivedTimeDesc(ownerUsername);
+    }
+
     // 根据传感器物理边界标记异常数据但保留原始读数
     private void evaluateDataQuality(EspEntity reading) {
         List<String> issues = new ArrayList<>();
@@ -117,13 +125,22 @@ public class EspService {
 
     // 执行只允许有效数据进入的报警与自动化规则
     private void evaluateBusinessRules(EspEntity savedEntity) {
+        String ownerUsername = savedEntity.getOwnerUsername();
         try {
-            alarmService.evaluate(savedEntity);
+            if (ownerUsername == null) {
+                alarmService.evaluate(savedEntity);
+            } else {
+                alarmService.evaluate(savedEntity, ownerUsername);
+            }
         } catch (Exception e) {
             logger.warn("Alarm evaluation failed for device {}: {}", savedEntity.getDeviceId(), e.getMessage());
         }
         try {
-            automationService.evaluate(savedEntity);
+            if (ownerUsername == null) {
+                automationService.evaluate(savedEntity);
+            } else {
+                automationService.evaluate(savedEntity, ownerUsername);
+            }
         } catch (Exception e) {
             logger.warn("Automation evaluation failed for device {}: {}",
                     savedEntity.getDeviceId(), e.getMessage());

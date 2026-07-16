@@ -9,12 +9,14 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import javax.servlet.http.HttpServletResponse;
 import java.util.Arrays;
+import java.util.Locale;
 
 @Configuration
 @EnableWebSecurity
@@ -38,7 +40,8 @@ public class SecurityConfig {
         http
                 .cors().configurationSource(corsConfigurationSource())
                 .and()
-                .csrf().disable()
+                .csrf().requireCsrfProtectionMatcher(csrfRequestMatcher())
+                .and()
                 .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
                 .and()
                 .exceptionHandling()
@@ -66,6 +69,24 @@ public class SecurityConfig {
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    // 仅对基于浏览器会话的写请求要求CSRF，JWT Bearer请求由令牌本身承担防护
+    private RequestMatcher csrfRequestMatcher() {
+        return request -> {
+            String method = request.getMethod().toUpperCase(Locale.ROOT);
+            if ("GET".equals(method) || "HEAD".equals(method)
+                    || "OPTIONS".equals(method) || "TRACE".equals(method)) {
+                return false;
+            }
+            String path = request.getRequestURI();
+            if (path.startsWith(request.getContextPath() + "/api/auth/")
+                    || path.equals(request.getContextPath() + "/api/alipay/notify")) {
+                return false;
+            }
+            String authorization = request.getHeader("Authorization");
+            return authorization == null || !authorization.startsWith("Bearer ");
+        };
     }
 
     // CORS配置：允许所有来源、方法和请求头

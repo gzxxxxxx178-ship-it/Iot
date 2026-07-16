@@ -1,6 +1,7 @@
 package com.ruoyi.iotsystem.controller;
 
 import com.ruoyi.iotsystem.dto.ApiResponse;
+import com.ruoyi.iotsystem.config.SecurityContextUtils;
 import com.ruoyi.iotsystem.dto.AutomationRuleRequest;
 import com.ruoyi.iotsystem.entity.AutomationExecutionEntity;
 import com.ruoyi.iotsystem.entity.AutomationRuleEntity;
@@ -35,7 +36,9 @@ public class AutomationController {
     @Operation(summary = "自动化规则列表")
     @GetMapping("/rules")
     public ApiResponse<List<AutomationRuleEntity>> getRules() {
-        return ApiResponse.success(automationService.getRules());
+        String username = SecurityContextUtils.currentUsernameOrNull();
+        return ApiResponse.success(username == null
+                ? automationService.getRules() : automationService.getRules(username));
     }
 
     // 创建新的自动化规则
@@ -43,7 +46,9 @@ public class AutomationController {
     @PostMapping("/rules")
     public ApiResponse<AutomationRuleEntity> createRule(
             @Valid @RequestBody AutomationRuleRequest request) {
-        return ApiResponse.success(automationService.createRule(request));
+        String username = SecurityContextUtils.currentUsernameOrNull();
+        return ApiResponse.success(username == null
+                ? automationService.createRule(request) : automationService.createRule(request, username));
     }
 
     // 更新指定自动化规则
@@ -52,14 +57,21 @@ public class AutomationController {
     public ApiResponse<AutomationRuleEntity> updateRule(
             @PathVariable Long id,
             @Valid @RequestBody AutomationRuleRequest request) {
-        return ApiResponse.success(automationService.updateRule(id, request));
+        String username = SecurityContextUtils.currentUsernameOrNull();
+        return ApiResponse.success(username == null
+                ? automationService.updateRule(id, request) : automationService.updateRule(id, request, username));
     }
 
     // 删除指定自动化规则
     @Operation(summary = "删除自动化规则")
     @DeleteMapping("/rules/{id}")
     public ApiResponse<Void> deleteRule(@PathVariable Long id) {
-        automationService.deleteRule(id);
+        String username = SecurityContextUtils.currentUsernameOrNull();
+        if (username == null) {
+            automationService.deleteRule(id);
+        } else {
+            automationService.deleteRule(id, username);
+        }
         return ApiResponse.success();
     }
 
@@ -67,6 +79,8 @@ public class AutomationController {
     @Operation(summary = "自动化执行记录")
     @GetMapping("/executions")
     public ApiResponse<List<AutomationExecutionEntity>> getExecutions() {
-        return ApiResponse.success(automationService.getExecutions());
+        String username = SecurityContextUtils.currentUsernameOrNull();
+        return ApiResponse.success(username == null
+                ? automationService.getExecutions() : automationService.getExecutions(username));
     }
 }

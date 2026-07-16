@@ -34,8 +34,18 @@ public class AlarmService {
         return alarmRuleRepository.findAllByOrderByIdDesc();
     }
 
+    // 按当前用户查询报警规则
+    public List<AlarmRuleEntity> getRules(String ownerUsername) {
+        return alarmRuleRepository.findByOwnerUsernameOrderByIdDesc(ownerUsername);
+    }
+
     // 校验并创建报警规则
     public AlarmRuleEntity createRule(AlarmRuleRequest request) {
+        return createRule(request, null);
+    }
+
+    // 校验并创建归属于当前用户的报警规则
+    public AlarmRuleEntity createRule(AlarmRuleRequest request, String ownerUsername) {
         validateThreshold(request.getMetric(), request.getThreshold());
         validateOperator(request.getOperator());
         String deviceId = normalizeDeviceId(request.getDeviceId());
@@ -47,16 +57,22 @@ public class AlarmService {
                 request.getThreshold(),
                 enabled,
                 deviceId,
-                cooldownSeconds);
+                cooldownSeconds, ownerUsername);
         return alarmRuleRepository.save(rule);
     }
 
     // 校验并更新指定报警规则
     public AlarmRuleEntity updateRule(Long id, AlarmRuleRequest request) {
+        return updateRule(id, request, null);
+    }
+
+    // 校验并更新当前用户拥有的报警规则
+    public AlarmRuleEntity updateRule(Long id, AlarmRuleRequest request, String ownerUsername) {
         validateThreshold(request.getMetric(), request.getThreshold());
         validateOperator(request.getOperator());
         AlarmRuleEntity rule = alarmRuleRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("报警规则不存在"));
+        assertOwner(rule.getOwnerUsername(), ownerUsername);
         rule.setMetric(request.getMetric());
         rule.setOperator(request.getOperator());
         rule.setThreshold(request.getThreshold());
@@ -69,16 +85,28 @@ public class AlarmService {
 
     // 删除指定报警规则
     public void deleteRule(Long id) {
-        if (!alarmRuleRepository.existsById(id)) {
-            throw new RuntimeException("报警规则不存在");
-        }
-        alarmRuleRepository.deleteById(id);
+        deleteRule(id, null);
+    }
+
+    // 删除当前用户拥有的报警规则
+    public void deleteRule(Long id, String ownerUsername) {
+        AlarmRuleEntity rule = alarmRuleRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("报警规则不存在"));
+        assertOwner(rule.getOwnerUsername(), ownerUsername);
+        alarmRuleRepository.delete(rule);
     }
 
     // 查询最近报警记录或指定时间范围内的记录
     public List<AlarmRecordEntity> getRecords(LocalDateTime start, LocalDateTime end) {
+        return getRecords(start, end, null);
+    }
+
+    // 按当前用户查询报警记录
+    public List<AlarmRecordEntity> getRecords(LocalDateTime start, LocalDateTime end, String ownerUsername) {
         if (start == null && end == null) {
-            return alarmRecordRepository.findTop100ByOrderByCreatedAtDesc();
+            return ownerUsername == null
+                    ? alarmRecordRepository.findTop100ByOrderByCreatedAtDesc()
+                    : alarmRecordRepository.findTop100ByOwnerUsernameOrderByCreatedAtDesc(ownerUsername);
         }
         if (start == null || end == null) {
             throw new RuntimeException("开始时间和结束时间必须同时提供");
@@ -86,23 +114,34 @@ public class AlarmService {
         if (start.isAfter(end)) {
             throw new RuntimeException("开始时间不能晚于结束时间");
         }
-        return alarmRecordRepository.findByCreatedAtBetweenOrderByCreatedAtDesc(start, end);
+        return ownerUsername == null
+                ? alarmRecordRepository.findByCreatedAtBetweenOrderByCreatedAtDesc(start, end)
+                : alarmRecordRepository.findByOwnerUsernameAndCreatedAtBetweenOrderByCreatedAtDesc(
+                        ownerUsername, start, end);
     }
 
     // 使用最新传感器数据评估全部启用规则并保存报警记录
     @Transactional
     public void evaluate(EspEntity reading) {
+        evaluate(reading, null);
+    }
+
+    // 使用当前用户的规则评估最新传感器数据
+    @Transactional
+    public void evaluate(EspEntity reading, String ownerUsername) {
         if (reading == null || reading.getDeviceId() == null) {
             return;
         }
-        List<AlarmRuleEntity> rules = alarmRuleRepository.findByEnabledTrueOrderByIdAsc();
+        List<AlarmRuleEntity> rules = ownerUsername == null
+                ? alarmRuleRepository.findByEnabledTrueOrderByIdAsc()
+                : alarmRuleRepository.findByEnabledTrueAndOwnerUsernameOrderByIdAsc(ownerUsername);
         for (AlarmRuleEntity rule : rules) {
-            evaluateRule(rule, reading);
+            evaluateRule(rule, reading, ownerUsername);
         }
     }
 
     // 评估单条规则并在满足条件且不处于冷却期时生成报警
-    private void evaluateRule(AlarmRuleEntity rule, EspEntity reading) {
+    private void evaluateRule(AlarmRuleEntity rule, EspEntity reading, String ownerUsername) {
         if (!appliesToDevice(rule, reading.getDeviceId())) {
             return;
         }
@@ -113,7 +152,8 @@ public class AlarmService {
         if (!matches(rule.getOperator(), actualValue, rule.getThreshold())) {
             return;
         }
-        if (isInCooldown(rule, reading.getDeviceId(), LocalDateTime.now())) {
+        String recordOwner = ownerUsername == null ? rule.getOwnerUsername() : ownerUsername;
+        if (isInCooldown(rule, reading.getDeviceId(), LocalDateTime.now(), recordOwner)) {
             return;
         }
         alarmRecordRepository.save(new AlarmRecordEntity(
@@ -123,7 +163,7 @@ public class AlarmService {
                 rule.getOperator(),
                 rule.getThreshold(),
                 actualValue,
-                buildMessage(rule, reading.getDeviceId(), actualValue)));
+                buildMessage(rule, reading.getDeviceId(), actualValue), recordOwner));
     }
 
     // 判断规则是否适用于当前设备
@@ -160,12 +200,14 @@ public class AlarmService {
     }
 
     // 判断同一规则和设备是否仍处于重复报警冷却期
-    private boolean isInCooldown(AlarmRuleEntity rule, String deviceId, LocalDateTime now) {
+    private boolean isInCooldown(AlarmRuleEntity rule, String deviceId, LocalDateTime now, String ownerUsername) {
         if (rule.getCooldownSeconds() == null || rule.getCooldownSeconds() <= 0) {
             return false;
         }
-        Optional<AlarmRecordEntity> latest = alarmRecordRepository
-                .findFirstByRuleIdAndDeviceIdOrderByCreatedAtDesc(rule.getId(), deviceId);
+        Optional<AlarmRecordEntity> latest = ownerUsername == null
+                ? alarmRecordRepository.findFirstByRuleIdAndDeviceIdOrderByCreatedAtDesc(rule.getId(), deviceId)
+                : alarmRecordRepository.findFirstByOwnerUsernameAndRuleIdAndDeviceIdOrderByCreatedAtDesc(
+                        ownerUsername, rule.getId(), deviceId);
         return latest.isPresent()
                 && latest.get().getCreatedAt() != null
                 && latest.get().getCreatedAt().isAfter(now.minusSeconds(rule.getCooldownSeconds()));
@@ -244,6 +286,13 @@ public class AlarmService {
     private void validateOperator(String operator) {
         if (!"gt".equals(operator) && !"lt".equals(operator) && !"eq".equals(operator)) {
             throw new RuntimeException("不支持的比较运算符");
+        }
+    }
+
+    // 校验资源归属，禁止跨用户修改或删除
+    private void assertOwner(String resourceOwner, String currentOwner) {
+        if (currentOwner != null && !currentOwner.equals(resourceOwner)) {
+            throw new SecurityException("无权访问该报警资源");
         }
     }
 }

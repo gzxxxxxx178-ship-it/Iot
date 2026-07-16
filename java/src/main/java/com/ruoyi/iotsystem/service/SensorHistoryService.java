@@ -5,6 +5,7 @@ import com.ruoyi.iotsystem.repository.EspRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -25,28 +26,49 @@ public class SensorHistoryService {
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final EspRepository espRepository;
+    private final DeviceService deviceService;
 
     // 注入传感器历史仓库
     public SensorHistoryService(EspRepository espRepository) {
         this.espRepository = espRepository;
+        this.deviceService = null;
+    }
+
+    // 注入传感器历史仓库和设备归属服务
+    @Autowired
+    public SensorHistoryService(EspRepository espRepository, DeviceService deviceService) {
+        this.espRepository = espRepository;
+        this.deviceService = deviceService;
     }
 
     // 按设备、时间范围和受限分页参数组合查询历史数据
     public Page<EspEntity> queryPage(String deviceId, LocalDateTime start, LocalDateTime end,
             int page, int size) {
+        return queryPage(deviceId, start, end, page, size, null);
+    }
+
+    // 按当前用户查询历史分页数据
+    public Page<EspEntity> queryPage(String deviceId, LocalDateTime start, LocalDateTime end,
+            int page, int size, String ownerUsername) {
         String normalizedDeviceId = normalizeDeviceId(deviceId);
         validateTimeRange(start, end, false);
         validatePage(page, size);
         PageRequest pageable = PageRequest.of(page, size);
-        return query(normalizedDeviceId, start, end, pageable);
+        return query(normalizedDeviceId, start, end, pageable, ownerUsername);
     }
 
     // 查询受行数上限保护的兼容时间范围列表
     public List<EspEntity> queryRange(String deviceId, LocalDateTime start, LocalDateTime end) {
+        return queryRange(deviceId, start, end, null);
+    }
+
+    // 按当前用户查询历史数据
+    public List<EspEntity> queryRange(String deviceId, LocalDateTime start, LocalDateTime end,
+            String ownerUsername) {
         String normalizedDeviceId = normalizeDeviceId(deviceId);
         validateTimeRange(start, end, true);
         Page<EspEntity> result = query(
-                normalizedDeviceId, start, end, PageRequest.of(0, MAX_RANGE_ROWS + 1));
+                normalizedDeviceId, start, end, PageRequest.of(0, MAX_RANGE_ROWS + 1), ownerUsername);
         if (result.getTotalElements() > MAX_RANGE_ROWS) {
             throw new RuntimeException("查询结果超过5000条，请缩小时间范围或使用分页接口");
         }
@@ -55,10 +77,15 @@ public class SensorHistoryService {
 
     // 导出所选设备和时间范围内的完整CSV并限制最大行数
     public byte[] exportCsv(String deviceId, LocalDateTime start, LocalDateTime end) {
+        return exportCsv(deviceId, start, end, null);
+    }
+
+    // 按当前用户导出历史数据CSV
+    public byte[] exportCsv(String deviceId, LocalDateTime start, LocalDateTime end, String ownerUsername) {
         String normalizedDeviceId = normalizeDeviceId(deviceId);
         validateTimeRange(start, end, true);
         Page<EspEntity> result = query(
-                normalizedDeviceId, start, end, PageRequest.of(0, MAX_EXPORT_ROWS + 1));
+                normalizedDeviceId, start, end, PageRequest.of(0, MAX_EXPORT_ROWS + 1), ownerUsername);
         if (result.getTotalElements() > MAX_EXPORT_ROWS) {
             throw new RuntimeException("导出结果超过50000条，请缩小时间范围后重试");
         }
@@ -73,6 +100,30 @@ public class SensorHistoryService {
     // 根据可选筛选条件选择能够利用现有索引的Repository查询
     private Page<EspEntity> query(String deviceId, LocalDateTime start, LocalDateTime end,
             PageRequest pageable) {
+        return query(deviceId, start, end, pageable, null);
+    }
+
+    // 根据用户归属和筛选条件选择历史数据查询
+    private Page<EspEntity> query(String deviceId, LocalDateTime start, LocalDateTime end,
+            PageRequest pageable, String ownerUsername) {
+        if (ownerUsername != null) {
+            if (deviceService != null) {
+                deviceService.claimLegacyDevices(ownerUsername);
+            }
+            if (deviceId != null && start != null) {
+                return espRepository.findByOwnerUsernameAndDeviceIdAndServerReceivedTimeBetweenOrderByServerReceivedTimeDesc(
+                        ownerUsername, deviceId, start, end, pageable);
+            }
+            if (deviceId != null) {
+                return espRepository.findByOwnerUsernameAndDeviceIdOrderByServerReceivedTimeDesc(
+                        ownerUsername, deviceId, pageable);
+            }
+            if (start != null) {
+                return espRepository.findByOwnerUsernameAndServerReceivedTimeBetweenOrderByServerReceivedTimeDesc(
+                        ownerUsername, start, end, pageable);
+            }
+            return espRepository.findAllByOwnerUsernameOrderByServerReceivedTimeDesc(ownerUsername, pageable);
+        }
         if (deviceId != null && start != null) {
             return espRepository.findByDeviceIdAndServerReceivedTimeBetweenOrderByServerReceivedTimeDesc(
                     deviceId, start, end, pageable);

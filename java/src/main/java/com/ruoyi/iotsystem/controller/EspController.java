@@ -1,6 +1,7 @@
 package com.ruoyi.iotsystem.controller;
 
 import com.ruoyi.iotsystem.dto.ApiResponse;
+import com.ruoyi.iotsystem.config.SecurityContextUtils;
 import com.ruoyi.iotsystem.dto.PagedResponse;
 import com.ruoyi.iotsystem.entity.EspEntity;
 import com.ruoyi.iotsystem.repository.EspRepository;
@@ -68,7 +69,8 @@ public class EspController {
     @Operation(summary = "最近传感器数据")
     @GetMapping("/history")
     public ApiResponse<List<EspEntity>> getRecentData() {
-        return ApiResponse.success(espService.getRecentData());
+        String username = SecurityContextUtils.currentUsernameOrNull();
+        return ApiResponse.success(username == null ? espService.getRecentData() : espService.getRecentData(username));
     }
 
     // 按设备和时间范围查询受五千条上限保护的兼容列表
@@ -80,7 +82,10 @@ public class EspController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
             @Parameter(description = "结束时间")
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end) {
-        return ApiResponse.success(sensorHistoryService.queryRange(deviceId, start, end));
+        String username = SecurityContextUtils.currentUsernameOrNull();
+        return ApiResponse.success(username == null
+                ? sensorHistoryService.queryRange(deviceId, start, end)
+                : sensorHistoryService.queryRange(deviceId, start, end, username));
     }
 
     // 按设备、时间范围和受限分页参数查询历史数据
@@ -94,8 +99,10 @@ public class EspController {
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        Page<EspEntity> result = sensorHistoryService.queryPage(
-                deviceId, start, end, page, size);
+        String username = SecurityContextUtils.currentUsernameOrNull();
+        Page<EspEntity> result = username == null
+                ? sensorHistoryService.queryPage(deviceId, start, end, page, size)
+                : sensorHistoryService.queryPage(deviceId, start, end, page, size, username);
         return ApiResponse.success(PagedResponse.of(result));
     }
 
@@ -106,7 +113,10 @@ public class EspController {
             @RequestParam(required = false) String deviceId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end) {
-        byte[] csv = sensorHistoryService.exportCsv(deviceId, start, end);
+        String username = SecurityContextUtils.currentUsernameOrNull();
+        byte[] csv = username == null
+                ? sensorHistoryService.exportCsv(deviceId, start, end)
+                : sensorHistoryService.exportCsv(deviceId, start, end, username);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         "attachment; filename=\"sensor-history.csv\"")
@@ -118,10 +128,15 @@ public class EspController {
     @Operation(summary = "设备列表")
     @GetMapping("/devices")
     public ApiResponse<List<Map<String, Object>>> getDevices() {
-        List<String> deviceIds = espRepository.findDistinctDeviceIds();
+        String ownerUsername = SecurityContextUtils.currentUsernameOrNull();
+        List<String> deviceIds = ownerUsername == null
+                ? espRepository.findDistinctDeviceIds()
+                : espRepository.findDistinctDeviceIdsByOwnerUsername(ownerUsername);
         List<Map<String, Object>> devices = new ArrayList<>();
         for (String id : deviceIds) {
-            espRepository.findFirstByDeviceIdOrderByServerReceivedTimeDesc(id)
+            (ownerUsername == null
+                    ? espRepository.findFirstByDeviceIdOrderByServerReceivedTimeDesc(id)
+                    : espRepository.findFirstByOwnerUsernameAndDeviceIdOrderByServerReceivedTimeDesc(ownerUsername, id))
                     .ifPresent(reading -> devices.add(toDeviceSummary(reading)));
         }
         return ApiResponse.success(devices);

@@ -24,9 +24,13 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
+import java.util.regex.Pattern;
 
 @Service
 public class AlipayService {
+
+    private static final Pattern ORDER_NO_PATTERN = Pattern.compile("[A-Za-z0-9_-]{1,64}");
+    private static final BigDecimal MAX_ORDER_AMOUNT = new BigDecimal("100000.00");
 
     private static final Logger log = LoggerFactory.getLogger(AlipayService.class);
 
@@ -62,7 +66,19 @@ public class AlipayService {
 
     // 创建支付订单：生成订单号、保存数据库、调用支付宝预下单返回二维码
     public Map<String, String> createOrder(String username, String amountStr, String subject) throws AlipayApiException {
-        BigDecimal amount = new BigDecimal(amountStr);
+        BigDecimal amount;
+        try {
+            amount = new BigDecimal(amountStr);
+        } catch (NumberFormatException exception) {
+            throw new IllegalArgumentException("金额格式无效");
+        }
+        if (amount.signum() <= 0 || amount.scale() > 2 || amount.compareTo(MAX_ORDER_AMOUNT) > 0) {
+            throw new IllegalArgumentException("金额必须大于0、最多两位小数且不超过100000元");
+        }
+        if (subject == null || subject.trim().isEmpty() || subject.length() > 128) {
+            throw new IllegalArgumentException("支付主题不能为空且不得超过128个字符");
+        }
+        subject = subject.trim();
         String totalAmount = amount.setScale(2, BigDecimal.ROUND_HALF_UP).toString();
 
         String outTradeNo = generateOrderNo();
@@ -94,6 +110,18 @@ public class AlipayService {
 
     // 查询订单状态：调用支付宝查询接口，已支付则更新数据库
     public Map<String, Object> queryOrder(String outTradeNo) throws AlipayApiException {
+        return queryOrder(outTradeNo, null);
+    }
+
+    // 查询当前用户所属支付订单，拒绝使用订单号探测他人订单状态
+    public Map<String, Object> queryOrder(String outTradeNo, String username) throws AlipayApiException {
+        if (outTradeNo == null || !ORDER_NO_PATTERN.matcher(outTradeNo).matches()) {
+            throw new IllegalArgumentException("订单号格式无效");
+        }
+        PaymentOrderEntity ownedOrder = orderRepository.findByOutTradeNo(outTradeNo);
+        if (username != null && (ownedOrder == null || !username.equals(ownedOrder.getUsername()))) {
+            throw new SecurityException("无权访问该订单");
+        }
         AlipayTradeQueryRequest request = new AlipayTradeQueryRequest();
         request.setBizContent("{\"out_trade_no\":\"" + outTradeNo + "\"}");
 
@@ -103,7 +131,7 @@ public class AlipayService {
         result.put("outTradeNo", outTradeNo);
 
         if (response.isSuccess() && "TRADE_SUCCESS".equals(response.getTradeStatus())) {
-            PaymentOrderEntity order = orderRepository.findByOutTradeNo(outTradeNo);
+            PaymentOrderEntity order = ownedOrder;
             if (order != null && "PENDING".equals(order.getStatus())) {
                 order.setStatus("SUCCESS");
                 order.setTradeNo(response.getTradeNo());
@@ -115,7 +143,7 @@ public class AlipayService {
             result.put("tradeNo", response.getTradeNo());
             result.put("amount", response.getTotalAmount());
         } else {
-            PaymentOrderEntity order = orderRepository.findByOutTradeNo(outTradeNo);
+            PaymentOrderEntity order = ownedOrder;
             result.put("status", order != null ? order.getStatus() : "UNKNOWN");
         }
 

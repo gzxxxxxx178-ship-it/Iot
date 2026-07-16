@@ -1,6 +1,7 @@
 package com.ruoyi.iotsystem.controller;
 
 import com.ruoyi.iotsystem.dto.ApiResponse;
+import com.ruoyi.iotsystem.config.SecurityContextUtils;
 import com.ruoyi.iotsystem.dto.DashboardStatsResponse;
 import com.ruoyi.iotsystem.dto.DeviceStatusResponse;
 import com.ruoyi.iotsystem.service.DashboardService;
@@ -28,13 +29,17 @@ public class DashboardController {
     @Operation(summary = "仪表盘统计")
     @GetMapping("/stats")
     public ApiResponse<DashboardStatsResponse> getStats() {
-        return ApiResponse.success(dashboardService.getStats());
+        String username = SecurityContextUtils.currentUsernameOrNull();
+        return ApiResponse.success(username == null ? dashboardService.getStats() : dashboardService.getStats(username));
     }
 
     // 获取在线和离线设备数量分布
     @Operation(summary = "设备状态分布")
     @GetMapping("/device-status")
     public ApiResponse<List<DeviceStatusResponse>> getDeviceStatusDistribution() {
-        return ApiResponse.success(dashboardService.getDeviceStatusDistribution());
+        String username = SecurityContextUtils.currentUsernameOrNull();
+        return ApiResponse.success(username == null
+                ? dashboardService.getDeviceStatusDistribution()
+                : dashboardService.getDeviceStatusDistribution(username));
     }
 }

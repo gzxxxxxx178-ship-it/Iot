@@ -1,6 +1,7 @@
 package com.ruoyi.iotsystem.controller;
 
 import com.ruoyi.iotsystem.dto.ApiResponse;
+import com.ruoyi.iotsystem.config.SecurityContextUtils;
 import com.ruoyi.iotsystem.dto.DeviceControlRequest;
 import com.ruoyi.iotsystem.service.DeviceService;
 import com.ruoyi.iotsystem.service.MqttMessageService;
@@ -31,7 +32,12 @@ public class DeviceControlController {
     @Operation(summary = "发送设备控制指令")
     @PostMapping("/control")
     public ApiResponse<String> controlDevice(@Valid @RequestBody DeviceControlRequest request) {
-        deviceService.assertControllable(request.getDeviceId());
+        String username = SecurityContextUtils.currentUsernameOrNull();
+        if (username == null) {
+            deviceService.assertControllable(request.getDeviceId());
+        } else {
+            deviceService.assertControllable(request.getDeviceId(), username);
+        }
         mqttMessageService.publishControl(request.getDeviceId(), request.getCommand());
         return ApiResponse.success(
                 "指令 '" + request.getCommand() + "' 已发送到设备 " + request.getDeviceId());

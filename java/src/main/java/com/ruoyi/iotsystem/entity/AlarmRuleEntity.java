@@ -34,6 +34,9 @@ public class AlarmRuleEntity {
     @Column(name = "device_id", nullable = false)
     private String deviceId;
 
+    @Column(name = "owner_username", length = 100)
+    private String ownerUsername;
+
     @Column(name = "cooldown_seconds", nullable = false)
     private Integer cooldownSeconds;
 
@@ -63,6 +66,13 @@ public class AlarmRuleEntity {
         this.cooldownSeconds = cooldownSeconds;
         this.createdAt = LocalDateTime.now();
         this.updatedAt = this.createdAt;
+    }
+
+    // 创建带用户归属的报警规则
+    public AlarmRuleEntity(String metric, String operator, Double threshold, Boolean enabled,
+            String deviceId, Integer cooldownSeconds, String ownerUsername) {
+        this(metric, operator, threshold, enabled, deviceId, cooldownSeconds);
+        this.ownerUsername = ownerUsername;
     }
 
     // 获取规则主键
@@ -124,6 +134,12 @@ public class AlarmRuleEntity {
     public void setDeviceId(String deviceId) {
         this.deviceId = deviceId;
     }
+
+    // 获取规则归属用户名
+    public String getOwnerUsername() { return ownerUsername; }
+
+    // 设置规则归属用户名
+    public void setOwnerUsername(String ownerUsername) { this.ownerUsername = ownerUsername; }
 
     // 获取重复报警冷却秒数
     public Integer getCooldownSeconds() {

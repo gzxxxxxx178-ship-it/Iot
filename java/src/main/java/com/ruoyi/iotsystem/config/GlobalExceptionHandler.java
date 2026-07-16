@@ -61,6 +61,14 @@ public class GlobalExceptionHandler {
         return ApiResponse.fail(400, e.getMessage());
     }
 
+    // 权限边界失败 → 403，避免把越权请求伪装成普通参数错误
+    @ExceptionHandler(SecurityException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ApiResponse<?> handleSecurityException(SecurityException e) {
+        log.warn("权限校验失败: {}", e.getMessage());
+        return ApiResponse.fail(403, "无权访问该资源");
+    }
+
     // 支付宝 API 调用异常 → 500
     @ExceptionHandler(AlipayApiException.class)
     @ResponseStatus(HttpStatus.OK)

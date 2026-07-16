@@ -23,6 +23,9 @@ public class DeviceEntity {
     @Column(name = "device_id", nullable = false, unique = true, length = 64)
     private String deviceId;
 
+    @Column(name = "owner_username", length = 100)
+    private String ownerUsername;
+
     @Column(name = "device_name", nullable = false, length = 100)
     private String deviceName;
 
@@ -54,7 +57,14 @@ public class DeviceEntity {
     // 创建处于启用状态的设备档案
     public DeviceEntity(String deviceId, String deviceName, String deviceType,
             String location, String description, Boolean enabled) {
+        this(deviceId, deviceName, deviceType, location, description, enabled, null);
+    }
+
+    // 创建带用户归属的设备档案
+    public DeviceEntity(String deviceId, String deviceName, String deviceType,
+            String location, String description, Boolean enabled, String ownerUsername) {
         this.deviceId = deviceId;
+        this.ownerUsername = ownerUsername;
         this.deviceName = deviceName;
         this.deviceType = deviceType;
         this.location = location;
@@ -76,6 +86,12 @@ public class DeviceEntity {
 
     // 设置设备ID
     public void setDeviceId(String deviceId) { this.deviceId = deviceId; }
+
+    // 获取设备所属用户
+    public String getOwnerUsername() { return ownerUsername; }
+
+    // 设置设备所属用户
+    public void setOwnerUsername(String ownerUsername) { this.ownerUsername = ownerUsername; }
 
     // 获取设备显示名称
     public String getDeviceName() { return deviceName; }

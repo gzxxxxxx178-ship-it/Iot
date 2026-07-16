@@ -14,4 +14,10 @@ public interface AutomationRuleRepository extends JpaRepository<AutomationRuleEn
 
     // 按主键倒序查询全部规则
     List<AutomationRuleEntity> findAllByOrderByIdDesc();
+
+    // 按用户查询自动化规则
+    List<AutomationRuleEntity> findByOwnerUsernameOrderByIdDesc(String ownerUsername);
+
+    // 按用户查询启用的自动化规则
+    List<AutomationRuleEntity> findByEnabledTrueAndOwnerUsernameOrderByIdAsc(String ownerUsername);
 }

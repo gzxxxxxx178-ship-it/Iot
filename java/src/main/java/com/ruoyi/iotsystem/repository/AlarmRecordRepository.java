@@ -23,4 +23,15 @@ public interface AlarmRecordRepository extends JpaRepository<AlarmRecordEntity, 
     Optional<AlarmRecordEntity> findFirstByRuleIdAndDeviceIdOrderByCreatedAtDesc(
             Long ruleId,
             String deviceId);
+
+    // 按用户查询最近报警记录
+    List<AlarmRecordEntity> findTop100ByOwnerUsernameOrderByCreatedAtDesc(String ownerUsername);
+
+    // 按用户和时间范围查询报警记录
+    List<AlarmRecordEntity> findByOwnerUsernameAndCreatedAtBetweenOrderByCreatedAtDesc(
+            String ownerUsername, LocalDateTime start, LocalDateTime end);
+
+    // 按用户查询指定规则和设备最近一次报警
+    Optional<AlarmRecordEntity> findFirstByOwnerUsernameAndRuleIdAndDeviceIdOrderByCreatedAtDesc(
+            String ownerUsername, Long ruleId, String deviceId);
 }

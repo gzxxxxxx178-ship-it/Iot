@@ -11,4 +11,7 @@ public interface AutomationExecutionRepository extends JpaRepository<AutomationE
 
     // 查询最近一百条自动化执行记录
     List<AutomationExecutionEntity> findTop100ByOrderByCreatedAtDesc();
+
+    // 按用户查询最近自动化执行记录
+    List<AutomationExecutionEntity> findTop100ByOwnerUsernameOrderByCreatedAtDesc(String ownerUsername);
 }
