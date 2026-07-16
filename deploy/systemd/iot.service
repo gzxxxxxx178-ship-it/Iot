@@ -1,0 +1,23 @@
+[Unit]
+Description=智慧农业 IoT Spring Boot Backend
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=iot
+Group=iot
+WorkingDirectory=/opt/iot
+EnvironmentFile=/opt/iot/iot.env
+ExecStart=/usr/bin/java -jar /opt/iot/releases/current --spring.profiles.active=prod
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/opt/iot
+
+[Install]
+WantedBy=multi-user.target

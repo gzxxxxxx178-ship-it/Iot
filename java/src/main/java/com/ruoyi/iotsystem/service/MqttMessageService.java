@@ -139,6 +139,11 @@ public class MqttMessageService implements MqttCallbackExtended {
         publishInternal(properties.getTopicRoot() + "/" + deviceId + "/control", command, false);
     }
 
+    // 返回当前MQTT会话连接状态，供生产健康检查使用
+    public boolean isConnected() {
+        return mqttClient.isConnected();
+    }
+
     // 尝试连接Broker，失败时保持应用运行并安排重试
     private synchronized void connectOrScheduleRetry() {
         if (shuttingDown || mqttClient.isConnected()) {

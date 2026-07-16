@@ -60,6 +60,7 @@ public class SecurityConfig {
                 .and()
                 .authorizeRequests()
                 .antMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                .antMatchers("/actuator/health").permitAll()
                 .antMatchers("/api/auth/**", "/login/oauth2/**", "/oauth2/**", "/api/alipay/notify").permitAll()
                 // WebSocket HTTP升级请求进入过滤器链，实际鉴权由一次性票据握手拦截器执行
                 .antMatchers("/ws/**").permitAll()

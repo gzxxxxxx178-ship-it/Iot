@@ -427,17 +427,10 @@ cd java && ./mvnw test    # 运行全部测试
 systemctl status iot       # 查看状态
 systemctl restart iot      # 重启
 journalctl -u iot -f       # 查看日志
+curl --fail http://127.0.0.1:8080/actuator/health  # 健康检查
 ```
 
-**重新部署**:
-```bash
-# 本地构建
-./mvnw clean package -DskipTests
-# 上传
-scp target/IoTSystem-0.0.1-SNAPSHOT.jar root@<VPS_IP>:/opt/iot/
-# 重启
-ssh root@<VPS_IP> "systemctl restart iot"
-```
+**重新部署**：统一使用根目录 `deploy/deploy-backend.sh`。脚本按时间戳和 Git 短提交号保存版本，原子切换 `/opt/iot/releases/current`，通过 Actuator 健康检查验收；失败自动恢复上一版本，默认保留最近 5 个版本。首次安装、systemd、Nginx 和回滚说明见 [deploy/README.md](../deploy/README.md)。
 
 **生产环境变量** (`application-prod.properties`):
 - `spring.datasource.url`: TiDB Cloud 连接
