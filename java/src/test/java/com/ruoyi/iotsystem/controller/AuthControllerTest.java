@@ -41,7 +41,7 @@ class AuthControllerTest {
     // ==================== 登录测试 ====================
 
     @Test
-    void login_正确凭据_应返回200和token() throws Exception {
+    void login_正确凭据_应返回200并写入HttpOnlyCookie() throws Exception {
         LoginRequest req = new LoginRequest();
         req.setUsername("testuser");
         req.setPassword("password123");
@@ -53,7 +53,8 @@ class AuthControllerTest {
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.token").value("jwt.token"))
+                .andExpect(jsonPath("$.data.token").doesNotExist())
+                .andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.containsString("iot_access_token=")))
                 .andExpect(jsonPath("$.data.username").value("testuser"));
     }
 
@@ -88,7 +89,7 @@ class AuthControllerTest {
     // ==================== 注册测试 ====================
 
     @Test
-    void register_成功注册_应返回200和token() throws Exception {
+    void register_成功注册_应返回200并写入HttpOnlyCookie() throws Exception {
         RegisterRequest req = new RegisterRequest();
         req.setUsername("newuser");
         req.setPassword("password123");
@@ -100,7 +101,8 @@ class AuthControllerTest {
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.token").value("jwt.token"));
+                .andExpect(jsonPath("$.data.token").doesNotExist())
+                .andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.containsString("HttpOnly")));
     }
 
     @Test

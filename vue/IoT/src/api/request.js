@@ -1,20 +1,19 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
-import { getToken, removeToken, removeUsername } from '../utils/auth'
+import { removeToken, removeUsername } from '../utils/auth'
 
 // 创建 axios 实例：开发环境走 VITE_API_BASE_URL 或 localhost:8080，生产环境取环境变量
 const request = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:8080' : ''),
   timeout: 10000,
+  withCredentials: true,
+  xsrfCookieName: 'XSRF-TOKEN',
+  xsrfHeaderName: 'X-XSRF-TOKEN',
 })
 
-// 请求拦截器：自动注入 JWT Bearer token
+// 请求拦截器：认证由HttpOnly Cookie和XSRF Cookie自动携带
 request.interceptors.request.use(
   (config) => {
-    const token = getToken()
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
     return config
   },
   (error) => Promise.reject(error),

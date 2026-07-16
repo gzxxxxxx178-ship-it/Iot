@@ -1,20 +1,16 @@
 <script setup>
 import { onMounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
 const router = useRouter()
-const route = useRoute()
 const authStore = useAuthStore()
 
-// Google OAuth2 回调处理：从 URL query 提取 JWT → Pinia setAuth() → 跳转 Dashboard
-onMounted(() => {
-  const { token, username } = route.query
-  if (token) {
-    authStore.setAuth(token, username || '')
+// Google OAuth2 回调处理：认证Cookie已由后端写入，调用/me确认登录态
+onMounted(async () => {
+  if (await authStore.restore()) {
     router.push('/dashboard')
   } else {
-    // 无 token 说明回调异常，跳回登录页
     router.push('/login')
   }
 })

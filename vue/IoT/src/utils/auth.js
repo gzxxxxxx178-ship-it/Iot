@@ -1,32 +1,32 @@
 const TOKEN_KEY = 'token'
 const USERNAME_KEY = 'username'
 
-// 从 localStorage 获取 JWT token
+// JWT由HttpOnly Cookie保存，脚本不读取令牌
 export function getToken() {
-  return localStorage.getItem(TOKEN_KEY)
+  return ''
 }
 
-// 存储 JWT token 到 localStorage
+// 兼容旧调用方：令牌不再写入Web Storage
 export function setToken(token) {
-  localStorage.setItem(TOKEN_KEY, token)
+  void token
 }
 
-// 清除 localStorage 中的 JWT token
+// 清除兼容键，真实令牌由后端logout接口清除
 export function removeToken() {
-  localStorage.removeItem(TOKEN_KEY)
+  sessionStorage.removeItem(TOKEN_KEY)
 }
 
-// 从 localStorage 获取用户名
+// 从会话存储获取非敏感用户名
 export function getUsername() {
-  return localStorage.getItem(USERNAME_KEY)
+  return sessionStorage.getItem(USERNAME_KEY)
 }
 
-// 存储用户名到 localStorage
+// 保存非敏感用户名到当前浏览器会话
 export function setUsername(username) {
-  localStorage.setItem(USERNAME_KEY, username)
+  sessionStorage.setItem(USERNAME_KEY, username)
 }
 
-// 清除 localStorage 中的用户名
+// 清除当前浏览器会话用户名
 export function removeUsername() {
-  localStorage.removeItem(USERNAME_KEY)
+  sessionStorage.removeItem(USERNAME_KEY)
 }

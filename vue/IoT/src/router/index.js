@@ -86,12 +86,15 @@ const router = createRouter({
 })
 
 // 路由守卫：使用 Pinia authStore 检查登录态
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
-  authStore.restore() // 从 localStorage 恢复登录态
   const isAuthPage = to.path === '/login' || to.path === '/register' || to.path === '/oauth-callback'
+  // 登录页无需探测Cookie，OAuth回调和受保护页面才恢复服务端会话
+  const restored = isAuthPage && to.path !== '/oauth-callback'
+    ? false
+    : await authStore.restore()
 
-  if (!authStore.isLoggedIn && !isAuthPage) {
+  if (!restored && !authStore.isLoggedIn && !isAuthPage) {
     next('/login')
   } else if (authStore.isLoggedIn && isAuthPage) {
     next('/dashboard')
