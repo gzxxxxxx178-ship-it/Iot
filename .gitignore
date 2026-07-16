@@ -20,6 +20,5 @@ client_secret_*.json
 # Arduino 本地 Wi-Fi 凭据（示例文件仍提交）
 /arduino/MQTT/secrets.h
 
-# Spring Boot 敏感配置（仅本地/VPS 保留，不提交 git）
+# Spring Boot 本地敏感配置（生产使用已提交的环境变量模板）
 **/application-dev.properties
-**/application-prod.properties
