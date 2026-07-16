@@ -80,7 +80,7 @@ P0-01 → P0-02 → P0-03 → P0-04
 - **影响**：脚本注入后可能直接窃取登录令牌；弱网环境初始 JavaScript 下载和解析成本偏高。
 - **范围**：登录回调、认证存储、Cookie/短期令牌策略、路由守卫和前端第三方依赖拆分。
 - **验收标准**：令牌不再长期暴露在可被脚本读取的存储中；登录、刷新、退出和 401 处理完整；生产构建通过并记录主要 chunk 体积变化。
-- **完成结果**：登录、注册和 Google OAuth 改为写入短期 HttpOnly JWT Cookie，前端不再从 `localStorage` 读取或发送令牌；axios 改为 `withCredentials` 并配合 XSRF Cookie，退出接口清除服务端Cookie，`/me` 用于启动恢复和401失效处理。前端按路由拆分页面与 ECharts/Element Plus 共享依赖，生产构建和 API 契约测试通过。
+- **完成结果**：登录、注册和 Google OAuth 改为写入短期 HttpOnly JWT Cookie，前端不再从 `localStorage` 读取或发送令牌；axios 改为 `withCredentials` 并配合 XSRF Cookie，退出接口清除服务端Cookie，`/me` 用于启动恢复和401失效处理。针对 Cloudflare Pages 与 VPS 跨站部署中浏览器阻止第三方 Cookie 的情况，用户名登录和注册额外返回仅保存在当前页面内存中的 Bearer 令牌，不写入 Web Storage；401 会同步清理 Pinia 状态并返回登录页，路由切换不再重复请求 `/me`。前端按路由拆分页面与 ECharts/Element Plus 共享依赖，生产构建和 API 契约测试通过。
 - **执行命令示例**：`执行 P4-05`
 
 ### P4-06 补充可重复部署、健康检查与回滚
@@ -285,5 +285,5 @@ P0-01 → P0-02 → P0-03 → P0-04
 | 2026-07-16 | P4-02 | 已完成 | 本次提交 | 完成会话写请求防护、聊天/支付/设备/规则/历史数据归属隔离，Redis测试接口限制为dev环境 |
 | 2026-07-16 | P4-03 | 已完成 | 本次提交 | 收紧生产Profile、JPA校验、Flyway迁移、Swagger和CORS边界 |
 | 2026-07-16 | P4-04 | 已完成 | 本次提交 | 统一uptimeMillis字段、服务端接收时间和CSV时间语义 |
-| 2026-07-16 | P4-05 | 已完成 | 本次提交 | 使用HttpOnly Cookie认证、XSRF保护、会话恢复和前端构建优化 |
+| 2026-07-16 | P4-05 | 已完成 | 本次提交 | 使用HttpOnly Cookie认证、XSRF保护、页面内存Bearer兼容、会话恢复和前端构建优化 |
 | 2026-07-16 | P4-06 | 执行中 | 本次提交 | 已完成journald限额和清理；systemd/Nginx/版本回滚迁移暂缓 |

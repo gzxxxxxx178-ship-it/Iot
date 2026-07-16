@@ -17,5 +17,5 @@ export function logout() {
 
 // 获取当前登录用户信息：GET /api/auth/me，返回 {username, createdAt}
 export function getMe() {
-  return request.get('/api/auth/me')
+  return request.get('/api/auth/me', { skipAuthRedirect: true })
 }

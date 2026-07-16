@@ -26,6 +26,8 @@ import ElTooltip from 'element-plus/es/components/tooltip/index.mjs'
 import 'element-plus/dist/index.css'
 import App from './App.vue'
 import router from './router'
+import { setUnauthorizedHandler } from './api/request'
+import { useAuthStore } from './stores/auth'
 import './styles/global.css'
 
 const app = createApp(App)
@@ -41,5 +43,21 @@ const elementComponents = [
 elementComponents.forEach((component) => app.component(component.name, component))
 
 app.use(pinia)
+
+const authStore = useAuthStore(pinia)
+let redirectingToLogin = false
+
+// 收到受保护接口401时同步清除登录态，并保留登录后的返回页面
+function handleUnauthorized() {
+  authStore.clearAuthentication()
+  const currentRoute = router.currentRoute.value
+  if (['/login', '/register', '/oauth-callback'].includes(currentRoute.path) || redirectingToLogin) return
+
+  redirectingToLogin = true
+  router.replace({ path: '/login', query: { redirect: currentRoute.fullPath } })
+    .finally(() => { redirectingToLogin = false })
+}
+
+setUnauthorizedHandler(handleUnauthorized)
 app.use(router)
 app.mount('#app')

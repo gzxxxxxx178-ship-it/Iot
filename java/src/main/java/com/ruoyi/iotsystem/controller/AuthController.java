@@ -47,24 +47,24 @@ public class AuthController {
     @Value("${jwt.expiration:900000}")
     private long tokenLifetimeMs;
 
-    @Operation(summary = "用户登录", description = "用户名密码登录，成功写入HttpOnly JWT Cookie")
+    @Operation(summary = "用户登录", description = "用户名密码登录，写入HttpOnly Cookie并返回仅供当前页面内存使用的JWT")
     @PostMapping("/login")
     public ApiResponse<AuthResponse> login(@Valid @RequestBody LoginRequest request,
             HttpServletResponse response) {
         AuthResponse resp = userService.login(request);
         writeAuthCookie(response, resp.getToken(), false);
         logger.info("用户登录成功: {}", request.getUsername());
-        return ApiResponse.success(new AuthResponse(null, resp.getUsername()));
+        return ApiResponse.success(resp);
     }
 
-    @Operation(summary = "用户注册", description = "注册新用户，成功写入HttpOnly JWT Cookie")
+    @Operation(summary = "用户注册", description = "注册新用户，写入HttpOnly Cookie并返回仅供当前页面内存使用的JWT")
     @PostMapping("/register")
     public ApiResponse<AuthResponse> register(@Valid @RequestBody RegisterRequest request,
             HttpServletResponse response) {
         AuthResponse resp = userService.register(request);
         writeAuthCookie(response, resp.getToken(), false);
         logger.info("用户注册成功: {}", request.getUsername());
-        return ApiResponse.success(new AuthResponse(null, resp.getUsername()));
+        return ApiResponse.success(resp);
     }
 
     // 清除HttpOnly认证Cookie

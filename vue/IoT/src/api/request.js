@@ -2,6 +2,19 @@ import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import { removeToken, removeUsername } from '../utils/auth'
 
+let unauthorizedHandler = null
+let memoryAccessToken = ''
+
+// 注册全局未认证处理器，使请求层能够同步Pinia状态并交由路由器跳转
+export function setUnauthorizedHandler(handler) {
+  unauthorizedHandler = handler
+}
+
+// 设置仅存在于当前页面内存的访问令牌，兼容浏览器阻止跨站Cookie的部署方式
+export function setMemoryAccessToken(token) {
+  memoryAccessToken = token || ''
+}
+
 // 创建 axios 实例：开发环境走 VITE_API_BASE_URL 或 localhost:8080，生产环境取环境变量
 const request = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:8080' : ''),
@@ -11,9 +24,12 @@ const request = axios.create({
   xsrfHeaderName: 'X-XSRF-TOKEN',
 })
 
-// 请求拦截器：认证由HttpOnly Cookie和XSRF Cookie自动携带
+// 请求拦截器：优先使用HttpOnly Cookie，存在内存令牌时附加Bearer认证
 request.interceptors.request.use(
   (config) => {
+    if (memoryAccessToken) {
+      config.headers.Authorization = `Bearer ${memoryAccessToken}`
+    }
     return config
   },
   (error) => Promise.reject(error),
@@ -41,7 +57,9 @@ request.interceptors.response.use(
     if (error.response && error.response.status === 401) {
       removeToken()
       removeUsername()
-      window.location.hash = '#/login'
+      if (!error.config?.skipAuthRedirect) {
+        unauthorizedHandler?.()
+      }
       return Promise.reject(error)
     }
     // 如果响应体是 ApiResponse 格式，优先使用其 message

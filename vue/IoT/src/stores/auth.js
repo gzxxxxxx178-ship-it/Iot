@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { login as loginApi, register as registerApi, logout as logoutApi, getMe } from '../api/auth'
+import { setMemoryAccessToken } from '../api/request'
 import { getUsername as getStoredUsername, setUsername, removeUsername } from '../utils/auth'
 
 /**
@@ -17,6 +18,8 @@ export const useAuthStore = defineStore('auth', () => {
   /** 当前用户名 */
   const username = ref(getStoredUsername() || '')
   const authenticated = ref(false)
+  const initialized = ref(false)
+  let restorePromise = null
 
   // ==================== Getters ====================
 
@@ -28,41 +31,78 @@ export const useAuthStore = defineStore('auth', () => {
   // 用户名密码登录：调 API → 存储 token/username
   async function login(credentials) {
     const res = await loginApi(credentials)
+    token.value = res.token || 'cookie'
+    setMemoryAccessToken(res.token)
     username.value = res.username
     setUsername(res.username)
     authenticated.value = true
+    initialized.value = true
   }
 
   // 用户注册：调 API → 自动登录
   async function register(credentials) {
     const res = await registerApi(credentials)
+    token.value = res.token || 'cookie'
+    setMemoryAccessToken(res.token)
     username.value = res.username
     setUsername(res.username)
     authenticated.value = true
+    initialized.value = true
   }
 
-  // 退出登录：清除 token/username
-  async function logout() {
-    try { await logoutApi() } catch {}
+  // 清除内存和会话存储中的认证状态，供退出登录和401处理复用
+  function clearAuthentication() {
     token.value = 'cookie'
+    setMemoryAccessToken('')
     username.value = ''
     authenticated.value = false
+    initialized.value = true
     removeUsername()
   }
 
-  // 从HttpOnly Cookie校验并恢复登录态
-  async function restore() {
+  // 退出登录：清除服务端Cookie及本地认证状态
+  async function logout() {
+    try { await logoutApi() } catch {}
+    clearAuthentication()
+  }
+
+  // 首次进入应用时从HttpOnly Cookie恢复登录态，后续路由切换复用校验结果
+  async function restore(force = false) {
+    if (initialized.value && !force) return authenticated.value
+    if (restorePromise) return restorePromise
+
+    restorePromise = (async () => {
+      try {
+        const me = await getMe()
+        token.value = 'cookie'
+        setMemoryAccessToken('')
+        username.value = me.username || ''
+        setUsername(username.value)
+        authenticated.value = true
+        initialized.value = true
+        return true
+      } catch {
+        clearAuthentication()
+        return false
+      }
+    })()
+
     try {
-      const me = await getMe()
-      username.value = me.username || ''
-      setUsername(username.value)
-      authenticated.value = true
-      return true
-    } catch {
-      authenticated.value = false
-      return false
+      return await restorePromise
+    } finally {
+      restorePromise = null
     }
   }
 
-  return { token, username, isLoggedIn, login, register, logout, restore }
+  return {
+    token,
+    username,
+    initialized,
+    isLoggedIn,
+    login,
+    register,
+    logout,
+    restore,
+    clearAuthentication,
+  }
 })

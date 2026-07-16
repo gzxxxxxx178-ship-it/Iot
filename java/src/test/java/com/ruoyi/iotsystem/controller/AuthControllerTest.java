@@ -18,6 +18,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.time.LocalDateTime;
 
@@ -30,6 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(AuthController.class)
 @AutoConfigureMockMvc(addFilters = false) // 绕过 Spring Security 过滤器，直接测试 Controller 逻辑
 @Import(GlobalExceptionHandler.class)
+@ActiveProfiles("test")
 class AuthControllerTest {
 
     @Autowired private MockMvc mockMvc;
@@ -41,7 +43,7 @@ class AuthControllerTest {
     // ==================== 登录测试 ====================
 
     @Test
-    void login_正确凭据_应返回200并写入HttpOnlyCookie() throws Exception {
+    void login_正确凭据_应返回200并提供Cookie与内存令牌() throws Exception {
         LoginRequest req = new LoginRequest();
         req.setUsername("testuser");
         req.setPassword("password123");
@@ -53,7 +55,7 @@ class AuthControllerTest {
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.token").doesNotExist())
+                .andExpect(jsonPath("$.data.token").value("jwt.token"))
                 .andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.containsString("iot_access_token=")))
                 .andExpect(jsonPath("$.data.username").value("testuser"));
     }
@@ -89,7 +91,7 @@ class AuthControllerTest {
     // ==================== 注册测试 ====================
 
     @Test
-    void register_成功注册_应返回200并写入HttpOnlyCookie() throws Exception {
+    void register_成功注册_应返回200并提供Cookie与内存令牌() throws Exception {
         RegisterRequest req = new RegisterRequest();
         req.setUsername("newuser");
         req.setPassword("password123");
@@ -101,7 +103,7 @@ class AuthControllerTest {
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.token").doesNotExist())
+                .andExpect(jsonPath("$.data.token").value("jwt.token"))
                 .andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.containsString("HttpOnly")));
     }
 

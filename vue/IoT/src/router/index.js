@@ -85,22 +85,21 @@ const router = createRouter({
   routes,
 })
 
-// 路由守卫：使用 Pinia authStore 检查登录态
-router.beforeEach(async (to, from, next) => {
+// 路由守卫：首次进入时恢复Cookie会话，后续页面切换复用Pinia认证状态
+router.beforeEach(async (to) => {
   const authStore = useAuthStore()
   const isAuthPage = to.path === '/login' || to.path === '/register' || to.path === '/oauth-callback'
-  // 登录页无需探测Cookie，OAuth回调和受保护页面才恢复服务端会话
-  const restored = isAuthPage && to.path !== '/oauth-callback'
+  const isOAuthCallback = to.path === '/oauth-callback'
+  const restored = isAuthPage && !isOAuthCallback
     ? false
-    : await authStore.restore()
+    : await authStore.restore(isOAuthCallback)
 
   if (!restored && !authStore.isLoggedIn && !isAuthPage) {
-    next('/login')
+    return { path: '/login', query: { redirect: to.fullPath } }
   } else if (authStore.isLoggedIn && isAuthPage) {
-    next('/dashboard')
-  } else {
-    next()
+    return '/dashboard'
   }
+  return true
 })
 
 export default router
