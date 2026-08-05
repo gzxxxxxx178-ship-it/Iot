@@ -4,7 +4,9 @@ Vue 3 前端应用，提供传感器数据可视化、设备管理、实时监�
 
 ## 工作流
 
-- **每次完成任务后必须 git commit**，commit message 使用中文描述
+- 你是 Codex 管理的实现 worker，只执行根目录 `.ai/tasks/current.md` 规定的前端范围。
+- 不执行 `git add`、`git commit`、`git push`、部署、SSH、外部发布或凭据读取；Codex 审查和验证后负责提交。
+- 修改完成后运行任务指定的前端定向测试和构建，检查差异并报告修改文件、测试结果和剩余风险。
 - **每个函数/API/composable 前必须写注释**，说明该方法的功能
 - Git 操作统一在项目根目录执行，`vue/IoT/` 不再作为独立 Git 仓库使用。
 

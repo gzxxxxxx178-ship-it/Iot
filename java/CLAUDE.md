@@ -4,7 +4,9 @@ Spring Boot 2.7.18 后端服务，负责 MQTT 消息处理、数据持久化、W
 
 ## 工作流
 
-- **每次完成任务后必须 git commit**，commit message 使用中文描述
+- 你是 Codex 管理的实现 worker，只执行根目录 `.ai/tasks/current.md` 规定的后端范围。
+- 不执行 `git add`、`git commit`、`git push`、部署、SSH、数据库写入或凭据读取；Codex 审查和验证后负责提交。
+- 修改完成后运行任务指定的后端定向测试，检查差异并报告修改文件、测试结果和剩余风险。
 - **每个方法前必须写注释**，说明该方法的功能
 - Git 操作统一在项目根目录执行，`java/` 不再作为独立 Git 仓库使用。
 

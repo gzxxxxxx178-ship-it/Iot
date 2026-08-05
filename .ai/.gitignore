@@ -1,0 +1,5 @@
+# 每轮动态任务书与运行结果不提交，模板和目录占位文件保留。
+tasks/current.md
+reports/*
+!reports/.gitkeep
+runtime/
