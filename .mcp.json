@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "zhipu-vision": {
+      "command": "node",
+      "args": ["/Volumes/out/Projects/DS-workplace/mcp-servers/zhipu-vision/index.js"],
+      "env": {
+        "ZHIPU_API_KEY": "c81f8e997de04b749c1b0574dc16ffda.PqaYRQmlx1m7fva5"
+      }
+    }
+  }
+}

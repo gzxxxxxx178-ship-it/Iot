@@ -1,0 +1,11 @@
+{
+  "name": "zhipu-vision-mcp",
+  "version": "1.0.0",
+  "description": "MCP server wrapping Zhipu GLM-4V vision model for image analysis",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {}
+}
