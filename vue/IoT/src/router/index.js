@@ -78,6 +78,12 @@ const routes = [
     component: () => import('../views/Screen.vue'),
     meta: { title: '数据大屏', layout: 'blank' },
   },
+  {
+    path: '/simulation',
+    name: 'Simulation',
+    component: () => import('../views/Simulation.vue'),
+    meta: { title: '仿真验证' },
+  },
 ]
 
 const router = createRouter({

@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Monitor, Odometer, Setting, Bell, Histogram, DataAnalysis, Aim, ChatDotRound, Money } from '@element-plus/icons-vue'
+import { Monitor, Odometer, Setting, Bell, Histogram, DataAnalysis, Aim, ChatDotRound, Money, Cpu } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -17,6 +17,7 @@ const menuItems = [
   { path: '/chat', label: 'AI 助手', icon: ChatDotRound },
   { path: '/pay', label: '支付测试', icon: Money },
   { path: '/screen', label: '数据大屏', icon: Aim },
+  { path: '/simulation', label: '仿真验证', icon: Cpu },
 ]
 
 // 根据当前路由路径高亮对应菜单项
