@@ -6,6 +6,9 @@
 
 ```mermaid
 graph TB
+    subgraph Simulation["软件在环仿真层"]
+        MATLAB["MATLAB SIL<br/>合成稻田遥测"]
+    end
     subgraph Device["设备层 (ESP8266)"]
         ESP[ESP8266]
         DHT[DHT11 温湿度]
@@ -46,6 +49,10 @@ graph TB
     BROKER -->|"订阅消费"| JAVA
     JAVA -->|"JPA 持久化"| TIDB
     JAVA -->|"缓存"| REDIS
+
+    %% 仿真验证流（与真实设备MQTT链路隔离）
+    MATLAB -->|"REST /api/simulation/telemetry"| JAVA
+    JAVA -->|"仿真停止命令与反馈"| MATLAB
 
     %% 实时推送流
     JAVA -->|"WebSocket 推送"| NGINX8443
@@ -111,6 +118,7 @@ ESP8266 ──MQTT TLS──▶ 私有 Broker ──订阅──▶ Java ──J
 | 数据大屏 | 全屏实时仪表盘，适合展示大屏 | `Screen.vue` |
 | 报警管理 | 报警规则 CRUD + 报警记录查看 | `Alarm.vue` |
 | 自动化规则 | 持久化条件引擎，支持防抖、冷却、停用和执行审计 | `AutomationService`, `Automation.vue` |
+| MATLAB 软件在环 | 合成稻田遥测、仿真规则、报警、停止命令反馈和独立工作台；不发布真实设备 MQTT 指令 | `matlab/sil`, `simulation`, `Simulation.vue` |
 | AI 助手 | DeepSeek API 驱动的对话助手，历史记录持久化 | `ChatController`, `Chat.vue` |
 | 用户认证 | 本地注册/登录 + Google OAuth2 + JWT | `AuthController`, `Login.vue`, `Register.vue` |
 | 支付宝支付 | 沙箱环境支付测试：下单→扫码→回调确认 | `AlipayController`, `Pay.vue` |

@@ -1,5 +1,6 @@
 package com.ruoyi.iotsystem.simulation.entity;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
@@ -32,6 +33,7 @@ public class SimulationTelemetryEntity {
     private String ownerUsername;
 
     @Column(name = "occurred_at", nullable = false)
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'")
     private LocalDateTime occurredAt;
 
     @Column(name = "growth_stage")

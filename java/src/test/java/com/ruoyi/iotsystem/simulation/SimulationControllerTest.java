@@ -97,6 +97,7 @@ class SimulationControllerTest {
     void uploadTelemetry_合法请求_应返回200() throws Exception {
         setAuthenticatedUser("userA");
         TelemetryRequest req = createValidTelemetryRequest();
+        req.setOccurredAt(OffsetDateTime.parse("2026-08-10T08:00:00Z"));
         SimulationTelemetryEntity saved = createTelemetryEntity("userA", req);
         when(simulationService.uploadTelemetry(eq("userA"), any(TelemetryRequest.class))).thenReturn(saved);
 
@@ -106,7 +107,8 @@ class SimulationControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.sampleId").value("sample-001"))
-                .andExpect(jsonPath("$.data.sourceType").value("SIMULATION"));
+                .andExpect(jsonPath("$.data.sourceType").value("SIMULATION"))
+                .andExpect(jsonPath("$.data.occurredAt").value("2026-08-10T08:00:00Z"));
     }
 
     // 空sampleId应返回400校验错误
