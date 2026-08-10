@@ -1,0 +1,15 @@
+{
+  "sampleId": "SIL-a1b2c3d4e5f6-00001",
+  "deviceId": "SIM-PADDY-001",
+  "occurredAt": "2026-08-10T08:00:00Z",
+  "growthStage": "tillering",
+  "scenarioCode": "normal",
+  "waterLevelMm": 45.2,
+  "flowRateLMin": 0.0,
+  "ecMsCm": 0.85,
+  "soilMoisturePct": 78.5,
+  "rainfallMm": 0.0,
+  "pumpOn": false,
+  "irrigationValveOpen": false,
+  "fertilizerPumpOn": false
+}

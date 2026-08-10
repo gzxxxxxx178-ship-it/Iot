@@ -1,0 +1,17 @@
+{
+  "code": 200,
+  "message": "success",
+  "data": [
+    {
+      "id": 42,
+      "alarmId": 7,
+      "deviceId": "SIM-PADDY-001",
+      "ownerUsername": "demo",
+      "action": "STOP_IRRIGATION",
+      "status": "PENDING",
+      "message": null,
+      "feedbackAt": null,
+      "createdAt": "2026-08-10T08:00:00"
+    }
+  ]
+}
