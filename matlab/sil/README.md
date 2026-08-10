@@ -213,6 +213,18 @@ results = runtests('tests/TestSilModel.m', 'ParameterName', 'scenarioName');
 
 测试专用后端启动器位于 `java/src/test/java/com/ruoyi/iotsystem/SilConnectivityApplication.java`，只应从测试 classpath 启动。
 
+### 本机 MySQL 持久化验证
+
+2026-08-10 已将 `V2__simulation_sil_schema.sql` 应用于本机 `Iot` 数据库，并使用独立设备号 `SIM-MYSQL-001` 完成真实持久化验证：
+
+- MATLAB R2025a 上传 5 条 `high_water` 遥测；
+- MySQL 持久化 1 条仿真规则、1 条报警和 1 条命令；
+- MATLAB 执行 `STOP_IRRIGATION` 后，最后一条遥测的 `pumpOn=false`；
+- 命令反馈后待处理命令数为 0；
+- 测试后端停止后重新查询 MySQL，以上记录仍然存在。
+
+这组记录归属于数据库中已有用户，不写入真实设备表，也不通过 MQTT 下发命令。前端使用同一用户登录后，可在“仿真验证”页面查询 `SIM-MYSQL-001`。
+
 ## 竞赛真实性表述
 
 本 MATLAB SIL 客户端中的所有仿真数据均为**基于简化水量平衡和 EC 混合模型的合成数据**：
@@ -225,7 +237,7 @@ results = runtests('tests/TestSilModel.m', 'ParameterName', 'scenarioName');
 
 ## 尚未验证事项
 
-- [ ] 尚未使用真实 MySQL/TiDB 部署环境执行联网验证；当前闭环使用 H2 内存库。
+- [ ] 尚未在远程 TiDB/生产部署环境验证；本机 MySQL 9.6.0 持久化闭环已通过。
 - [ ] 尚未执行浏览器自动化测试；Vue API 契约和生产构建已通过，页面人工交互仍需验证。
 - [ ] 长时间运行稳定性（> 10,000 步）未验证。
 - [ ] 并发多个 MATLAB 实例（多设备仿真）未测试。
