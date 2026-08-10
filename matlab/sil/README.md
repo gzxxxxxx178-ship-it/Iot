@@ -199,6 +199,20 @@ results = runtests('tests/TestSilModel.m', 'ProcedureName', 'testReproducibility
 results = runtests('tests/TestSilModel.m', 'ParameterName', 'scenarioName');
 ```
 
+本机已使用 `/Applications/MATLAB_R2025a.app/bin/matlab` 实际执行上述测试，结果为 `16 Passed, 0 Failed, 0 Incomplete`。
+
+## 已完成的隔离连通性验证
+
+2026-08-10 使用 H2 内存数据库、MQTT/Redis 替身和本地端口 `18080` 完成一次真实 HTTP 闭环，测试实例没有连接开发数据库或真实 Broker：
+
+1. 注册临时测试用户并创建高水位规则：连续 2 次大于 250 mm，动作 `STOP_IRRIGATION`。
+2. MATLAB R2025a 运行 `high_water` 场景 5 步，成功上传 5 条遥测。
+3. Java 后端生成 1 条报警和 1 条仿真停止命令。
+4. MATLAB 轮询命令、锁存停止灌溉状态并提交 `SUCCESS` 反馈。
+5. 后端查询结果：`sourceType=SIMULATION`、`scenarioCode=high_water`、报警数 1、待处理命令数 0。
+
+测试专用后端启动器位于 `java/src/test/java/com/ruoyi/iotsystem/SilConnectivityApplication.java`，只应从测试 classpath 启动。
+
 ## 竞赛真实性表述
 
 本 MATLAB SIL 客户端中的所有仿真数据均为**基于简化水量平衡和 EC 混合模型的合成数据**：
@@ -209,11 +223,10 @@ results = runtests('tests/TestSilModel.m', 'ParameterName', 'scenarioName');
 - 所有仿真输出应明确标记为 `sourceType: SIMULATION`（由 Java 后端自动设置），以与真实 ESP 设备数据区分。
 - 报警规则配置和触发仅用于演示仿真-后端-前端闭环工作流，**不作为真实灌溉控制决策依据**。
 
-## 未验证事项
+## 尚未验证事项
 
-- [ ] MATLAB 环境测试未实际执行（本机 PATH 中无 `matlab` 命令）。已完成静态结构与格式检查，但仍需在 MATLAB 运行时中执行 `runtests`。
-- [ ] 与运行中 Java 后端的联网集成测试未执行。dry-run 模式已验证 payload 结构，但实际 HTTP 往返未测试。
-- [ ] 与 Vue 前端的端到端闭环（规则创建 → 报警生成 → 命令下发 → MATLAB 执行 → 反馈）未测试。
+- [ ] 尚未使用真实 MySQL/TiDB 部署环境执行联网验证；当前闭环使用 H2 内存库。
+- [ ] 尚未执行浏览器自动化测试；Vue API 契约和生产构建已通过，页面人工交互仍需验证。
 - [ ] 长时间运行稳定性（> 10,000 步）未验证。
 - [ ] 并发多个 MATLAB 实例（多设备仿真）未测试。
 

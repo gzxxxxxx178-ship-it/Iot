@@ -19,6 +19,8 @@ classdef TestSilModel < matlab.unittest.TestCase
         scenarioName = {'normal', 'low_water', 'high_water', 'high_ec', 'blocked_flow', 'valve_leak'};
     end
 
+    methods (Test)
+
     % ==================== 可重复性测试 ====================
 
     % testReproducibility - 验证相同seed和配置产生相同的仿真结果
@@ -259,4 +261,5 @@ classdef TestSilModel < matlab.unittest.TestCase
             'createScenario:UnsupportedScenario');
     end
 
+    end
 end
