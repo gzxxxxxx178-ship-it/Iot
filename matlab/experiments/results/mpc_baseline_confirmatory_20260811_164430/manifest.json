@@ -1,0 +1,43 @@
+{
+  "mode": "confirmatory",
+  "timestamp": "20260811_164430",
+  "matlabVersion": "25.1.0.2943329 (R2025a)",
+  "config": {
+    "T": 96,
+    "dtHours": 0.5,
+    "targetWaterLevel": 40,
+    "performanceBand": [
+      20,
+      60
+    ],
+    "safetyBand": [
+      0,
+      100
+    ],
+    "actionRange": [
+      0,
+      8
+    ],
+    "mpcHorizon": 12,
+    "ruleHysteresisBand": [
+      25,
+      45
+    ],
+    "nominalInfiltration": 0.5,
+    "nominalActuatorGain": 1
+  },
+  "scenarios": [
+    "dry",
+    "intermittent_rain",
+    "heavy_rain",
+    "infiltration_shift",
+    "sensor_noise",
+    "actuator_delay"
+  ],
+  "nSeedsPerScenario": 30,
+  "nPairs": 180,
+  "nTotalRuns": 360,
+  "aggregateSchema": "Fixed columns: rowType, controller, scenario, metric, n, mean, std, min, max, positiveRatio, improvementRatio, lowerIsBetter. rowType=controller_summary|paired_delta. For paired_delta: delta=MPC-Rule, positiveRatio=mean(delta>0), improvementRatio=mean(delta<0) since all metrics are lower-is-better.",
+  "forecastAssumption": "MPC receives the exact synthetic rainfall and ET values only inside its finite prediction window. This is a perfect short-horizon forecast assumption and may overestimate performance relative to forecast-error conditions.",
+  "disclaimer": "All results are from synthetic software-in-the-loop experiments. No water-saving rate, yield increase, or field validity is claimed."
+}
