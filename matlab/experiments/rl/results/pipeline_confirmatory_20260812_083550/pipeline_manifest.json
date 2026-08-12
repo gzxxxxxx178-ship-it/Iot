@@ -1,0 +1,25 @@
+{
+  "mode": "confirmatory",
+  "timestamp": "20260812_083550",
+  "matlabVersion": "25.1.0.2943329 (R2025a)",
+  "seedPartition": {
+    "training": "10001:10100",
+    "validation": "20001:20010",
+    "test": "30001:30030"
+  },
+  "agentRandomSeed": 2.0260811E+7,
+  "rewardWeights": {
+    "tracking": 1,
+    "irrigation": 0.1,
+    "actionChange": 0.05,
+    "bandViolation": 2,
+    "safetyViolation": 10,
+    "shieldIntervention": 1
+  },
+  "stages": {
+    "training": "/Volumes/out/Projects/DS-workplace/matlab/experiments/rl/results/pipeline_confirmatory_20260812_083550/training/training_confirmatory_20260812_083550",
+    "validation": "/Volumes/out/Projects/DS-workplace/matlab/experiments/rl/results/pipeline_confirmatory_20260812_083550/validation/evaluation_validation_20260812_091418",
+    "test": "/Volumes/out/Projects/DS-workplace/matlab/experiments/rl/results/pipeline_confirmatory_20260812_083550/test/evaluation_test_20260812_091440"
+  },
+  "disclaimer": "All results are from synthetic software-in-the-loop experiments. No water-saving rate, yield increase, or field validity is claimed."
+}

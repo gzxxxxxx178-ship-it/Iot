@@ -1,0 +1,47 @@
+{
+  "mode": "confirmatory",
+  "timestamp": "20260812_083550",
+  "matlabVersion": "25.1.0.2943329 (R2025a)",
+  "elapsedSeconds": 2297.7771455416669,
+  "nEpisodes": 600,
+  "stepsPerEpisode": 96,
+  "totalSteps": 57600,
+  "seedPartition": {
+    "trainingSeeds": "10001:10100",
+    "nTraining": 100,
+    "validationSeeds": "20001:20010",
+    "nValidation": 10,
+    "testSeeds": "30001:30030",
+    "nTest": 30,
+    "agentRandomSeed": 2.0260811E+7
+  },
+  "rewardWeights": {
+    "tracking": 1,
+    "irrigation": 0.1,
+    "actionChange": 0.05,
+    "bandViolation": 2,
+    "safetyViolation": 10,
+    "shieldIntervention": 1
+  },
+  "rewardEquation": "r = -(w1*((h-target)/target)^2 + w2*(action/actionMax) + w3*|action-prevAction|/actionMax + w4*bandViolationFlag + w5*safetyViolationFlag + w6*shieldInterventionFlag)",
+  "agentOptions": {
+    "DiscountFactor": 0.99,
+    "ExperienceBufferLength": 100000,
+    "MiniBatchSize": 128,
+    "NumWarmStartSteps": 500
+  },
+  "safetyShield": {
+    "residualRange": [
+      -2,
+      2
+    ],
+    "actionChangeLimit": 2,
+    "safetyHighMargin": 10,
+    "safetyLowMargin": 5
+  },
+  "finalRewards": {
+    "episodeReward": -228.55600029544661,
+    "averageReward": -52.24437878326971
+  },
+  "disclaimer": "All results are from synthetic software-in-the-loop experiments. No water-saving rate, yield increase, or field validity is claimed."
+}

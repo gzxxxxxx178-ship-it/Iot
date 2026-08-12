@@ -52,7 +52,7 @@ obs[t] = h[t] + noise[t]
 
 ```
 matlab/experiments/
-├── +paddyexp/                  # 核心模型包（后续RL复用）
+├── +paddyexp/                  # 核心模型包（后续RL复用, 已冻结）
 │   ├── config.m                # 默认配置
 │   ├── generateEpisode.m       # 预生成外生序列
 │   ├── reset.m                 # 初始化回合状态
@@ -60,9 +60,21 @@ matlab/experiments/
 │   ├── ruleController.m        # 滞回规则控制器
 │   ├── mpcController.m         # 线性MPC控制器
 │   └── computeMetrics.m        # 逐回合指标计算
-├── runMpcBaselineExperiment.m  # 实验入口
+├── rl/                         # 残差SAC强化学习实验 (CTRL-02)
+│   ├── README.md               # RL实验文档
+│   ├── residualRlConfig.m      # RL独立配置
+│   ├── createResidualRlEnvironment.m  # rlFunctionEnv环境
+│   ├── createResidualSacAgent.m       # SAC agent构建
+│   ├── buildResidualObservation.m     # 6×1观测构建
+│   ├── applySafetyShield.m     # 安全屏蔽函数
+│   ├── trainResidualSac.m      # 训练入口
+│   ├── evaluateResidualSac.m   # 评估入口
+│   ├── renderResidualRlMetricsComparison.m # 冻结CSV离线重绘
+│   └── runResidualRlPipeline.m # 全流程编排
+├── runMpcBaselineExperiment.m  # MPC基线实验入口
 ├── tests/
-│   └── testExperiment.m        # 单元测试
+│   ├── testExperiment.m        # MPC基线单元测试
+│   └── testResidualRl.m        # RL残差实验单元测试
 ├── results/                    # 运行时生成的输出目录
 └── README.md
 ```
@@ -153,3 +165,15 @@ out = runMpcBaselineExperiment('smoke', fullfile(tempdir, 'paddy-mpc-smoke'));
 - `paddyexp.computeMetrics()` — 指标计算，RL评估复用
 
 开发RL控制器时，可直接复用上述函数，避免复制模型代码。
+
+## 残差SAC强化学习实验
+
+`rl/` 目录包含基于 MPC 基线的安全残差 SAC 训练与独立评估实验。详见 [rl/README.md](rl/README.md)。
+
+```bash
+# RL 单元测试
+/Applications/MATLAB_R2025a.app/bin/matlab -batch "cd('/Volumes/out/Projects/DS-workplace/matlab/experiments'); addpath(genpath('.')); results=runtests('tests/testResidualRl.m'); assertSuccess(results);"
+
+# RL Smoke 模式
+/Applications/MATLAB_R2025a.app/bin/matlab -batch "cd('/Volumes/out/Projects/DS-workplace/matlab/experiments'); addpath(genpath('.')); out=runResidualRlPipeline('smoke', fullfile(tempdir,'paddy-residual-rl-smoke')); disp(out);"
+```

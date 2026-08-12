@@ -1,0 +1,24 @@
+{
+  "mode": "smoke",
+  "timestamp": "20260811_171432",
+  "matlabVersion": "25.1.0.2943329 (R2025a)",
+  "seedPartition": {
+    "training": "10001:10100",
+    "validation": "20001:20010",
+    "test": "30001:30030"
+  },
+  "agentRandomSeed": 2.0260811E+7,
+  "rewardWeights": {
+    "tracking": 1,
+    "irrigation": 0.1,
+    "actionChange": 0.05,
+    "bandViolation": 2,
+    "safetyViolation": 10,
+    "shieldIntervention": 1
+  },
+  "stages": {
+    "training": "/Volumes/out/Projects/DS-workplace/matlab/experiments/rl/results/pipeline_smoke_20260811_171432/training/training_smoke_20260811_171432",
+    "validation": "/Volumes/out/Projects/DS-workplace/matlab/experiments/rl/results/pipeline_smoke_20260811_171432/validation/evaluation_validation_20260811_171443"
+  },
+  "disclaimer": "All results are from synthetic software-in-the-loop experiments. No water-saving rate, yield increase, or field validity is claimed."
+}
