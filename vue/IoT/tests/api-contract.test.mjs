@@ -12,6 +12,7 @@ const apiFiles = [
   'device.js',
   'pay.js',
   'simulation.js',
+  'research.js',
 ]
 
 // 验证统一响应拦截器负责返回 ApiResponse.data

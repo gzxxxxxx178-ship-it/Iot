@@ -16,8 +16,10 @@ import ElIcon from 'element-plus/es/components/icon/index.mjs'
 import ElInput from 'element-plus/es/components/input/index.mjs'
 import ElInputNumber from 'element-plus/es/components/input-number/index.mjs'
 import ElPagination from 'element-plus/es/components/pagination/index.mjs'
+import ElDescriptions, { ElDescriptionsItem } from 'element-plus/es/components/descriptions/index.mjs'
 import ElResult from 'element-plus/es/components/result/index.mjs'
 import ElRow from 'element-plus/es/components/row/index.mjs'
+import ElSteps, { ElStep } from 'element-plus/es/components/steps/index.mjs'
 import ElSelect, { ElOption } from 'element-plus/es/components/select/index.mjs'
 import ElSwitch from 'element-plus/es/components/switch/index.mjs'
 import ElTable, { ElTableColumn } from 'element-plus/es/components/table/index.mjs'
@@ -35,10 +37,10 @@ const pinia = createPinia()
 
 // 注册页面模板实际使用的Element Plus组件，避免引入未使用的组件。
 const elementComponents = [
-  ElAlert, ElButton, ElCard, ElCol, ElDatePicker, ElDialog, ElDropdown,
-  ElDropdownItem, ElDropdownMenu, ElEmpty, ElForm, ElFormItem, ElIcon,
-  ElInput, ElInputNumber, ElOption, ElPagination, ElResult, ElRow,
-  ElSelect, ElSwitch, ElTable, ElTableColumn, ElTag, ElTooltip,
+  ElAlert, ElButton, ElCard, ElCol, ElDatePicker, ElDescriptions, ElDescriptionsItem,
+  ElDialog, ElDropdown, ElDropdownItem, ElDropdownMenu, ElEmpty, ElForm, ElFormItem,
+  ElIcon, ElInput, ElInputNumber, ElOption, ElPagination, ElResult, ElRow,
+  ElSelect, ElStep, ElSteps, ElSwitch, ElTable, ElTableColumn, ElTag, ElTooltip,
 ]
 elementComponents.forEach((component) => app.component(component.name, component))
 

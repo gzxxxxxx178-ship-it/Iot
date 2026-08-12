@@ -84,6 +84,12 @@ const routes = [
     component: () => import('../views/Simulation.vue'),
     meta: { title: '仿真验证' },
   },
+  {
+    path: '/research',
+    name: 'ResearchWorkbench',
+    component: () => import('../views/ResearchWorkbench.vue'),
+    meta: { title: '研究验证' },
+  },
 ]
 
 const router = createRouter({

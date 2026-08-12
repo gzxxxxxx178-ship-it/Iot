@@ -12,7 +12,7 @@ test('路由新增 /simulation 且不影响原有13条路由', () => {
   assert.match(source, /Simulation\.vue/)
   // 原路由数：/ + /login + /register + /oauth-callback + /dashboard + /monitor + /devices + /history + /alarm + /automation + /chat + /pay + /screen = 13条 + 重定向 = 14 个路由记录
   const pathMatches = source.match(/path:\s*['"]\/[^'"]*['"]/g) || []
-  assert.equal(pathMatches.length, 15, '应有14条路由（含重定向）加新增/simulation共15条')
+  assert.equal(pathMatches.length, 16, '应有14条路由（含重定向）加/simulation和/research共16条')
 })
 
 // 验证侧栏菜单包含仿真验证入口
