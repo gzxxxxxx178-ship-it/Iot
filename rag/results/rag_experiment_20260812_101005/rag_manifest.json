@@ -1,0 +1,60 @@
+{
+  "timestamp": "2026-08-12T10:10:05",
+  "mode": "confirmatory",
+  "threshold_strategy": "balanced_abstention_accuracy (primary), lower false_answer_rate (tiebreak 1), higher threshold (tiebreak 2)",
+  "num_chunks": 20,
+  "num_sources": 12,
+  "num_unique_questions": 32,
+  "retrievers": {
+    "bm25": {
+      "threshold": 27.31768531,
+      "num_validation_questions": 16,
+      "num_test_questions": 16,
+      "test_metrics": {
+        "recall@1": 0.883333,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "mrr@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@10": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "abstention_accuracy": 1.0,
+        "false_answer_rate": 0.0,
+        "false_abstain_rate": 0.0,
+        "ood_recall": 1.0,
+        "in_domain_answer_recall": 1.0,
+        "balanced_abstention_accuracy": 1.0,
+        "citation_id_validity": 1.0,
+        "citation_coverage": 0.769231,
+        "citation_precision": 0.833333
+      }
+    },
+    "hybrid": {
+      "threshold": 0.03114754,
+      "num_validation_questions": 16,
+      "num_test_questions": 16,
+      "test_metrics": {
+        "recall@1": 0.783333,
+        "mrr@1": 0.9,
+        "ndcg@1": 0.9,
+        "recall@3": 1.0,
+        "mrr@3": 0.95,
+        "ndcg@3": 0.955065,
+        "recall@10": 1.0,
+        "mrr@10": 0.95,
+        "ndcg@10": 0.955065,
+        "abstention_accuracy": 0.875,
+        "false_answer_rate": 0.333333,
+        "false_abstain_rate": 0.0,
+        "ood_recall": 0.666667,
+        "in_domain_answer_recall": 1.0,
+        "balanced_abstention_accuracy": 0.833333,
+        "citation_id_validity": 1.0,
+        "citation_coverage": 1.0,
+        "citation_precision": 0.52
+      }
+    }
+  }
+}

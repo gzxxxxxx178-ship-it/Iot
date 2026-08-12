@@ -1,0 +1,110 @@
+[
+  {
+    "source_id": "s01",
+    "title": "Saving Water with Alternate Wetting Drying (AWD)",
+    "institution": "IRRI Rice Knowledge Bank",
+    "url": "https://www.knowledgebank.irri.org/training/fact-sheets/water-management/saving-water-alternate-wetting-drying-awd",
+    "access_date": "2026-08-12",
+    "scope": "IRRI AWD培训资料；AWD通过田间水管监测水位；典型安全AWD在水位降到土表下约15 cm时复灌至约5 cm水层；干燥天数受土壤、天气和生育期影响。",
+    "limitations": "IRRI通用建议，未经江西或其他中国省份田间标定，不可直接作为地方处方。"
+  },
+  {
+    "source_id": "s02",
+    "title": "Water management practices",
+    "institution": "IRRI Rice Knowledge Bank",
+    "url": "https://www.knowledgebank.irri.org/ericeproduction/III.2_Water_management_practices.htm",
+    "access_date": "2026-08-12",
+    "scope": "连续浅淹常维持2—5 cm水层；AWD在田面无水后若干天再补2—5 cm；田埂、进排水渠和溢流口影响独立控水能力。",
+    "limitations": "通用灌溉管理原则，未针对特定土壤类型或气候区域给出精确阈值。"
+  },
+  {
+    "source_id": "s03",
+    "title": "Alternate Wetting and Drying — GHG Mitigation in Rice",
+    "institution": "IRRI GHG Mitigation in Rice",
+    "url": "https://ghgmitigation.irri.org/mitigation-technologies/alternate-wetting-and-drying",
+    "access_date": "2026-08-12",
+    "scope": "AWD在适用条件下可减少约30%用水和30%—70%甲烷排放且不减产；这些是IRRI页面总结值。",
+    "limitations": "不能外推为本项目实测结果；具体节水减排幅度因地而异。"
+  },
+  {
+    "source_id": "s04",
+    "title": "Determination of the irrigation schedule for paddy rice",
+    "institution": "FAO",
+    "url": "https://www.fao.org/4/t7202e/t7202e07.htm",
+    "access_date": "2026-08-12",
+    "scope": "水稻灌溉需水与排程的一般背景知识。",
+    "limitations": "不提取未经页面核实的精确处方；为通用参考，非操作手册。"
+  },
+  {
+    "source_id": "s05",
+    "title": "DB32/T 2950-2016 水稻节水灌溉技术规范",
+    "institution": "全国标准信息公共服务平台",
+    "url": "https://std.samr.gov.cn/db/search/stdDBDetailedCNF?id=91D99E4D16392E24E05397BE0A0A3A10",
+    "access_date": "2026-08-12",
+    "scope": "江苏推荐性现行地方标准，适用于灌排体系较完备的移栽水稻。",
+    "limitations": "不适用于直播稻育苗期；不得外推为全国强制标准或江西处方。"
+  },
+  {
+    "source_id": "s06",
+    "title": "中国节水技术政策大纲",
+    "institution": "国家发展改革委等",
+    "url": "https://zfxxgk.ndrc.gov.cn/web/iteminfo.jsp?id=19772",
+    "access_date": "2026-08-12",
+    "scope": "政策提出推广水稻干湿交替、浅湿控制灌溉，淘汰长期淹灌，杜绝串灌串排。",
+    "limitations": "该文件是政策方向而非具体田间阈值；不提供精确水位数值。"
+  },
+  {
+    "source_id": "s07",
+    "title": "水稻机械化收获减损技术指导意见（2025年7月修订）",
+    "institution": "农业农村部农业机械化管理司等",
+    "url": "https://njhs.moa.gov.cn/qcjxhtjxd/202206/t20220601_6401272.htm",
+    "access_date": "2026-08-12",
+    "scope": "收获前应合理放水晒田以提高土壤坚实度和机具通过性。",
+    "limitations": "具体时机随天气、品种和栽培条件确定；不能给出固定天数。"
+  },
+  {
+    "source_id": "s08",
+    "title": "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks",
+    "institution": "Lewis et al. (Facebook AI Research / UCL)",
+    "url": "https://arxiv.org/abs/2005.11401",
+    "access_date": "2026-08-12",
+    "scope": "提出RAG方法，将参数记忆（预训练语言模型）与非参数记忆（密集向量检索）结合用于知识密集型NLP任务。",
+    "limitations": "论文开放域QA结果不可外推到农业领域；本项目不声称复现论文实验。"
+  },
+  {
+    "source_id": "s09",
+    "title": "Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection",
+    "institution": "Asai et al., ICLR 2024",
+    "url": "https://openreview.net/forum?id=hSyW5go0v8",
+    "access_date": "2026-08-12",
+    "scope": "提出并非每个问题都应无条件检索或回答，模型应在生成过程中通过自反思决定检索时机和内容使用的动机。",
+    "limitations": "本项目不声称复现Self-RAG训练；仅引用其条件检索/拒答动机。"
+  },
+  {
+    "source_id": "s10",
+    "title": "Evaluation of RAG Metrics for Question Answering in the Telecom Domain",
+    "institution": "Roychowdhury et al., ICML 2024 FM-Wild Workshop",
+    "url": "https://openreview.net/forum?id=L74piNoToX",
+    "access_date": "2026-08-12",
+    "scope": "说明自动RAG指标在专业领域仍需审慎解释，不能直接等同于端到端回答质量。",
+    "limitations": "结论来自电信领域；本项目同样强调检索指标不等同于事实正确率或田间有效性。"
+  },
+  {
+    "source_id": "s11",
+    "title": "MPC基线确认性实验验证报告",
+    "institution": "本项目内部",
+    "url": "matlab/experiments/results/mpc_baseline_confirmatory_20260811_164430/VALIDATION.md",
+    "access_date": "2026-08-11",
+    "scope": "6场景×30种子×2控制器合成软件在环对照实验。MPC水位MAE均值6.4902 mm优于规则控制9.1552 mm（配对平均差-2.6650 mm）；但MPC平均多使用5.9004 mm灌溉水；安全越界均为0；heavy_rain场景累计184次QP回退；MPC使用完美短时预报假设。",
+    "limitations": "合成仿真结果，无田间标定；不能声称节水或增产；MPC完美预报假设可能高估实际性能。"
+  },
+  {
+    "source_id": "s12",
+    "title": "残差SAC确认性实验验证报告",
+    "institution": "本项目内部",
+    "url": "matlab/experiments/rl/results/pipeline_confirmatory_20260812_083550/VALIDATION.md",
+    "access_date": "2026-08-12",
+    "scope": "残差SAC+安全屏蔽在独立测试集上水位MAE均值12.680 mm明显劣于MPC 7.027 mm（配对差+5.653 mm，98.89%回合更差）；总灌溉量45.380 mm高于MPC 34.792 mm；安全屏蔽累计干预2,075步；退化主要集中在降雨扰动场景。",
+    "limitations": "合成仿真结果；残差SAC不适合声称优于MPC；安全越界为0只对当前合成边界成立；不构成田间安全认证。"
+  }
+]
