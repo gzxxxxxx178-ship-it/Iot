@@ -4,6 +4,7 @@ import { resolve } from 'node:path'
 import test from 'node:test'
 
 const projectRoot = resolve(import.meta.dirname, '..')
+const repositoryRoot = resolve(projectRoot, '..', '..')
 const apiFiles = [
   'alarm.js',
   'auth.js',
@@ -14,6 +15,27 @@ const apiFiles = [
   'simulation.js',
   'research.js',
 ]
+
+// 验证生产环境通过 Pages 同源 Functions 访问 API，避免浏览器直接请求 VPS 的非标准端口。
+test('生产环境使用 Pages 同源代理并覆盖认证与实时连接路由', () => {
+  const productionEnv = readFileSync(resolve(projectRoot, '.env.production'), 'utf8')
+  const proxySource = readFileSync(resolve(repositoryRoot, 'functions/_lib/iot-proxy.js'), 'utf8')
+  const functionFiles = [
+    'functions/api/[[path]].js',
+    'functions/oauth2/[[path]].js',
+    'functions/login/oauth2/[[path]].js',
+    'functions/ws/[[path]].js',
+  ]
+
+  assert.match(productionEnv, /^VITE_API_BASE_URL=$/m)
+  assert.match(productionEnv, /^VITE_WS_BASE_URL=$/m)
+  assert.match(proxySource, /const IOT_ORIGIN = 'https:\/\/node\.61153652\.xyz:8443'/)
+  for (const file of functionFiles) {
+    const source = readFileSync(resolve(repositoryRoot, file), 'utf8')
+    assert.match(source, /proxyIotRequest/)
+    assert.match(source, /export function onRequest\(context\)/)
+  }
+})
 
 // 验证统一响应拦截器负责返回 ApiResponse.data
 test('响应拦截器统一解包业务数据', () => {

@@ -269,8 +269,8 @@ P0-01 → P0-02 → P0-03 → P0-04
 
 - **状态**：`执行中（等待前端发布）`
 - **问题**：Cloudflare Pages 已发布的前端将登录、OAuth 与 WebSocket 请求固化为旧 VPS 地址 `38.47.98.235.nip.io:8443`，新后端已迁移至 `node.61153652.xyz` 后，登录请求无法到达当前服务。
-- **完成结果**：新服务器已启用 `node.61153652.xyz:8443` 的独立 Nginx TLS 反代，不修改被其他服务占用的 443；证书有效，后端 CORS 已允许 `https://iot-9qn.pages.dev`。前端生产环境 API/WS 地址已切换到新域名和端口，构建产物验证不再包含旧地址。
-- **验收结果**：Nginx 配置测试、热重载、新域名 TLS 访问和 Pages 来源 CORS 预检通过；前端 37 项契约测试与生产构建通过。待用户将本地提交推送至 GitHub，Cloudflare Pages 重建后，再以真实用户名登录与 WebSocket 连接完成验收。
+- **完成结果**：新服务器已启用 `node.61153652.xyz:8443` 的独立 Nginx TLS 反代，不修改被其他服务占用的 443；证书有效，后端 CORS 已允许 `https://iot-9qn.pages.dev`。由于用户本机经同一 VPS 代理访问 8443 出现超时，Cloudflare Pages Functions 已增加 API、OAuth 和 WebSocket 同源中转；前端生产环境改为同源请求。
+- **验收结果**：Nginx 配置测试、热重载、新域名 TLS 访问和 Pages 来源 CORS 预检通过；前端 38 项契约测试与生产构建通过。待用户将本地提交推送至 GitHub，Cloudflare Pages 重建后，再以真实用户名登录与 WebSocket 连接完成验收。
 
 ---
 
