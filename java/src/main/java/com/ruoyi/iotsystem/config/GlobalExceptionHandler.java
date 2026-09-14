@@ -26,7 +26,7 @@ public class GlobalExceptionHandler {
 
     // 登录认证失败 → 401
     @ExceptionHandler(BadCredentialsException.class)
-    @ResponseStatus(HttpStatus.OK)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public ApiResponse<?> handleBadCredentials(BadCredentialsException e) {
         log.warn("登录认证失败: {}", e.getMessage());
         return ApiResponse.fail(401, "用户名或密码错误");
@@ -34,7 +34,7 @@ public class GlobalExceptionHandler {
 
     // @Valid 校验失败（@RequestBody 参数）→ 400，返回第一个校验错误
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    @ResponseStatus(HttpStatus.OK)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ApiResponse<?> handleValidation(MethodArgumentNotValidException e) {
         FieldError fieldError = e.getBindingResult().getFieldError();
         String msg = fieldError != null ? fieldError.getDefaultMessage() : "参数校验失败";
@@ -44,7 +44,7 @@ public class GlobalExceptionHandler {
 
     // 校验失败（@RequestParam / @PathVariable 参数）→ 400
     @ExceptionHandler(ConstraintViolationException.class)
-    @ResponseStatus(HttpStatus.OK)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ApiResponse<?> handleConstraintViolation(ConstraintViolationException e) {
         String msg = e.getConstraintViolations().stream()
                 .map(ConstraintViolation::getMessage)
@@ -55,7 +55,7 @@ public class GlobalExceptionHandler {
 
     // 业务运行时异常 → 400（如用户名已存在等）
     @ExceptionHandler(RuntimeException.class)
-    @ResponseStatus(HttpStatus.OK)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ApiResponse<?> handleRuntimeException(RuntimeException e) {
         log.warn("业务异常: {}", e.getMessage());
         return ApiResponse.fail(400, e.getMessage());
@@ -69,9 +69,9 @@ public class GlobalExceptionHandler {
         return ApiResponse.fail(403, "无权访问该资源");
     }
 
-    // 支付宝 API 调用异常 → 500
+    // 支付宝 API 调用异常 → 502
     @ExceptionHandler(AlipayApiException.class)
-    @ResponseStatus(HttpStatus.OK)
+    @ResponseStatus(HttpStatus.BAD_GATEWAY)
     public ApiResponse<?> handleAlipayApiException(AlipayApiException e) {
         log.error("支付宝接口异常: {}", e.getMessage(), e);
         return ApiResponse.error("支付宝接口异常: " + e.getMessage());
@@ -79,7 +79,7 @@ public class GlobalExceptionHandler {
 
     // 兜底：未预期的服务器内部错误 → 500
     @ExceptionHandler(Exception.class)
-    @ResponseStatus(HttpStatus.OK)
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ApiResponse<?> handleException(Exception e) {
         log.error("服务器内部错误", e);
         return ApiResponse.error("服务器内部错误");

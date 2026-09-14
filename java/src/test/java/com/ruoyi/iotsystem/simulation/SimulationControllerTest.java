@@ -120,7 +120,7 @@ class SimulationControllerTest {
         mockMvc.perform(post("/api/simulation/telemetry")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isOk())
+                .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(400));
     }
 
@@ -136,7 +136,7 @@ class SimulationControllerTest {
         mockMvc.perform(post("/api/simulation/telemetry")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isOk())
+                .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(400));
     }
 
@@ -152,7 +152,7 @@ class SimulationControllerTest {
         mockMvc.perform(post("/api/simulation/telemetry")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isOk())
+                .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(400));
     }
 
@@ -192,7 +192,7 @@ class SimulationControllerTest {
         mockMvc.perform(get("/api/simulation/telemetry/history")
                         .param("deviceId", "device-001")
                         .param("limit", "600"))
-                .andExpect(status().isOk())
+                .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(400));
     }
 

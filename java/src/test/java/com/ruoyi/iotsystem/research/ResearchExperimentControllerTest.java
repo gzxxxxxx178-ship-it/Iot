@@ -82,23 +82,23 @@ class ResearchExperimentControllerTest {
 
     // ==================== 枚举校验测试 ====================
 
-    // 验证非法实验类型被拒绝（统一响应格式下HTTP 200 + code 400）
+    // 验证非法实验类型被拒绝并返回 HTTP 400
     @Test
     void 非法实验类型应被拒绝() throws Exception {
         mockMvc.perform(post("/api/research/experiments")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(invalidTypeJson()))
-                .andExpect(status().isOk())
+                .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(400));
     }
 
-    // 验证非法状态被拒绝（统一响应格式下HTTP 200 + code 400）
+    // 验证非法状态被拒绝并返回 HTTP 400
     @Test
     void 非法状态应被拒绝() throws Exception {
         mockMvc.perform(post("/api/research/experiments")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(invalidStatusJson()))
-                .andExpect(status().isOk())
+                .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(400));
     }
 
