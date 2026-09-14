@@ -6,7 +6,6 @@ import com.ruoyi.iotsystem.entity.AutomationRuleEntity;
 import com.ruoyi.iotsystem.entity.EspEntity;
 import com.ruoyi.iotsystem.repository.AutomationExecutionRepository;
 import com.ruoyi.iotsystem.repository.AutomationRuleRepository;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,16 +19,16 @@ public class AutomationService {
 
     private final AutomationRuleRepository ruleRepository;
     private final AutomationExecutionRepository executionRepository;
-    private final MqttMessageService mqttMessageService;
+    private final DeviceCommandService deviceCommandService;
 
-    // 注入规则、执行记录仓库和延迟加载的MQTT动作发布服务
+    // 注入规则、执行记录仓库和可审计的设备命令服务
     public AutomationService(
             AutomationRuleRepository ruleRepository,
             AutomationExecutionRepository executionRepository,
-            @Lazy MqttMessageService mqttMessageService) {
+            DeviceCommandService deviceCommandService) {
         this.ruleRepository = ruleRepository;
         this.executionRepository = executionRepository;
-        this.mqttMessageService = mqttMessageService;
+        this.deviceCommandService = deviceCommandService;
     }
 
     // 查询全部自动化规则
@@ -173,8 +172,10 @@ public class AutomationService {
                 saveExecution(rule, deviceId, actualValue, "SUCCESS", "通知事件已记录");
                 return;
             }
-            mqttMessageService.publishControl(deviceId, rule.getAction());
-            saveExecution(rule, deviceId, actualValue, "SUCCESS", "设备指令已发布");
+            com.ruoyi.iotsystem.entity.DeviceCommandEntity command = deviceCommandService.issue(
+                    deviceId, rule.getOwnerUsername(), rule.getAction());
+            saveExecution(rule, deviceId, actualValue, command.getStatus(),
+                    command.getMessage() + "，commandId=" + command.getCommandId());
         } catch (Exception exception) {
             saveExecution(rule, deviceId, actualValue, "FAILED", safeErrorMessage(exception));
         }
