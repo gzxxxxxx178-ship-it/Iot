@@ -1,0 +1,33 @@
+name: 前端契约与构建测试
+
+on:
+  push:
+    paths:
+      - 'vue/IoT/**'
+      - '.github/workflows/frontend-tests.yml'
+  pull_request:
+    paths:
+      - 'vue/IoT/**'
+      - '.github/workflows/frontend-tests.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vue/IoT
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+      - name: 设置 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: vue/IoT/package-lock.json
+      - name: 安装锁定依赖
+        run: npm ci
+      - name: 执行 API 契约测试
+        run: npm run test:api-contract
+      - name: 构建生产产物
+        run: npm run build
