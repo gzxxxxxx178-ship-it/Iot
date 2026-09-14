@@ -6,12 +6,14 @@ import {
   controlDevice,
   createDevice,
   getDeviceList,
+  getRecentDeviceCommands,
   restoreDevice as restoreDeviceApi,
   updateDevice,
 } from '../api/device'
 import { formatDateTime } from '../utils/format'
 
 const devices = ref([])
+const commands = ref([])
 const loading = ref(false)
 const saving = ref(false)
 const includeArchived = ref(false)
@@ -48,6 +50,16 @@ async function loadDevices(showLoading = true) {
   } finally {
     if (showLoading) loading.value = false
   }
+}
+
+// 查询当前用户最近控制命令，展示设备确认、拒绝与超时结果
+async function loadCommands() {
+  commands.value = await getRecentDeviceCommands() || []
+}
+
+// 同时刷新设备状态与控制确认状态
+async function refreshWorkspace(showLoading = true) {
+  await Promise.all([loadDevices(showLoading), loadCommands()])
 }
 
 // 重置设备编辑表单
@@ -156,17 +168,18 @@ async function sendCommand(device, command) {
   await controlDevice(command, device.deviceId)
   const labels = { start: '开始上报', stop: '停止上报', read: '立即读取', status: '查询状态' }
   ElMessage.success(`${labels[command]}指令已发送`)
+  await loadCommands()
 }
 
 // 切换是否显示归档设备并重新查询
 function changeArchivedVisibility() {
-  loadDevices()
+  refreshWorkspace()
 }
 
 // 页面挂载时加载设备档案
 onMounted(() => {
-  loadDevices()
-  refreshTimer = window.setInterval(() => loadDevices(false), 10000)
+  refreshWorkspace()
+  refreshTimer = window.setInterval(() => refreshWorkspace(false), 10000)
 })
 
 // 页面卸载时停止设备状态轮询
@@ -181,7 +194,7 @@ onUnmounted(() => window.clearInterval(refreshTimer))
         <p>管理设备档案、生命周期、实时状态和远程控制</p>
       </div>
       <div class="header-actions">
-        <el-button @click="loadDevices()">刷新状态</el-button>
+        <el-button @click="refreshWorkspace()">刷新状态</el-button>
         <el-button type="primary" @click="openCreate">注册设备</el-button>
       </div>
     </div>
@@ -252,6 +265,21 @@ onUnmounted(() => window.clearInterval(refreshTimer))
         </el-table-column>
       </el-table>
       <el-empty v-if="!loading && !devices.length" description="暂无设备档案" />
+    </el-card>
+
+    <el-card class="table-card" shadow="never">
+      <template #header><b>最近控制命令</b></template>
+      <el-table :data="commands" size="small" empty-text="暂无控制命令">
+        <el-table-column prop="deviceId" label="设备" min-width="130" />
+        <el-table-column prop="command" label="指令" width="100" />
+        <el-table-column label="确认状态" width="130">
+          <template #default="{ row }">
+            <el-tag :type="row.status === 'ACKNOWLEDGED' ? 'success' : row.status === 'TIMED_OUT' || row.status === 'FAILED' ? 'danger' : row.status === 'REJECTED' ? 'warning' : 'info'">{{ row.status }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="message" label="结果" min-width="180" />
+        <el-table-column label="创建时间" min-width="165"><template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template></el-table-column>
+      </el-table>
     </el-card>
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="520px" @closed="resetForm">

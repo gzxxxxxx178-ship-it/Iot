@@ -220,7 +220,7 @@ P0-01 → P0-02 → P0-03 → P0-04
 
 - **状态**：`已完成（硬件复验待执行）`
 - **问题**：控制接口此前只能证明 MQTT 发布成功，不能证明设备收到或接受了指令。
-- **完成结果**：新增版本化 `device_commands` 审计表；人工控制与自动化规则均保存为 `PENDING` 后发布带唯一 `commandId` 的 JSON 指令，并在设备状态主题 ACK 后转为 `ACKNOWLEDGED` 或 `REJECTED`；未确认的 `DISPATCHED` 命令按配置超时转为 `TIMED_OUT`；新增按当前用户隔离的命令状态查询接口；ESP8266 固件同步回传确认。
+- **完成结果**：新增版本化 `device_commands` 审计表；人工控制与自动化规则均保存为 `PENDING` 后发布带唯一 `commandId` 的 JSON 指令，并在设备状态主题 ACK 后转为 `ACKNOWLEDGED` 或 `REJECTED`；未确认的 `DISPATCHED` 命令按配置超时转为 `TIMED_OUT`；新增按当前用户隔离的命令状态查询接口和设备管理页状态表；ESP8266 固件同步回传确认。
 - **验收结果**：后端完整测试通过，覆盖 JSON 指令发布与 ACK 消费。当前环境未安装 Arduino CLI，固件编译、烧录及在线 ACK 验证待设备接入时执行。
 
 ---

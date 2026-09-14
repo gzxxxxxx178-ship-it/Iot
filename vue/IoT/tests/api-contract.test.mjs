@@ -57,6 +57,16 @@ test('设备API提供命令确认状态查询接口', () => {
   assert.match(apiSource, /request\.get\(['"]\/api\/device\/commands['"]\)/)
 })
 
+// 验证设备管理页展示命令确认状态并随工作区轮询刷新
+test('设备管理页展示最近控制命令状态', () => {
+  const viewSource = readFileSync(resolve(projectRoot, 'src/views/DeviceList.vue'), 'utf8')
+  assert.match(viewSource, /getRecentDeviceCommands/)
+  assert.match(viewSource, /async function refreshWorkspace/)
+  assert.match(viewSource, /最近控制命令/)
+  assert.match(viewSource, /ACKNOWLEDGED/)
+  assert.match(viewSource, /TIMED_OUT/)
+})
+
 // 验证401会同步Pinia状态并跳转登录页，不再因内存状态残留返回仪表盘
 test('未认证响应统一清理登录态并保留原页面', () => {
   const requestSource = readFileSync(resolve(projectRoot, 'src/api/request.js'), 'utf8')
