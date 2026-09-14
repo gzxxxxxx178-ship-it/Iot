@@ -32,6 +32,8 @@ cd java && ./mvnw -q -Dspring.profiles.active=test test
 cd ../vue/IoT && npm run build && npm run test:api-contract
 ```
 
+若本次发布包含设备控制功能，另按 [`设备控制确认协议`](../docs/DEVICE_COMMAND_PROTOCOL.md) 完成固件烧录与 ACK、超时两类现场复验；仅后端测试通过不构成设备执行成功的证明。
+
 ## 手工检查
 
 ```bash
