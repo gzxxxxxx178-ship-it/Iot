@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from '../utils/message'
 import { Plus } from '@element-plus/icons-vue'
 import { getAlarmRules, saveAlarmRule, updateAlarmRule, deleteAlarmRule, getAlarmRecords } from '../api/alarm'
 import { formatDateTime } from '../utils/format'

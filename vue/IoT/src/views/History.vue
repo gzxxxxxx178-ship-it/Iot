@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage } from '../utils/message'
 import { Download } from '@element-plus/icons-vue'
 import { exportSensorHistoryCsv, getDeviceList, getSensorHistoryPage } from '../api/device'
 import { formatTime, formatDateTime } from '../utils/format'

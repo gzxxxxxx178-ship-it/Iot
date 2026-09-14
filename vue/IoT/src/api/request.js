@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { ElMessage } from 'element-plus'
+import { ElMessage } from '../utils/message'
 import { removeToken, removeUsername } from '../utils/auth'
 
 let unauthorizedHandler = null

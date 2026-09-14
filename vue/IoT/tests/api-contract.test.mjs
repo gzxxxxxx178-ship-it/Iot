@@ -104,6 +104,17 @@ test('退出登录等待服务端处理并使用路由跳转', () => {
   assert.doesNotMatch(logoutBody, /window\.location/)
 })
 
+// 验证通知组件从组件级入口加载，不让业务模块引入Element Plus聚合入口
+test('通知组件使用Element Plus组件级入口', () => {
+  const messageSource = readFileSync(resolve(projectRoot, 'src/utils/message.js'), 'utf8')
+  assert.match(messageSource, /element-plus\/es\/components\/message\/index\.mjs/)
+  assert.match(messageSource, /element-plus\/es\/components\/message-box\/index\.mjs/)
+  for (const file of ['request.js', '../views/DeviceList.vue']) {
+    const source = readFileSync(resolve(projectRoot, 'src/api', file), 'utf8')
+    assert.doesNotMatch(source, /from ['"]element-plus['"]/)
+  }
+})
+
 // 验证跨站Cookie被浏览器阻止时使用页面内存令牌，且令牌不写入Web Storage
 test('用户名登录提供仅当前页面有效的Bearer兼容认证', () => {
   const requestSource = readFileSync(resolve(projectRoot, 'src/api/request.js'), 'utf8')

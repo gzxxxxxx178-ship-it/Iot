@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onUnmounted, watch, nextTick } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage } from '../utils/message'
 import QRCode from 'qrcode'
 import { createOrder, queryOrder } from '../api/pay'
 

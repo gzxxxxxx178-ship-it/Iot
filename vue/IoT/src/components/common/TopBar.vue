@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowRight, User, SwitchButton } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage } from '../../utils/message'
 import { useAuthStore } from '../../stores/auth'
 
 const route = useRoute()

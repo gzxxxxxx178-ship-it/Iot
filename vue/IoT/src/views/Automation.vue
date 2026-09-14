@@ -1,6 +1,6 @@
 <script setup>
 import { onMounted, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from '../utils/message'
 import { Plus, Delete, Edit } from '@element-plus/icons-vue'
 import {
   createAutomationRule,

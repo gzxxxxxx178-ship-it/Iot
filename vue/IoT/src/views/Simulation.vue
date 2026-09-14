@@ -1,6 +1,6 @@
 <script setup>
 import { onMounted, onUnmounted, ref, watch, computed } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from '../utils/message'
 import { Plus, Edit, Delete, Refresh, WarningFilled } from '@element-plus/icons-vue'
 import SimulationTrendChart from '../components/simulation/SimulationTrendChart.vue'
 import {
