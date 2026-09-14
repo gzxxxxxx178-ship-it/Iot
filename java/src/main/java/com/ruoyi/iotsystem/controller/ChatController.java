@@ -5,17 +5,13 @@ import com.ruoyi.iotsystem.dto.ChatRequest;
 import com.ruoyi.iotsystem.config.SecurityContextUtils;
 import com.ruoyi.iotsystem.entity.ChatMessageEntity;
 import com.ruoyi.iotsystem.repository.ChatMessageRepository;
+import com.ruoyi.iotsystem.service.DeepSeekClient;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
 
 import javax.validation.Valid;
 import java.util.HashMap;
@@ -35,52 +31,32 @@ public class ChatController {
     @Autowired
     private ChatMessageRepository chatMessageRepository;
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final DeepSeekClient deepSeekClient;
+
+    // 注入具有超时和上游响应校验的DeepSeek客户端
+    public ChatController(DeepSeekClient deepSeekClient) {
+        this.deepSeekClient = deepSeekClient;
+    }
 
     @Operation(summary = "发送消息", description = "发送对话消息到 DeepSeek AI，保存双方消息记录，返回 AI 回复")
     @PostMapping("/api/chat")
     public ApiResponse<Map<String, String>> chat(@Valid @RequestBody ChatRequest request) {
         String username = SecurityContextUtils.requireUsername();
         validateMessages(request);
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.setBearerAuth(apiKey);
+        Map<String, String> message = deepSeekClient.requestCompletion(apiKey, apiUrl, request.getMessages());
 
-        Map<String, Object> body = new HashMap<>();
-        body.put("model", "deepseek-chat");
-        body.put("messages", request.getMessages());
-
-        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
-        ResponseEntity<Map> response = restTemplate.postForEntity(apiUrl, entity, Map.class);
-
-        Map<String, Object> result = response.getBody();
-        if (result != null && result.containsKey("choices")) {
-            @SuppressWarnings("unchecked")
-            java.util.List<Map<String, Object>> choices =
-                    (java.util.List<Map<String, Object>>) result.get("choices");
-            Map<String, Object> choice = choices.get(0);
-            @SuppressWarnings("unchecked")
-            Map<String, String> message = (Map<String, String>) choice.get("message");
-
-            String sessionId = request.getSessionId();
-            if (sessionId != null && !sessionId.isEmpty()) {
-                List<Map<String, String>> msgs = request.getMessages();
-                if (!msgs.isEmpty()) {
-                    Map<String, String> lastMsg = msgs.get(msgs.size() - 1);
-                    if ("user".equals(lastMsg.get("role"))) {
-                        saveMessage(username, sessionId, "user", lastMsg.get("content"));
-                    }
+        String sessionId = request.getSessionId();
+        if (sessionId != null && !sessionId.isEmpty()) {
+            List<Map<String, String>> msgs = request.getMessages();
+            if (!msgs.isEmpty()) {
+                Map<String, String> lastMsg = msgs.get(msgs.size() - 1);
+                if ("user".equals(lastMsg.get("role"))) {
+                    saveMessage(username, sessionId, "user", lastMsg.get("content"));
                 }
-                saveMessage(username, sessionId, message.get("role"), message.get("content"));
             }
-
-            Map<String, String> resp = new HashMap<>();
-            resp.put("role", message.get("role"));
-            resp.put("content", message.get("content"));
-            return ApiResponse.success(resp);
+            saveMessage(username, sessionId, message.get("role"), message.get("content"));
         }
-
-        throw new RuntimeException("DeepSeek API 响应异常");
+        return ApiResponse.success(message);
     }
 
     @Operation(summary = "加载聊天历史", description = "按会话 ID 加载全部历史消息（单个会话数据量小，不做分页）")

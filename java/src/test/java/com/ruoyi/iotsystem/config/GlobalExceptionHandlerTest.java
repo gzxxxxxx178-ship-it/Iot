@@ -2,6 +2,7 @@ package com.ruoyi.iotsystem.config;
 
 import com.ruoyi.iotsystem.dto.ApiResponse;
 import com.ruoyi.iotsystem.exception.BusinessException;
+import com.ruoyi.iotsystem.exception.ExternalServiceException;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -43,6 +44,19 @@ class GlobalExceptionHandlerTest {
         assertEquals(400, response.getCode());
         assertEquals("参数无效", response.getMessage());
         assertResponseStatus("handleIllegalArgument", IllegalArgumentException.class, HttpStatus.BAD_REQUEST);
+    }
+
+    // 验证外部服务错误使用网关失败状态且不暴露其根因
+    @Test
+    void externalServiceException_应映射为502() throws Exception {
+        GlobalExceptionHandler handler = new GlobalExceptionHandler();
+        ApiResponse<?> response = handler.handleExternalServiceException(
+                new ExternalServiceException("AI 服务暂时不可用，请稍后重试",
+                        new RuntimeException("upstream details")));
+
+        assertEquals(502, response.getCode());
+        assertEquals("AI 服务暂时不可用，请稍后重试", response.getMessage());
+        assertResponseStatus("handleExternalServiceException", ExternalServiceException.class, HttpStatus.BAD_GATEWAY);
     }
 
     // 读取异常处理方法注解，验证Spring MVC实际写出的HTTP状态

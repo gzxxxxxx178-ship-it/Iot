@@ -3,6 +3,7 @@ package com.ruoyi.iotsystem.config;
 import com.alipay.api.AlipayApiException;
 import com.ruoyi.iotsystem.dto.ApiResponse;
 import com.ruoyi.iotsystem.exception.BusinessException;
+import com.ruoyi.iotsystem.exception.ExternalServiceException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -78,12 +79,20 @@ public class GlobalExceptionHandler {
         return ApiResponse.fail(403, "无权访问该资源");
     }
 
+    // 外部服务不可用或响应异常 → 502
+    @ExceptionHandler(ExternalServiceException.class)
+    @ResponseStatus(HttpStatus.BAD_GATEWAY)
+    public ApiResponse<?> handleExternalServiceException(ExternalServiceException e) {
+        log.error("外部服务调用失败: {}", e.getMessage(), e);
+        return ApiResponse.fail(502, e.getMessage());
+    }
+
     // 支付宝 API 调用异常 → 502
     @ExceptionHandler(AlipayApiException.class)
     @ResponseStatus(HttpStatus.BAD_GATEWAY)
     public ApiResponse<?> handleAlipayApiException(AlipayApiException e) {
         log.error("支付宝接口异常: {}", e.getMessage(), e);
-        return ApiResponse.error("支付宝接口异常: " + e.getMessage());
+        return ApiResponse.fail(502, "支付宝接口异常: " + e.getMessage());
     }
 
     // 兜底：未预期的服务器内部错误 → 500
