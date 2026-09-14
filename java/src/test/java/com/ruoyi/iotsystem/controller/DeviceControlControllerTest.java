@@ -1,6 +1,6 @@
 package com.ruoyi.iotsystem.controller;
 
-import com.ruoyi.iotsystem.service.MqttMessageService;
+import com.ruoyi.iotsystem.service.DeviceCommandService;
 import com.ruoyi.iotsystem.service.DeviceService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,7 +19,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ExtendWith(MockitoExtension.class)
 class DeviceControlControllerTest {
 
-    @Mock private MqttMessageService mqttMessageService;
+    @Mock private DeviceCommandService deviceCommandService;
     @Mock private DeviceService deviceService;
     private MockMvc mockMvc;
 
@@ -27,7 +27,7 @@ class DeviceControlControllerTest {
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders.standaloneSetup(
-                new DeviceControlController(mqttMessageService, deviceService)).build();
+                new DeviceControlController(deviceCommandService, deviceService)).build();
     }
 
     // 验证合法指令由服务端拼接设备级Topic并发布
@@ -40,7 +40,7 @@ class DeviceControlControllerTest {
                 .andExpect(jsonPath("$.code").value(200));
 
         verify(deviceService).assertControllable("device001");
-        verify(mqttMessageService).publishControl("device001", "start");
+        verify(deviceCommandService).issue("device001", null, "start");
     }
 
     // 验证含Topic分隔符的设备ID在控制器入口被拒绝

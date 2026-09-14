@@ -30,6 +30,7 @@ class MqttMessageServiceTest {
     @Mock private MqttConnectOptions connectOptions;
     @Mock private EspService espService;
     @Mock private SensorWebSocketHandler sensorWebSocketHandler;
+    @Mock private DeviceCommandService deviceCommandService;
 
     private MqttMessageService service;
 
@@ -46,7 +47,8 @@ class MqttMessageServiceTest {
                 properties,
                 espService,
                 sensorWebSocketHandler,
-                new ObjectMapper().findAndRegisterModules());
+                new ObjectMapper().findAndRegisterModules(),
+                deviceCommandService);
     }
 
     // 关闭测试对象内部的重连线程
@@ -85,6 +87,15 @@ class MqttMessageServiceTest {
         verify(sensorWebSocketHandler, never()).broadcastToOwner(any(), any(String.class));
     }
 
+    // 验证状态主题中的设备确认只按设备ID和命令ID交给命令审计服务处理
+    @Test
+    void messageArrived_命令确认_应更新命令审计状态() throws Exception {
+        service.messageArrived("agri/device001/status", new MqttMessage(
+                "{\"deviceId\":\"device001\",\"commandId\":\"command-1\",\"status\":\"ACKNOWLEDGED\"}".getBytes()));
+
+        verify(deviceCommandService).acknowledge("device001", "command-1", "ACKNOWLEDGED");
+    }
+
     // 验证非设备级数据Topic不会被解析
     @Test
     void messageArrived_Topic结构无效_应拒绝数据() throws Exception {
@@ -100,11 +111,11 @@ class MqttMessageServiceTest {
     void publishControl_合法指令_应发布到设备Topic() throws Exception {
         when(mqttClient.isConnected()).thenReturn(true);
 
-        service.publishControl("device001", "start");
+        service.publishControl("device001", "start", "command-1");
 
         ArgumentCaptor<MqttMessage> captor = ArgumentCaptor.forClass(MqttMessage.class);
         verify(mqttClient).publish(eq("agri/device001/control"), captor.capture());
-        assertEquals("start", new String(captor.getValue().getPayload()));
+        assertEquals("{\"commandId\":\"command-1\",\"command\":\"start\"}", new String(captor.getValue().getPayload()));
         assertEquals(1, captor.getValue().getQos());
         assertFalse(captor.getValue().isRetained());
     }

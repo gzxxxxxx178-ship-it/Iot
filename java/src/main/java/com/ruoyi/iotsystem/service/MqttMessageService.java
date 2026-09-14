@@ -14,11 +14,13 @@ import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.context.annotation.Lazy;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -38,6 +40,7 @@ public class MqttMessageService implements MqttCallbackExtended {
     private final EspService espService;
     private final ObjectMapper objectMapper;
     private final SensorWebSocketHandler sensorWebSocketHandler;
+    private final DeviceCommandService deviceCommandService;
     private final ScheduledExecutorService reconnectExecutor;
     private final AtomicBoolean reconnectScheduled = new AtomicBoolean(false);
 
@@ -51,13 +54,14 @@ public class MqttMessageService implements MqttCallbackExtended {
             MqttProperties properties,
             EspService espService,
             SensorWebSocketHandler sensorWebSocketHandler,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper, @Lazy DeviceCommandService deviceCommandService) {
         this.mqttClient = mqttClient;
         this.connectOptions = connectOptions;
         this.properties = properties;
         this.espService = espService;
         this.sensorWebSocketHandler = sensorWebSocketHandler;
         this.objectMapper = objectMapper;
+        this.deviceCommandService = deviceCommandService;
         this.reconnectDelaySeconds = properties.getInitialReconnectDelaySeconds();
         this.reconnectExecutor = Executors.newSingleThreadScheduledExecutor(runnable -> {
             Thread thread = new Thread(runnable, "mqtt-reconnect");
@@ -94,7 +98,9 @@ public class MqttMessageService implements MqttCallbackExtended {
         reconnectDelaySeconds = properties.getInitialReconnectDelaySeconds();
         try {
             String dataTopic = properties.getTopicRoot() + "/+/data";
+            String statusTopic = properties.getTopicRoot() + "/+/status";
             mqttClient.subscribe(dataTopic, 1);
+            mqttClient.subscribe(statusTopic, 1);
             publishInternal(properties.getTopicRoot() + "/backend/status", "online", true);
             logger.info("MQTT {}connected and subscribed to {}", reconnect ? "re" : "", dataTopic);
         } catch (Exception exception) {
@@ -116,6 +122,13 @@ public class MqttMessageService implements MqttCallbackExtended {
     public void messageArrived(String topic, MqttMessage message) {
         Optional<String> topicDeviceId = extractDeviceId(topic, "data");
         if (!topicDeviceId.isPresent()) {
+            Optional<String> statusDeviceId = extractDeviceId(topic, "status");
+            if (statusDeviceId.isPresent()) {
+                processCommandAcknowledgement(statusDeviceId.get(), new String(message.getPayload(), StandardCharsets.UTF_8));
+                return;
+            }
+        }
+        if (!topicDeviceId.isPresent()) {
             logger.warn("Rejected MQTT message from unauthorized topic structure: {}", topic);
             return;
         }
@@ -130,13 +143,34 @@ public class MqttMessageService implements MqttCallbackExtended {
     }
 
     // 向指定设备的控制Topic发布经过白名单校验的指令
-    public void publishControl(String deviceId, String command) {
+    public void publishControl(String deviceId, String command, String commandId) {
         validateDeviceId(deviceId);
         if (!"start".equals(command) && !"stop".equals(command)
                 && !"read".equals(command) && !"status".equals(command)) {
             throw new IllegalArgumentException("不支持的设备控制指令");
         }
-        publishInternal(properties.getTopicRoot() + "/" + deviceId + "/control", command, false);
+        String content = "{\"commandId\":\"" + commandId + "\",\"command\":\"" + command + "\"}";
+        publishInternal(properties.getTopicRoot() + "/" + deviceId + "/control", content, false);
+    }
+
+    // 兼容既有自动化调用；新的人机控制入口必须通过DeviceCommandService建立审计记录
+    public void publishControl(String deviceId, String command) {
+        publishControl(deviceId, command, UUID.randomUUID().toString());
+    }
+
+    // 解析设备状态主题中的命令确认，缺少完整字段的常规状态消息不参与命令状态流转
+    private void processCommandAcknowledgement(String deviceId, String payload) {
+        try {
+            JsonNode json = objectMapper.readTree(payload);
+            if (json == null || !deviceId.equals(json.path("deviceId").asText())) return;
+            String commandId = json.path("commandId").asText();
+            String status = json.path("status").asText();
+            if (!commandId.isEmpty() && ("ACKNOWLEDGED".equals(status) || "REJECTED".equals(status))) {
+                deviceCommandService.acknowledge(deviceId, commandId, status);
+            }
+        } catch (Exception exception) {
+            logger.debug("Ignored malformed device status acknowledgement: {}", exception.getMessage());
+        }
     }
 
     // 返回当前MQTT会话连接状态，供生产健康检查使用

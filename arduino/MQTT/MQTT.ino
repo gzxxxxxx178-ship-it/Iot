@@ -109,6 +109,20 @@ void callback(char* topic, byte* payload, unsigned int length) {
   }
   if (String(topic) != topicControl) return;
 
+  String commandId = "";
+  if (message.startsWith("{")) {
+    int commandStart = message.indexOf("\"command\":\"");
+    int commandIdStart = message.indexOf("\"commandId\":\"");
+    if (commandStart < 0 || commandIdStart < 0) return;
+    commandStart += 11;
+    commandIdStart += 13;
+    int commandEnd = message.indexOf('"', commandStart);
+    int commandIdEnd = message.indexOf('"', commandIdStart);
+    if (commandEnd < 0 || commandIdEnd < 0) return;
+    commandId = message.substring(commandIdStart, commandIdEnd);
+    message = message.substring(commandStart, commandEnd);
+  }
+
   if (message.equalsIgnoreCase("start")) {
     isSending = true;
     lastSendTime = millis();
@@ -122,6 +136,14 @@ void callback(char* topic, byte* payload, unsigned int length) {
     sendSensorData();
   } else if (message.equalsIgnoreCase("status")) {
     sendStatusUpdate();
+  }
+
+  if (commandId.length() > 0 && client.connected()) {
+    String ack = String("{\"deviceId\":\"") + DEVICE_ID
+      + "\",\"commandId\":\"" + commandId
+      + "\",\"command\":\"" + message
+      + "\",\"status\":\"ACKNOWLEDGED\"}";
+    client.publish(topicStatus.c_str(), ack.c_str(), false);
   }
 }
 
