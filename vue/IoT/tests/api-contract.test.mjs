@@ -76,6 +76,17 @@ test('认证恢复结果在页面切换间复用', () => {
   assert.match(routerSource, /query: \{ redirect: to\.fullPath \}/)
 })
 
+// 验证退出会等待服务端清除Cookie后再由Vue Router跳转，避免请求竞争和hash硬跳转
+test('退出登录等待服务端处理并使用路由跳转', () => {
+  const topBarSource = readFileSync(resolve(projectRoot, 'src/components/common/TopBar.vue'), 'utf8')
+
+  const logoutBody = topBarSource.match(/async function logout\(\)[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(topBarSource, /import \{ useRoute, useRouter \} from 'vue-router'/)
+  assert.match(logoutBody, /await authStore\.logout\(\)/)
+  assert.match(logoutBody, /await router\.replace\('\/login'\)/)
+  assert.doesNotMatch(logoutBody, /window\.location/)
+})
+
 // 验证跨站Cookie被浏览器阻止时使用页面内存令牌，且令牌不写入Web Storage
 test('用户名登录提供仅当前页面有效的Bearer兼容认证', () => {
   const requestSource = readFileSync(resolve(projectRoot, 'src/api/request.js'), 'utf8')

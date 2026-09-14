@@ -14,6 +14,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -76,19 +78,21 @@ public class AuthController {
 
     @Operation(summary = "获取当前用户信息", description = "从 SecurityContext 读取已登录用户，返回用户名和创建时间")
     @GetMapping("/me")
-    public ApiResponse<Map<String, Object>> me() {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> me() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null) {
-            return ApiResponse.fail(401, "未登录");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.fail(401, "未登录"));
         }
         UserEntity user = userService.findByUsername(auth.getName());
         if (user == null) {
-            return ApiResponse.fail(401, "用户不存在");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.fail(401, "用户不存在"));
         }
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("username", user.getUsername());
         map.put("createdAt", user.getCreatedAt());
-        return ApiResponse.success(map);
+        return ResponseEntity.ok(ApiResponse.success(map));
     }
 
     // 写入不可被JavaScript读取的短期JWT Cookie

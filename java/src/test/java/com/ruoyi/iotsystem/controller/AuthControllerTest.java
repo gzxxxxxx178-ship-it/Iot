@@ -154,7 +154,7 @@ class AuthControllerTest {
     @Test
     void me_未登录_应返回401() throws Exception {
         mockMvc.perform(get("/api/auth/me"))
-                .andExpect(status().isOk())
+                .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value(401));
     }
 }

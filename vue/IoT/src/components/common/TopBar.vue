@@ -1,11 +1,12 @@
 <script setup>
 import { computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ArrowRight, User, SwitchButton } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '../../stores/auth'
 
 const route = useRoute()
+const router = useRouter()
 const authStore = useAuthStore()
 
 // 从 route.matched 链中提取有 title 的层生成面包屑
@@ -14,11 +15,11 @@ const breadcrumbs = computed(() => {
   return matched.map((r) => r.meta.title)
 })
 
-// 退出登录：调用 Pinia authStore.logout() 清除状态 → 跳转登录页
-function logout() {
+// 退出登录：等待服务端清除认证Cookie，再清理本地状态并使用路由跳转
+async function logout() {
+  await authStore.logout()
+  await router.replace('/login')
   ElMessage.success('已退出登录')
-  authStore.logout()
-  window.location.hash = '#/login'
 }
 </script>
 
