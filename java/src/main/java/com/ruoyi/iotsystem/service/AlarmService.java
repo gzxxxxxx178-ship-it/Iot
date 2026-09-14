@@ -4,6 +4,7 @@ import com.ruoyi.iotsystem.dto.AlarmRuleRequest;
 import com.ruoyi.iotsystem.entity.AlarmRecordEntity;
 import com.ruoyi.iotsystem.entity.AlarmRuleEntity;
 import com.ruoyi.iotsystem.entity.EspEntity;
+import com.ruoyi.iotsystem.exception.BusinessException;
 import com.ruoyi.iotsystem.repository.AlarmRecordRepository;
 import com.ruoyi.iotsystem.repository.AlarmRuleRepository;
 import org.springframework.stereotype.Service;
@@ -71,7 +72,7 @@ public class AlarmService {
         validateThreshold(request.getMetric(), request.getThreshold());
         validateOperator(request.getOperator());
         AlarmRuleEntity rule = alarmRuleRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("报警规则不存在"));
+                .orElseThrow(() -> new BusinessException("报警规则不存在"));
         assertOwner(rule.getOwnerUsername(), ownerUsername);
         rule.setMetric(request.getMetric());
         rule.setOperator(request.getOperator());
@@ -91,7 +92,7 @@ public class AlarmService {
     // 删除当前用户拥有的报警规则
     public void deleteRule(Long id, String ownerUsername) {
         AlarmRuleEntity rule = alarmRuleRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("报警规则不存在"));
+                .orElseThrow(() -> new BusinessException("报警规则不存在"));
         assertOwner(rule.getOwnerUsername(), ownerUsername);
         alarmRuleRepository.delete(rule);
     }
@@ -109,10 +110,10 @@ public class AlarmService {
                     : alarmRecordRepository.findTop100ByOwnerUsernameOrderByCreatedAtDesc(ownerUsername);
         }
         if (start == null || end == null) {
-            throw new RuntimeException("开始时间和结束时间必须同时提供");
+            throw new BusinessException("开始时间和结束时间必须同时提供");
         }
         if (start.isAfter(end)) {
-            throw new RuntimeException("开始时间不能晚于结束时间");
+            throw new BusinessException("开始时间不能晚于结束时间");
         }
         return ownerUsername == null
                 ? alarmRecordRepository.findByCreatedAtBetweenOrderByCreatedAtDesc(start, end)
@@ -258,7 +259,7 @@ public class AlarmService {
     private Integer normalizeCooldown(Integer cooldownSeconds) {
         int normalized = cooldownSeconds == null ? 300 : cooldownSeconds;
         if (normalized < 0 || normalized > 86400) {
-            throw new RuntimeException("报警冷却时间必须在0到86400秒之间");
+            throw new BusinessException("报警冷却时间必须在0到86400秒之间");
         }
         return normalized;
     }
@@ -266,26 +267,26 @@ public class AlarmService {
     // 根据指标物理范围校验报警阈值
     private void validateThreshold(String metric, Double threshold) {
         if (threshold == null || !Double.isFinite(threshold)) {
-            throw new RuntimeException("报警阈值必须是有限数值");
+            throw new BusinessException("报警阈值必须是有限数值");
         }
         if ("temperature".equals(metric) && (threshold < -50.0 || threshold > 100.0)) {
-            throw new RuntimeException("温度阈值必须在-50到100℃之间");
+            throw new BusinessException("温度阈值必须在-50到100℃之间");
         }
         if ("humidity".equals(metric) && (threshold < 0.0 || threshold > 100.0)) {
-            throw new RuntimeException("湿度阈值必须在0到100%之间");
+            throw new BusinessException("湿度阈值必须在0到100%之间");
         }
         if ("water".equals(metric) && threshold < 0.0) {
-            throw new RuntimeException("水位ADC阈值不能为负数");
+            throw new BusinessException("水位ADC阈值不能为负数");
         }
         if (!"temperature".equals(metric) && !"humidity".equals(metric) && !"water".equals(metric)) {
-            throw new RuntimeException("不支持的监控指标");
+            throw new BusinessException("不支持的监控指标");
         }
     }
 
     // 校验规则比较运算符
     private void validateOperator(String operator) {
         if (!"gt".equals(operator) && !"lt".equals(operator) && !"eq".equals(operator)) {
-            throw new RuntimeException("不支持的比较运算符");
+            throw new BusinessException("不支持的比较运算符");
         }
     }
 

@@ -4,6 +4,7 @@ import com.ruoyi.iotsystem.dto.AuthResponse;
 import com.ruoyi.iotsystem.dto.LoginRequest;
 import com.ruoyi.iotsystem.dto.RegisterRequest;
 import com.ruoyi.iotsystem.entity.UserEntity;
+import com.ruoyi.iotsystem.exception.BusinessException;
 import com.ruoyi.iotsystem.repository.UserRepository;
 import com.ruoyi.iotsystem.config.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,7 +39,7 @@ public class UserService implements UserDetailsService {
     // 用户注册：校验用户名唯一性、加密密码、保存用户、生成JWT
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByUsername(request.getUsername())) {
-            throw new RuntimeException("用户名已存在");
+            throw new BusinessException("用户名已存在");
         }
         UserEntity user = new UserEntity(request.getUsername(),
                 passwordEncoder.encode(request.getPassword()));

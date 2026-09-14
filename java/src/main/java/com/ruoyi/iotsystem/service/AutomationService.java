@@ -4,6 +4,7 @@ import com.ruoyi.iotsystem.dto.AutomationRuleRequest;
 import com.ruoyi.iotsystem.entity.AutomationExecutionEntity;
 import com.ruoyi.iotsystem.entity.AutomationRuleEntity;
 import com.ruoyi.iotsystem.entity.EspEntity;
+import com.ruoyi.iotsystem.exception.BusinessException;
 import com.ruoyi.iotsystem.repository.AutomationExecutionRepository;
 import com.ruoyi.iotsystem.repository.AutomationRuleRepository;
 import org.springframework.stereotype.Service;
@@ -71,7 +72,7 @@ public class AutomationService {
     public AutomationRuleEntity updateRule(Long id, AutomationRuleRequest request, String ownerUsername) {
         validateThreshold(request.getMetric(), request.getThreshold());
         AutomationRuleEntity rule = ruleRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("自动化规则不存在"));
+                .orElseThrow(() -> new BusinessException("自动化规则不存在"));
         assertOwner(rule.getOwnerUsername(), ownerUsername);
         rule.setName(request.getName().trim());
         rule.setDeviceId(request.getDeviceId().trim());
@@ -95,7 +96,7 @@ public class AutomationService {
     // 删除当前用户拥有的自动化规则
     public void deleteRule(Long id, String ownerUsername) {
         AutomationRuleEntity rule = ruleRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("自动化规则不存在"));
+                .orElseThrow(() -> new BusinessException("自动化规则不存在"));
         assertOwner(rule.getOwnerUsername(), ownerUsername);
         ruleRepository.delete(rule);
     }
@@ -234,16 +235,16 @@ public class AutomationService {
     // 根据指标物理范围校验自动化触发阈值
     private void validateThreshold(String metric, Double threshold) {
         if (threshold == null || !Double.isFinite(threshold)) {
-            throw new RuntimeException("触发阈值必须是有限数值");
+            throw new BusinessException("触发阈值必须是有限数值");
         }
         if ("temperature".equals(metric) && (threshold < -50.0 || threshold > 100.0)) {
-            throw new RuntimeException("温度阈值必须在-50到100℃之间");
+            throw new BusinessException("温度阈值必须在-50到100℃之间");
         }
         if ("humidity".equals(metric) && (threshold < 0.0 || threshold > 100.0)) {
-            throw new RuntimeException("湿度阈值必须在0到100%之间");
+            throw new BusinessException("湿度阈值必须在0到100%之间");
         }
         if ("water".equals(metric) && threshold < 0.0) {
-            throw new RuntimeException("水位ADC阈值不能为负数");
+            throw new BusinessException("水位ADC阈值不能为负数");
         }
     }
 

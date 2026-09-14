@@ -5,6 +5,7 @@ import com.ruoyi.iotsystem.dto.DeviceResponse;
 import com.ruoyi.iotsystem.dto.DeviceUpdateRequest;
 import com.ruoyi.iotsystem.entity.DeviceEntity;
 import com.ruoyi.iotsystem.entity.EspEntity;
+import com.ruoyi.iotsystem.exception.BusinessException;
 import com.ruoyi.iotsystem.repository.DeviceRepository;
 import com.ruoyi.iotsystem.repository.EspRepository;
 import org.springframework.beans.factory.annotation.Value;
@@ -89,7 +90,7 @@ public class DeviceService {
     public DeviceResponse createDevice(DeviceCreateRequest request, String ownerUsername) {
         String deviceId = normalizeDeviceId(request.getDeviceId());
         if (deviceRepository.existsByDeviceId(deviceId)) {
-            throw new RuntimeException("设备ID已存在");
+            throw new BusinessException("设备ID已存在");
         }
         DeviceEntity device = new DeviceEntity(
                 deviceId,
@@ -113,7 +114,7 @@ public class DeviceService {
         }
         DeviceEntity device = findDevice(deviceId, ownerUsername);
         if (ARCHIVED.equals(device.getLifecycleStatus())) {
-            throw new RuntimeException("归档设备需先恢复后才能编辑");
+            throw new BusinessException("归档设备需先恢复后才能编辑");
         }
         device.setDeviceName(normalizeRequired(request.getDeviceName(), "设备名称不能为空"));
         device.setDeviceType(normalizeType(request.getDeviceType()));
@@ -170,7 +171,7 @@ public class DeviceService {
         }
         DeviceEntity device = findDevice(deviceId, ownerUsername);
         if (!ACTIVE.equals(device.getLifecycleStatus()) || !Boolean.TRUE.equals(device.getEnabled())) {
-            throw new RuntimeException("设备已停用或归档，不能发送控制指令");
+            throw new BusinessException("设备已停用或归档，不能发送控制指令");
         }
     }
 
@@ -180,7 +181,7 @@ public class DeviceService {
         DeviceEntity device = deviceRepository.findByDeviceId(normalized)
                 .orElseGet(() -> createDiscoveredDevice(normalized));
         if (!ACTIVE.equals(device.getLifecycleStatus()) || !Boolean.TRUE.equals(device.getEnabled())) {
-            throw new RuntimeException("设备已停用或归档，拒绝接收上报数据");
+            throw new BusinessException("设备已停用或归档，拒绝接收上报数据");
         }
     }
 
@@ -231,7 +232,7 @@ public class DeviceService {
     // 查询设备并强制校验所属用户
     private DeviceEntity findDevice(String deviceId, String ownerUsername) {
         DeviceEntity device = deviceRepository.findByDeviceId(normalizeDeviceId(deviceId))
-                .orElseThrow(() -> new RuntimeException("设备不存在"));
+                .orElseThrow(() -> new BusinessException("设备不存在"));
         if (ownerUsername != null && !ownerUsername.equals(device.getOwnerUsername())) {
             throw new SecurityException("无权访问该设备");
         }
@@ -259,7 +260,7 @@ public class DeviceService {
     private String normalizeDeviceId(String deviceId) {
         String normalized = normalizeRequired(deviceId, "设备ID不能为空");
         if (!DEVICE_ID_PATTERN.matcher(normalized).matches()) {
-            throw new RuntimeException("设备ID格式无效");
+            throw new BusinessException("设备ID格式无效");
         }
         return normalized;
     }
@@ -267,7 +268,7 @@ public class DeviceService {
     // 规范化必填文本
     private String normalizeRequired(String value, String errorMessage) {
         if (value == null || value.trim().isEmpty()) {
-            throw new RuntimeException(errorMessage);
+            throw new BusinessException(errorMessage);
         }
         return value.trim();
     }

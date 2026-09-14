@@ -1,6 +1,7 @@
 package com.ruoyi.iotsystem.service;
 
 import com.ruoyi.iotsystem.entity.EspEntity;
+import com.ruoyi.iotsystem.exception.BusinessException;
 import com.ruoyi.iotsystem.repository.EspRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -70,7 +71,7 @@ public class SensorHistoryService {
         Page<EspEntity> result = query(
                 normalizedDeviceId, start, end, PageRequest.of(0, MAX_RANGE_ROWS + 1), ownerUsername);
         if (result.getTotalElements() > MAX_RANGE_ROWS) {
-            throw new RuntimeException("查询结果超过5000条，请缩小时间范围或使用分页接口");
+            throw new BusinessException("查询结果超过5000条，请缩小时间范围或使用分页接口");
         }
         return result.getContent();
     }
@@ -87,7 +88,7 @@ public class SensorHistoryService {
         Page<EspEntity> result = query(
                 normalizedDeviceId, start, end, PageRequest.of(0, MAX_EXPORT_ROWS + 1), ownerUsername);
         if (result.getTotalElements() > MAX_EXPORT_ROWS) {
-            throw new RuntimeException("导出结果超过50000条，请缩小时间范围后重试");
+            throw new BusinessException("导出结果超过50000条，请缩小时间范围后重试");
         }
         StringBuilder csv = new StringBuilder("\uFEFF");
         csv.append("设备ID,温度(℃),湿度(%),水位(ADC),RSSI(dBm),联动,发送次数,设备运行时长(ms),服务端接收时间,质量状态,质量问题\r\n");
@@ -145,7 +146,7 @@ public class SensorHistoryService {
         }
         String normalized = deviceId.trim();
         if (!DEVICE_ID_PATTERN.matcher(normalized).matches()) {
-            throw new RuntimeException("设备ID格式无效");
+            throw new BusinessException("设备ID格式无效");
         }
         return normalized;
     }
@@ -154,28 +155,28 @@ public class SensorHistoryService {
     private void validateTimeRange(LocalDateTime start, LocalDateTime end, boolean required) {
         if (start == null && end == null) {
             if (required) {
-                throw new RuntimeException("开始时间和结束时间不能为空");
+                throw new BusinessException("开始时间和结束时间不能为空");
             }
             return;
         }
         if (start == null || end == null) {
-            throw new RuntimeException("开始时间和结束时间必须同时提供");
+            throw new BusinessException("开始时间和结束时间必须同时提供");
         }
         if (start.isAfter(end)) {
-            throw new RuntimeException("开始时间不能晚于结束时间");
+            throw new BusinessException("开始时间不能晚于结束时间");
         }
         if (Duration.between(start, end).toDays() > MAX_RANGE_DAYS) {
-            throw new RuntimeException("单次查询时间范围不能超过366天");
+            throw new BusinessException("单次查询时间范围不能超过366天");
         }
     }
 
     // 校验分页页码和每页数量上限
     private void validatePage(int page, int size) {
         if (page < 0) {
-            throw new RuntimeException("页码不能小于0");
+            throw new BusinessException("页码不能小于0");
         }
         if (size < 1 || size > MAX_PAGE_SIZE) {
-            throw new RuntimeException("每页条数必须在1到100之间");
+            throw new BusinessException("每页条数必须在1到100之间");
         }
     }
 

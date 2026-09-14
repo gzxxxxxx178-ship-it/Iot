@@ -2,6 +2,7 @@ package com.ruoyi.iotsystem.simulation.controller;
 
 import com.ruoyi.iotsystem.config.SecurityContextUtils;
 import com.ruoyi.iotsystem.dto.ApiResponse;
+import com.ruoyi.iotsystem.exception.BusinessException;
 import com.ruoyi.iotsystem.simulation.dto.CommandFeedbackRequest;
 import com.ruoyi.iotsystem.simulation.dto.RuleRequest;
 import com.ruoyi.iotsystem.simulation.dto.TelemetryRequest;
@@ -63,7 +64,7 @@ public class SimulationController {
             @RequestParam(defaultValue = "50") int limit) {
         String owner = requireOwner();
         if (limit < 1 || limit > 500) {
-            throw new RuntimeException("limit必须在1到500之间");
+            throw new BusinessException("limit必须在1到500之间");
         }
         return ApiResponse.success(simulationService.getTelemetryHistory(owner, deviceId, limit));
     }

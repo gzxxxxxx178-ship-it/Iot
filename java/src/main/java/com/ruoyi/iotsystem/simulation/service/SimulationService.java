@@ -1,5 +1,6 @@
 package com.ruoyi.iotsystem.simulation.service;
 
+import com.ruoyi.iotsystem.exception.BusinessException;
 import com.ruoyi.iotsystem.simulation.dto.CommandFeedbackRequest;
 import com.ruoyi.iotsystem.simulation.dto.RuleRequest;
 import com.ruoyi.iotsystem.simulation.dto.TelemetryRequest;
@@ -144,7 +145,7 @@ public class SimulationService {
     public SimulationRuleEntity updateRule(String ownerUsername, Long id, RuleRequest request) {
         validateRuleRequest(request);
         SimulationRuleEntity rule = ruleRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("仿真规则不存在"));
+                .orElseThrow(() -> new BusinessException("仿真规则不存在"));
         assertOwner(rule.getOwnerUsername(), ownerUsername);
         rule.setName(request.getName().trim());
         rule.setDeviceId(request.getDeviceId().trim());
@@ -163,7 +164,7 @@ public class SimulationService {
     // 删除指定仿真规则，校验owner归属
     public void deleteRule(String ownerUsername, Long id) {
         SimulationRuleEntity rule = ruleRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("仿真规则不存在"));
+                .orElseThrow(() -> new BusinessException("仿真规则不存在"));
         assertOwner(rule.getOwnerUsername(), ownerUsername);
         ruleRepository.delete(rule);
     }
@@ -183,10 +184,10 @@ public class SimulationService {
     @Transactional
     public SimulationAlarmEntity acknowledgeAlarm(String ownerUsername, Long id) {
         SimulationAlarmEntity alarm = alarmRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("仿真报警不存在"));
+                .orElseThrow(() -> new BusinessException("仿真报警不存在"));
         assertOwner(alarm.getOwnerUsername(), ownerUsername);
         if (!"ACTIVE".equals(alarm.getStatus())) {
-            throw new RuntimeException("只能确认处于ACTIVE状态的报警");
+            throw new BusinessException("只能确认处于ACTIVE状态的报警");
         }
         alarm.setStatus("ACKNOWLEDGED");
         alarm.setAcknowledgedAt(LocalDateTime.now());
@@ -205,10 +206,10 @@ public class SimulationService {
     @Transactional
     public SimulationCommandEntity submitFeedback(String ownerUsername, Long id, CommandFeedbackRequest request) {
         SimulationCommandEntity command = commandRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("仿真命令不存在"));
+                .orElseThrow(() -> new BusinessException("仿真命令不存在"));
         assertOwner(command.getOwnerUsername(), ownerUsername);
         if (!"PENDING".equals(command.getStatus())) {
-            throw new RuntimeException("该命令已处于终态，不能重复反馈");
+            throw new BusinessException("该命令已处于终态，不能重复反馈");
         }
         command.setStatus(request.getStatus());
         command.setMessage(request.getMessage());
@@ -409,7 +410,7 @@ public class SimulationService {
                 SOIL_MOISTURE_MIN, SOIL_MOISTURE_MAX);
         hasMetric |= validateMetricRange("降雨量", request.getRainfallMm(), RAINFALL_MIN, RAINFALL_MAX);
         if (!hasMetric) {
-            throw new RuntimeException("至少需要提供一个有效数值指标");
+            throw new BusinessException("至少需要提供一个有效数值指标");
         }
     }
 
@@ -419,10 +420,10 @@ public class SimulationService {
             return false;
         }
         if (!Double.isFinite(value)) {
-            throw new RuntimeException(label + "不能为NaN或Infinity");
+            throw new BusinessException(label + "不能为NaN或Infinity");
         }
         if (value < min || value > max) {
-            throw new RuntimeException(label + "超出合法范围[" + min + ", " + max + "]");
+            throw new BusinessException(label + "超出合法范围[" + min + ", " + max + "]");
         }
         return true;
     }
@@ -430,35 +431,35 @@ public class SimulationService {
     // 校验仿真规则请求的合法性和阈值的逻辑一致性
     private void validateRuleRequest(RuleRequest request) {
         if (!VALID_METRICS.contains(request.getMetric())) {
-            throw new RuntimeException("无效的监控指标");
+            throw new BusinessException("无效的监控指标");
         }
         if (!"gt".equals(request.getOperator()) && !"lt".equals(request.getOperator())) {
-            throw new RuntimeException("比较运算符必须是gt或lt");
+            throw new BusinessException("比较运算符必须是gt或lt");
         }
         if (request.getThreshold() == null || !Double.isFinite(request.getThreshold())) {
-            throw new RuntimeException("触发阈值必须是有限数值");
+            throw new BusinessException("触发阈值必须是有限数值");
         }
         if (request.getRecoveryThreshold() == null || !Double.isFinite(request.getRecoveryThreshold())) {
-            throw new RuntimeException("恢复阈值必须是有限数值");
+            throw new BusinessException("恢复阈值必须是有限数值");
         }
         // gt: recoveryThreshold < threshold; lt: recoveryThreshold > threshold
         if ("gt".equals(request.getOperator()) && request.getRecoveryThreshold() >= request.getThreshold()) {
-            throw new RuntimeException("gt规则的恢复阈值必须小于触发阈值");
+            throw new BusinessException("gt规则的恢复阈值必须小于触发阈值");
         }
         if ("lt".equals(request.getOperator()) && request.getRecoveryThreshold() <= request.getThreshold()) {
-            throw new RuntimeException("lt规则的恢复阈值必须大于触发阈值");
+            throw new BusinessException("lt规则的恢复阈值必须大于触发阈值");
         }
         int debounce = request.getDebounceCount() == null ? 1 : request.getDebounceCount();
         if (debounce < 1 || debounce > 100) {
-            throw new RuntimeException("防抖次数必须在1到100之间");
+            throw new BusinessException("防抖次数必须在1到100之间");
         }
         if (!"INFO".equals(request.getSeverity()) && !"WARN".equals(request.getSeverity())
                 && !"CRITICAL".equals(request.getSeverity())) {
-            throw new RuntimeException("严重级别无效");
+            throw new BusinessException("严重级别无效");
         }
         if (!"NOTIFY".equals(request.getAction()) && !"STOP_IRRIGATION".equals(request.getAction())
                 && !"STOP_FERTILIZER".equals(request.getAction()) && !"STOP_ALL".equals(request.getAction())) {
-            throw new RuntimeException("触发动作无效");
+            throw new BusinessException("触发动作无效");
         }
     }
 

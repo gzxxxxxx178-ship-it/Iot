@@ -1,5 +1,6 @@
 package com.ruoyi.iotsystem.research.service;
 
+import com.ruoyi.iotsystem.exception.BusinessException;
 import com.ruoyi.iotsystem.research.dto.*;
 import com.ruoyi.iotsystem.research.entity.ExperimentMetricEntity;
 import com.ruoyi.iotsystem.research.entity.ExperimentRunEntity;
@@ -155,7 +156,7 @@ public class ResearchExperimentService {
      */
     public ExperimentRunResponse getExperimentDetail(String owner, Long id) {
         ExperimentRunEntity run = runRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("实验运行不存在"));
+                .orElseThrow(() -> new BusinessException("实验运行不存在"));
         if (!owner.equals(run.getOwnerUsername())) {
             throw new SecurityException("无权访问该实验记录");
         }

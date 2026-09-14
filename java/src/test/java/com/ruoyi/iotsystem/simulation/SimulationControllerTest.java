@@ -2,6 +2,7 @@ package com.ruoyi.iotsystem.simulation;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ruoyi.iotsystem.config.GlobalExceptionHandler;
+import com.ruoyi.iotsystem.exception.BusinessException;
 import com.ruoyi.iotsystem.simulation.controller.SimulationController;
 import com.ruoyi.iotsystem.simulation.dto.CommandFeedbackRequest;
 import com.ruoyi.iotsystem.simulation.dto.RuleRequest;
@@ -131,7 +132,7 @@ class SimulationControllerTest {
         TelemetryRequest req = createValidTelemetryRequest();
         req.setWaterLevelMm(null);
         when(simulationService.uploadTelemetry(eq("userA"), any(TelemetryRequest.class)))
-                .thenThrow(new RuntimeException("至少需要提供一个有效数值指标"));
+                .thenThrow(new BusinessException("至少需要提供一个有效数值指标"));
 
         mockMvc.perform(post("/api/simulation/telemetry")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -147,7 +148,7 @@ class SimulationControllerTest {
         TelemetryRequest req = createValidTelemetryRequest();
         req.setWaterLevelMm(600.0);
         when(simulationService.uploadTelemetry(eq("userA"), any(TelemetryRequest.class)))
-                .thenThrow(new RuntimeException("水位超出合法范围"));
+                .thenThrow(new BusinessException("水位超出合法范围"));
 
         mockMvc.perform(post("/api/simulation/telemetry")
                         .contentType(MediaType.APPLICATION_JSON)

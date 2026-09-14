@@ -2,6 +2,7 @@ package com.ruoyi.iotsystem.research.controller;
 
 import com.ruoyi.iotsystem.config.SecurityContextUtils;
 import com.ruoyi.iotsystem.dto.ApiResponse;
+import com.ruoyi.iotsystem.exception.BusinessException;
 import com.ruoyi.iotsystem.research.dto.ExperimentRunRequest;
 import com.ruoyi.iotsystem.research.dto.ExperimentRunResponse;
 import com.ruoyi.iotsystem.research.dto.ResearchOverviewResponse;
@@ -47,7 +48,7 @@ public class ResearchExperimentController {
             @RequestParam(defaultValue = "50") int limit) {
         String owner = requireOwner();
         if (limit < 1 || limit > 200) {
-            throw new RuntimeException("limit必须在1到200之间");
+            throw new BusinessException("limit必须在1到200之间");
         }
         return ApiResponse.success(experimentService.listExperiments(owner, type, limit));
     }

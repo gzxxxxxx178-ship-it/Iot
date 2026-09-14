@@ -2,6 +2,7 @@ package com.ruoyi.iotsystem.config;
 
 import com.alipay.api.AlipayApiException;
 import com.ruoyi.iotsystem.dto.ApiResponse;
+import com.ruoyi.iotsystem.exception.BusinessException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -53,10 +54,18 @@ public class GlobalExceptionHandler {
         return ApiResponse.fail(400, msg);
     }
 
-    // 业务运行时异常 → 400（如用户名已存在等）
-    @ExceptionHandler(RuntimeException.class)
+    // 程序化参数校验失败 → 400
+    @ExceptionHandler(IllegalArgumentException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ApiResponse<?> handleRuntimeException(RuntimeException e) {
+    public ApiResponse<?> handleIllegalArgument(IllegalArgumentException e) {
+        log.warn("参数校验失败: {}", e.getMessage());
+        return ApiResponse.fail(400, e.getMessage());
+    }
+
+    // 可预期的业务错误 → 400（如用户名已存在等）
+    @ExceptionHandler(BusinessException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiResponse<?> handleBusinessException(BusinessException e) {
         log.warn("业务异常: {}", e.getMessage());
         return ApiResponse.fail(400, e.getMessage());
     }

@@ -7,6 +7,7 @@ import com.ruoyi.iotsystem.dto.AuthResponse;
 import com.ruoyi.iotsystem.dto.LoginRequest;
 import com.ruoyi.iotsystem.dto.RegisterRequest;
 import com.ruoyi.iotsystem.entity.UserEntity;
+import com.ruoyi.iotsystem.exception.BusinessException;
 import com.ruoyi.iotsystem.service.UserService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -113,7 +114,7 @@ class AuthControllerTest {
         req.setUsername("existing");
         req.setPassword("password123");
 
-        when(userService.register(any())).thenThrow(new RuntimeException("用户名已存在"));
+        when(userService.register(any())).thenThrow(new BusinessException("用户名已存在"));
 
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
