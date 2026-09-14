@@ -30,11 +30,15 @@ public class SensorWebSocketHandler extends TextWebSocketHandler {
         sessions.remove(session);
     }
 
-    // 向所有连接的WebSocket客户端广播消息
-    public void broadcast(String message) {
+    // 仅向拥有目标设备的已认证用户推送实时消息，避免跨用户泄露遥测数据
+    public void broadcastToOwner(String ownerUsername, String message) {
+        if (ownerUsername == null || ownerUsername.trim().isEmpty()) {
+            return;
+        }
         for (WebSocketSession session : sessions) {
             try {
-                if (session.isOpen()) {
+                Object authenticatedUsername = session.getAttributes().get("authenticatedUsername");
+                if (ownerUsername.equals(authenticatedUsername) && session.isOpen()) {
                     session.sendMessage(new TextMessage(message));
                 }
             } catch (IOException e) {

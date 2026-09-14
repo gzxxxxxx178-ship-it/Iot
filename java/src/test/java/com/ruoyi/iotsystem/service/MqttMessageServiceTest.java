@@ -60,6 +60,7 @@ class MqttMessageServiceTest {
     void messageArrived_身份一致_应保存并广播() throws Exception {
         EspEntity saved = new EspEntity("device001", 25.0, 60.0, 1L);
         saved.setId(7L);
+        saved.setOwnerUsername("owner");
         when(espService.saveData(any(EspEntity.class))).thenReturn(saved);
 
         service.messageArrived(
@@ -70,7 +71,7 @@ class MqttMessageServiceTest {
         ArgumentCaptor<EspEntity> captor = ArgumentCaptor.forClass(EspEntity.class);
         verify(espService).saveData(captor.capture());
         assertEquals("device001", captor.getValue().getDeviceId());
-        verify(sensorWebSocketHandler).broadcast(any(String.class));
+        verify(sensorWebSocketHandler).broadcastToOwner(eq("owner"), any(String.class));
     }
 
     // 验证载荷冒用其他设备身份时不会进入数据库
@@ -81,7 +82,7 @@ class MqttMessageServiceTest {
                 new MqttMessage("{\"deviceId\":\"device002\",\"temperature\":25}".getBytes()));
 
         verify(espService, never()).saveData(any(EspEntity.class));
-        verify(sensorWebSocketHandler, never()).broadcast(any(String.class));
+        verify(sensorWebSocketHandler, never()).broadcastToOwner(any(), any(String.class));
     }
 
     // 验证非设备级数据Topic不会被解析
