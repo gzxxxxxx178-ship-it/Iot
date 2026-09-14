@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import java.time.LocalDateTime;
 import java.util.UUID;
+import java.util.List;
 
 @Service
 public class DeviceCommandService {
@@ -31,6 +32,10 @@ public class DeviceCommandService {
             entity.setStatus("FAILED"); entity.setMessage("MQTT发布失败");
         }
         return repository.save(entity);
+    }
+    // 查询当前用户最近命令，供控制界面观察设备确认结果
+    public List<DeviceCommandEntity> getRecentCommands(String ownerUsername) {
+        return repository.findTop100ByOwnerUsernameOrderByCreatedAtDesc(ownerUsername);
     }
     // 校验设备与命令匹配后记录一次确认，重复ACK保持幂等
     @Transactional

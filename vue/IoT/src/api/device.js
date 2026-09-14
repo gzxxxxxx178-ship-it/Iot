@@ -5,6 +5,11 @@ export function controlDevice(command, deviceId = 'device001') {
   return request.post('/api/device/control', { command, deviceId })
 }
 
+// 查询当前用户最近的设备控制命令和设备确认状态
+export function getRecentDeviceCommands() {
+  return request.get('/api/device/commands')
+}
+
 // 获取最近传感器数据：GET /esp/history，返回最近 20 条记录
 export function getHistoryData() {
   return request.get('/esp/history')

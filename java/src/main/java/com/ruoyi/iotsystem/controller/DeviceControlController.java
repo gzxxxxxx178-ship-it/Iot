@@ -8,11 +8,13 @@ import com.ruoyi.iotsystem.service.DeviceCommandService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.validation.Valid;
+import java.util.List;
 
 @Tag(name = "设备控制", description = "通过设备级MQTT Topic发送控制指令")
 @RestController
@@ -40,5 +42,16 @@ public class DeviceControlController {
         }
         return ApiResponse.success(deviceCommandService.issue(
                 request.getDeviceId(), username, request.getCommand()));
+    }
+
+    // 查询当前用户最近的设备控制命令及其确认状态
+    @Operation(summary = "查询设备控制命令")
+    @GetMapping("/commands")
+    public ApiResponse<List<com.ruoyi.iotsystem.entity.DeviceCommandEntity>> getCommands() {
+        String username = SecurityContextUtils.currentUsernameOrNull();
+        if (username == null) {
+            throw new SecurityException("未登录");
+        }
+        return ApiResponse.success(deviceCommandService.getRecentCommands(username));
     }
 }

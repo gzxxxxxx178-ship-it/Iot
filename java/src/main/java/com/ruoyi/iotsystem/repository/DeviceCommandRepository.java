@@ -10,4 +10,6 @@ public interface DeviceCommandRepository extends JpaRepository<DeviceCommandEnti
     Optional<DeviceCommandEntity> findByCommandId(String commandId);
 
     List<DeviceCommandEntity> findByStatusAndCreatedAtBefore(String status, LocalDateTime createdAt);
+
+    List<DeviceCommandEntity> findTop100ByOwnerUsernameOrderByCreatedAtDesc(String ownerUsername);
 }

@@ -50,6 +50,13 @@ test('设备管理具备注册编辑归档恢复接口', () => {
   assert.match(viewSource, /历史数据会继续保留/)
 })
 
+// 验证控制页面可查询已下发命令的设备确认状态
+test('设备API提供命令确认状态查询接口', () => {
+  const apiSource = readFileSync(resolve(projectRoot, 'src/api/device.js'), 'utf8')
+  assert.match(apiSource, /export function getRecentDeviceCommands\(\)/)
+  assert.match(apiSource, /request\.get\(['"]\/api\/device\/commands['"]\)/)
+})
+
 // 验证401会同步Pinia状态并跳转登录页，不再因内存状态残留返回仪表盘
 test('未认证响应统一清理登录态并保留原页面', () => {
   const requestSource = readFileSync(resolve(projectRoot, 'src/api/request.js'), 'utf8')
