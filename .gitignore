@@ -12,6 +12,9 @@ target/
 *.swo
 .env.local
 .env.*.local
+# HBuilderX 小程序本地编译产物与个人工具配置
+/miniapp/unpackage/
+/miniapp/.hbuilderx/
 .DS_Store
 Thumbs.db
 .git.bak/

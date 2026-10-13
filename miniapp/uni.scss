@@ -1,0 +1,28 @@
+// uni.scss
+// 全局 SCSS 变量：安静、精致的浅色工作台配色（浅灰背景、白色卡片、墨绿主色、蓝/琥珀辅助状态色）
+
+// 背景与卡片
+$color-bg: #F4F5F7;
+$color-card: #FFFFFF;
+$color-border: #E5E7EB;
+
+// 主色（墨绿）与辅助状态色
+$color-primary: #1F6B4F;
+$color-primary-soft: #E7F0EC;
+$color-blue: #2563EB;
+$color-blue-soft: #E8EFFB;
+$color-amber: #D97706;
+$color-amber-soft: #FCF1E3;
+$color-red: #DC2626;
+$color-red-soft: #FBEAEA;
+
+// 文本
+$color-text: #1F2937;
+$color-text-secondary: #6B7280;
+$color-text-light: #9CA3AF;
+
+// 圆角与间距
+$radius-card: 16rpx;
+$radius-pill: 999rpx;
+$space-page: 24rpx;
+$space-card: 24rpx;

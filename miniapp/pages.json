@@ -1,0 +1,75 @@
+{
+  "pages": [
+    {
+      "path": "pages/overview/overview",
+      "style": { "navigationBarTitleText": "概览" }
+    },
+    {
+      "path": "pages/devices/devices",
+      "style": { "navigationBarTitleText": "设备" }
+    },
+    {
+      "path": "pages/data/data",
+      "style": { "navigationBarTitleText": "数据" }
+    },
+    {
+      "path": "pages/workbench/workbench",
+      "style": { "navigationBarTitleText": "工作台" }
+    },
+    {
+      "path": "pages/mine/mine",
+      "style": { "navigationBarTitleText": "我的" }
+    },
+    {
+      "path": "pages/login/login",
+      "style": { "navigationBarTitleText": "账号登录" }
+    },
+    {
+      "path": "pages/alarm/alarm",
+      "style": { "navigationBarTitleText": "报警管理" }
+    },
+    {
+      "path": "pages/automation/automation",
+      "style": { "navigationBarTitleText": "自动化规则" }
+    },
+    {
+      "path": "pages/chat/chat",
+      "style": { "navigationBarTitleText": "AI 助手" }
+    },
+    {
+      "path": "pages/pay/pay",
+      "style": { "navigationBarTitleText": "支付演示" }
+    },
+    {
+      "path": "pages/dashboard/dashboard",
+      "style": { "navigationBarTitleText": "数据看板" }
+    },
+    {
+      "path": "pages/simulation/simulation",
+      "style": { "navigationBarTitleText": "仿真验证" }
+    },
+    {
+      "path": "pages/research/research",
+      "style": { "navigationBarTitleText": "研究工作台" }
+    }
+  ],
+  "tabBar": {
+    "color": "#6B7280",
+    "selectedColor": "#1F6B4F",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "black",
+    "list": [
+      { "pagePath": "pages/overview/overview", "text": "概览" },
+      { "pagePath": "pages/devices/devices", "text": "设备" },
+      { "pagePath": "pages/data/data", "text": "数据" },
+      { "pagePath": "pages/workbench/workbench", "text": "工作台" },
+      { "pagePath": "pages/mine/mine", "text": "我的" }
+    ]
+  },
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "智慧农业",
+    "navigationBarBackgroundColor": "#FFFFFF",
+    "backgroundColor": "#F4F5F7"
+  }
+}
