@@ -17,15 +17,15 @@
 
 1. 打开 HBuilderX（`/Volumes/out/Applications/HBuilderX.app`）。
 2. 选择「文件 → 导入 → 从本地目录导入」，选择本项目 `miniapp/` 目录。
-3. 在项目根 `manifest.json` 中确认 `vueVersion` 为 `3`，微信 `appid` 保持为空。
+3. 在项目根 `manifest.json` 中确认 `vueVersion` 为 `3`；微信小程序 AppID 已配置为用户提供的测试号 `wx072082beff11b3e7`。根级 DCloud `appid` 与微信 AppID 是不同字段，当前根级字段仍为空。
 4. 菜单「运行 → 运行到小程序模拟器 → 微信开发者工具」，选择微信开发者工具路径。
-5. 微信 AppID 为空时，HBuilderX 可以完成编译，但开发者工具自动打开可能报“不存在此 AppID”。手动导入 `miniapp/unpackage/dist/dev/mp-weixin/`，使用工具提供的「测试号」；取得自己的 AppID 后填写 `manifest.json` 的 `mp-weixin.appid`。
+5. 微信开发者工具应导入 `miniapp/unpackage/dist/dev/mp-weixin/` 编译目录，不是 `miniapp/` 源码目录。当前已配置测试号；更换 AppID 时修改 `manifest.json` 的 `mp-weixin.appid` 并在 HBuilderX 重新编译。
 6. 也可选择「运行 → 运行到浏览器」检查页面。本工程已提供 Vue 3 所需的 `index.html`；浏览器通过不等同于微信模拟器或真机通过。
 7. 若首次编译提示缺少 Sass 编译器，按 HBuilderX 官方插件提示安装 `compile-dart-sass` 后重新运行。本机此次已完成安装。
 
 ## 无 AppID 时的测试模式限制
 
-- `manifest.json` 与 `mp-weixin.appid` 均为空，**未伪造正式 AppID**。
+- 初次搭建时微信 AppID 留空，现已配置用户提供的测试 AppID。测试号不代表已注册可正式发布的小程序。
 - 测试号可用能力以当前工具和账号为准；本机直接打开游客 AppID 失败，获取测试号时发生 TLS 网络连接错误，尚未完成微信模拟器运行验收。
 - 本工程未使用微信登录、云开发等平台能力；目前可用 HBuilderX 的 Web 预览检查页面和本地演示交互。
 
@@ -70,3 +70,11 @@
 - 已验证设备启动确认、报警确认后跨页数量同步、规则新增、历史分页、固定问答、模拟订单、仿真退出再进入完成、研究问答、重置和演示登录返回。
 - 微信模拟器运行未通过验收：空 AppID 的自动打开失败；本机工具获取测试号时发生 TLS 网络错误。需恢复测试号获取或填写本人真实 AppID 后再运行。无需提供 AppSecret 来检查页面。
 - 概览验收截图保存在本地 `miniapp/unpackage/qa/overview.jpg`，不纳入 Git。
+
+### 微信白屏诊断及恢复（2026-10-13）
+
+- 用户提供测试 AppID 后，已写入 `manifest.json` 的 `mp-weixin.appid` 并完成 HBuilderX 微信小程序重新编译。开发者工具已能打开正确编译目录，导航标题和 tabBar 可见。
+- 模拟器白屏的已观察原因是基础库未加载：工具当前选中 `2.31.0`，`WAServiceMainContext.js` 等核心运行脚本从本机工具服务加载时返回 HTTP 500；本地未安装该版本的基础库包，项目设置显示「获取失败，请重试」。尚未执行到页面业务逻辑，不能把该错误归因于 Vue 页面或未启动 Java 后端。
+- 用户要求 TUN 模式下工具直连，当前开发者工具「设置 → 代理设置」选择「不使用任何代理」。未修改 TUN 软件配置。
+- 手动恢复：打开「设置 → 项目设置 → 本地设置」，在「调试基础库」附近点击「重试」。版本列表恢复后选择可正常下载的稳定版本，再通过「工具 → 编译」重新运行。若版本列表持续获取失败，需先恢复开发者工具对微信服务及基础库下载服务的网络连接。
+- 本轮已验证配置格式、AppID 编译产物与 HBuilderX 编译成功；微信模拟器页面仍未渲染，不能标记为运行验收通过。
