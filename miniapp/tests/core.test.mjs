@@ -8,11 +8,11 @@ import { fileURLToPath } from 'node:url'
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 // 用隔离模块和平台替身测试真实业务逻辑，不请求网络和硬件。
-async function setup() {
+async function setup(initialSettings = '') {
   const pending = []; const saved = []
   const context = vm.createContext({ Date, Set, Number, String, Object, Array, Promise, Error, uni: {
     // 模拟仅配置持久化。
-    getStorageSync() { return '' },
+    getStorageSync() { return initialSettings },
     // 记录落盘内容供认证安全断言。
     setStorageSync(key, value) { saved.push({ key, value }) },
     // 收集平台请求供测试控制返回顺序。
@@ -30,6 +30,7 @@ async function setup() {
   await entry.link((specifier, ref) => moduleFor(specifier === 'vue' ? 'vue' : resolve(dirname(ref.identifier), specifier)))
   await entry.evaluate()
   const env = { ...entry.namespace, pending, saved }
+  env.initialConfig = { ...env.config.APP_CONFIG }
   env.store.configure('live', 'http://localhost:8080')
   // 构造一个当前会话认证状态。
   env.signIn = (name = 'a') => env.auth.acceptSession(env.auth.session.generation, { token: name + '-token', username: name })
@@ -37,6 +38,14 @@ async function setup() {
   env.reply = (request, data, status = 200, code = status) => request.success({ statusCode: status, data: { code, data, message: status === 200 ? 'success' : '后端拒绝' } })
   return env
 }
+
+test('只使用真实接口，旧演示配置仅迁移地址且拒绝切回演示', async () => {
+  const e = await setup({ mode: 'demo', apiBaseUrl: 'http://localhost:8080' })
+  assert.equal(e.initialConfig.mode, 'live')
+  assert.equal(e.initialConfig.apiBaseUrl, 'http://localhost:8080')
+  assert.throws(() => e.store.configure('demo', 'http://localhost:8080'), /已移除/)
+  assert.equal(e.pending.length, 0)
+})
 
 test('地址拒绝凭据、路径及非法端口，只持久化配置', async () => {
   const e = await setup()

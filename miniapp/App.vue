@@ -2,9 +2,8 @@
 // App.vue
 // 应用根组件：定义全局生命周期与全局样式，不包含任何网络请求
 export default {
-  // 应用启动回调：当前仅演示模式，无需初始化网络或登录态
+  // 应用启动回调：认证仅保留在内存，页面负责按需读取真实接口。
   onLaunch() {
-    // 演示模式：不做任何真实初始化，仅保留空实现
   },
   // 应用进入前台回调
   onShow() {},
@@ -109,14 +108,4 @@ view, text, button, input, scroll-view {
   line-height: 1.6;
 }
 
-/* 页面级演示提示条 */
-.demo-note {
-  margin: 0 $space-page 20rpx;
-  padding: 16rpx 24rpx;
-  background-color: $color-primary-soft;
-  color: $color-primary;
-  font-size: 24rpx;
-  border-radius: $radius-card;
-  line-height: 1.5;
-}
 </style>

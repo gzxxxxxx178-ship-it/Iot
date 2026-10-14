@@ -97,11 +97,13 @@ const requiredFiles = [
   'pages.json',
   'uni.scss',
   'config/index.js',
-  'utils/demo-store.js'
+  'utils/live-store.js',
+  'utils/session.js'
 ]
 for (const f of requiredFiles) {
   check(readText(f) != null, '必需文件存在: ' + f)
 }
+check(!existsSync(join(miniappRoot, 'utils/demo-store.js')), '本地演示状态与生成器已移除')
 
 let pagesJson = null
 let manifestJson = null

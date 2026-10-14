@@ -38,7 +38,7 @@
     },
     {
       "path": "pages/pay/pay",
-      "style": { "navigationBarTitleText": "支付演示" }
+      "style": { "navigationBarTitleText": "支付" }
     },
     {
       "path": "pages/dashboard/dashboard",

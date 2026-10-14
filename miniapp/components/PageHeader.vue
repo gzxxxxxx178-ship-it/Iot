@@ -1,5 +1,5 @@
 <template>
-  <!-- 页面顶部：标题 + 副标题/日期上下文 + 演示状态标记 -->
+  <!-- 页面顶部：标题、上下文与接口状态 -->
   <view class="page-header">
     <view class="ph-left">
       <text class="ph-title">{{ title }}</text>
@@ -12,11 +12,11 @@
 </template>
 
 <script setup>
-// 页面顶部组件：展示标题、可选副标题与统一的“演示”状态标记
+// 页面顶部组件：展示标题、上下文与当前接口状态。
 defineProps({
   // 页面主标题
   title: { type: String, required: true },
-  badge: { type: String, default: '演示' },
+  badge: { type: String, default: '真实接口' },
   // 可选副标题（如日期或设备上下文）
   subtitle: { type: String, default: '' }
 })

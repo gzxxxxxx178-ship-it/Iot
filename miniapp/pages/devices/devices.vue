@@ -1,7 +1,7 @@
 <template>
   <view class="page">
-    <!-- 页面顶部：标题 + 设备总数 + 演示标记 -->
-    <PageHeader title="设备" :subtitle="'共 ' + devices.length + ' 台设备'" :badge="isLive ? '真实接口' : '演示'" />
+    <!-- 页面顶部：标题与当前账号设备总数 -->
+    <PageHeader title="设备" :subtitle="'共 ' + devices.length + ' 台设备'" />
     <LiveStatus />
 
     <!-- 状态筛选 -->
@@ -30,7 +30,7 @@
         <view class="dc-metrics">
           <view class="dc-metric"><text class="dc-metric-value">{{ formatReading(device.temp) }}℃</text><text class="dc-metric-label">温度</text></view>
           <view class="dc-metric"><text class="dc-metric-value">{{ formatReading(device.hum) }}%</text><text class="dc-metric-label">湿度</text></view>
-          <view class="dc-metric"><text class="dc-metric-value">{{ device.water ?? '--' }}</text><text class="dc-metric-label">{{ isLive ? '水位 ADC' : '水位 cm' }}</text></view>
+          <view class="dc-metric"><text class="dc-metric-value">{{ device.water ?? '--' }}</text><text class="dc-metric-label">水位 ADC</text></view>
           <view class="dc-metric"><text class="dc-metric-value">{{ device.signal ?? '--' }}dBm</text><text class="dc-metric-label">信号</text></view>
         </view>
         <view class="dc-bottom">
@@ -40,7 +40,7 @@
       </view>
     </view>
     <EmptyState v-else text="当前筛选下暂无设备" />
-    <view v-if="isLive && live.commands.length" class="card">
+    <view v-if="live.commands.length" class="card">
       <text class="section-title">控制回执</text>
       <view v-for="receipt in live.commands.slice(0, 10)" :key="receipt.commandId" class="receipt">
         <text>{{ receipt.deviceId }} · {{ receipt.command === 'start' ? '启动' : receipt.command === 'stop' ? '停止' : receipt.command }}</text>
@@ -62,7 +62,7 @@
         <view class="ds-metrics">
           <view class="ds-metric"><text class="ds-metric-value">{{ formatReading(detailDevice.temp) }}℃</text><text class="ds-metric-label">温度</text></view>
           <view class="ds-metric"><text class="ds-metric-value">{{ formatReading(detailDevice.hum) }}%</text><text class="ds-metric-label">湿度</text></view>
-          <view class="ds-metric"><text class="ds-metric-value">{{ detailDevice.water ?? '--' }}</text><text class="ds-metric-label">{{ isLive ? '水位 ADC' : '水位 cm' }}</text></view>
+          <view class="ds-metric"><text class="ds-metric-value">{{ detailDevice.water ?? '--' }}</text><text class="ds-metric-label">水位 ADC</text></view>
         </view>
         <text class="hint">最后上报：{{ showTime(detailDevice.lastSeen) }}</text>
         <view class="ds-actions">
@@ -79,25 +79,22 @@
 // 设备页：按模式展示设备、人工控制和命令回执。
 import { ref, computed, watch } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import { APP_CONFIG } from '../../config/index.js'
 import { session } from '../../utils/session.js'
 import { live, refreshLive, issueCommand, commandStatus, parseServerTime, formatReading } from '../../utils/live-store.js'
 import LiveStatus from '../../components/LiveStatus.vue'
 import PageHeader from '../../components/PageHeader.vue'
 import StatusTag from '../../components/StatusTag.vue'
 import EmptyState from '../../components/EmptyState.vue'
-import { useDemoStore, formatDateTime, controlDevice } from '../../utils/demo-store.js'
+import { formatDateTime } from '../../utils/format.js'
 
-const store = useDemoStore()
-// 选择与当前模式相符的数据源。
-const isLive = computed(() => APP_CONFIG.mode === 'live')
-const devices = computed(() => isLive.value ? live.devices : store.devices)
+// 仅展示真实账号所属设备。
+const devices = computed(() => live.devices)
 const sending = ref(false)
 // 页面可见时刷新设备和控制回执。
-onShow(() => { if (isLive.value) refreshLive() })
+onShow(() => { refreshLive() })
 
 // 缺失上报时间显示占位文本。
-function showTime(value) { return value ? formatDateTime(isLive.value ? parseServerTime(value) : value) : '--' }
+function showTime(value) { return value ? formatDateTime(parseServerTime(value)) : '--' }
 
 // 筛选条件列表
 const filters = [
@@ -118,7 +115,7 @@ watch(() => session.generation, () => { detailId.value = null; sending.value = f
 // 离线、禁用、待回执与发送中的设备均不可再次控制。
 const canControl = computed(() => {
   const d = detailDevice.value
-  return d && d.status === 'online' && !sending.value && (!isLive.value || (session.token && d.enabled !== false && d.lifecycleStatus !== 'ARCHIVED' && !live.commands.some((c) => c.deviceId === d.id && ['PENDING', 'DISPATCHED'].includes(c.status))))
+  return d && d.status === 'online' && !sending.value && session.token && d.enabled !== false && d.lifecycleStatus !== 'ARCHIVED' && !live.commands.some((c) => c.deviceId === d.id && ['PENDING', 'DISPATCHED'].includes(c.status))
 })
 
 // 按筛选条件过滤设备列表
@@ -157,19 +154,16 @@ function confirmControl(command) {
   const device = detailDevice.value
   if (!device || !canControl.value) return
   const generation = session.generation
-  const real = isLive.value
   sending.value = true
   uni.showModal({
-    title: real ? '设备控制' : '演示控制',
-    content: '确认向「' + device.name + '」发送' + (command === 'start' ? '启动' : '停止') + '命令？' + (real ? '将操作真实设备。' : '仅修改演示状态。'),
+    title: '设备控制',
+    content: '确认向「' + device.name + '」发送' + (command === 'start' ? '启动' : '停止') + '命令？将操作真实设备。',
     // 确认后检查会话是否仍与打开弹窗时一致。
     success: async (res) => {
       try {
-        if (!res.confirm || generation !== session.generation || real !== isLive.value) return
-        if (real) {
-          const receipt = await issueCommand(device.id, command)
-          uni.showToast({ title: commandStatus(receipt.status), icon: 'none' })
-        } else if (controlDevice(device.id, command)) uni.showToast({ title: '演示状态已更新', icon: 'none' })
+        if (!res.confirm || generation !== session.generation) return
+        const receipt = await issueCommand(device.id, command)
+        uni.showToast({ title: commandStatus(receipt.status), icon: 'none' })
       } catch (err) { if (!err.stale) uni.showToast({ title: err.message, icon: 'none' }) }
       finally { if (generation === session.generation) sending.value = false }
     },

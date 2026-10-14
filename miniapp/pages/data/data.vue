@@ -1,8 +1,8 @@
 <template>
   <view class="page">
-    <!-- 页面顶部：标题 + 演示标记 -->
-    <PageHeader title="数据" subtitle="历史传感数据" :badge="isLive ? '真实接口' : '演示'" />
-    <view v-if="isLive" class="card">
+    <!-- 页面顶部：真实历史数据 -->
+    <PageHeader title="数据" subtitle="历史传感数据" />
+    <view class="card">
       <text v-if="!session.token" class="hint">请先到“我的”登录账号</text>
       <template v-else>
         <picker :range="deviceOptions" range-key="label" :value="deviceIndex" @change="selectDevice">
@@ -34,7 +34,7 @@
         <text class="th th-time">时间</text>
         <text class="th">温度</text>
         <text class="th">湿度</text>
-        <text class="th">{{ isLive ? '水位 ADC' : '水位 cm' }}</text>
+        <text class="th">水位 ADC</text>
       </view>
       <view v-for="p in visibleList" :key="p.id" class="table-row">
         <text class="td td-time">{{ p.time ? formatDateTime(p.time).slice(5, 16) : '--' }}</text>
@@ -45,7 +45,7 @@
       <view v-if="hasMore" class="load-more" @tap="loadMore">
         <text class="load-more-text">加载更多</text>
       </view>
-      <text v-else class="hint table-end">共 {{ isLive ? history.totalElements : filtered.length }} 条</text>
+      <text v-else class="hint table-end">共 {{ history.totalElements }} 条</text>
     </view>
     <EmptyState v-else text="该时间范围内暂无数据" />
 
@@ -62,24 +62,20 @@
 // 数据页：时间范围筛选、分页加载更多、导出占位（明确未接入）
 import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import { APP_CONFIG } from '../../config/index.js'
 import { session } from '../../utils/session.js'
 import { live, refreshLive, formatReading } from '../../utils/live-store.js'
 import { history, reloadHistory, loadHistory } from '../../utils/history-store.js'
 import PageHeader from '../../components/PageHeader.vue'
 import EmptyState from '../../components/EmptyState.vue'
-import { useDemoStore, formatDateTime } from '../../utils/demo-store.js'
+import { formatDateTime } from '../../utils/format.js'
 
-const store = useDemoStore()
-// 根据模式选择真实分页或演示数据。
-const isLive = computed(() => APP_CONFIG.mode === 'live')
 // 提供当前账号的设备筛选选项。
 const deviceOptions = computed(() => [{ id: '', label: '全部设备' }, ...live.devices.map((d) => ({ id: d.id, label: d.name }))])
 // 根据已选设备定位选择器下标。
 const deviceIndex = computed(() => Math.max(0, deviceOptions.value.findIndex((d) => d.id === history.deviceId)))
 
 // 每次进入页面时按当前筛选重新读取真实历史。
-onShow(() => { if (isLive.value && session.token) { refreshLive(); refreshHistory() } })
+onShow(() => { if (session.token) { refreshLive(); refreshHistory() } })
 
 // 使用最新截止时间重新读取当前筛选。
 function refreshHistory() { return reloadHistory(history.deviceId, ranges.find((r) => r.key === range.value).hours) }
@@ -97,34 +93,21 @@ const ranges = [
 // 当前时间范围
 const range = ref('day')
 
-// 每页条数与当前已展示条数
-const pageSize = 8
-const visibleCount = ref(pageSize)
-
-// 按时间范围过滤后的数据点
-const filtered = computed(() => {
-  const hours = ranges.find((r) => r.key === range.value).hours
-  const cutoff = Date.now() - hours * 3600 * 1000
-  return store.dataPoints.filter((p) => p.time >= cutoff)
-})
-
 // 当前页可见数据点
-const visibleList = computed(() => isLive.value ? history.rows : filtered.value.slice(0, visibleCount.value))
+const visibleList = computed(() => history.rows)
 
 // 是否还有更多数据可加载
-const hasMore = computed(() => isLive.value ? history.page + 1 < history.totalPages : visibleCount.value < filtered.value.length)
+const hasMore = computed(() => history.page + 1 < history.totalPages)
 
 // 切换时间范围并重置分页
 function setRange(key) {
   range.value = key
-  visibleCount.value = pageSize
-  if (isLive.value) refreshHistory()
+  refreshHistory()
 }
 
 // 加载更多：增加可见条数
 function loadMore() {
-  if (isLive.value) { loadHistory(); return }
-  visibleCount.value += pageSize
+  loadHistory()
 }
 
 // 导出占位：提示功能未接入

@@ -1,6 +1,6 @@
 import { reactive } from 'vue'
 
-// 校验后端根地址，拒绝凭据、查询参数和路径。
+// 校验后端根地址，拒绝凭据、路径和查询参数。
 export function normalizeBaseUrl(value) {
   const text = String(value || '').trim().replace(/\/+$/, '')
   if (!text) return ''
@@ -10,24 +10,21 @@ export function normalizeBaseUrl(value) {
   return text
 }
 
-// 读取连接设置；无效设置回到演示模式。
+// 读取连接地址；旧版本的演示模式配置自动迁移为真实接口。
 function readConfig() {
   try {
     const saved = uni.getStorageSync('iot-miniapp-connection') || {}
-    const apiBaseUrl = normalizeBaseUrl(saved.apiBaseUrl)
-    return { mode: saved.mode === 'live' && apiBaseUrl ? 'live' : 'demo', apiBaseUrl }
-  } catch { return { mode: 'demo', apiBaseUrl: '' } }
+    return { mode: 'live', apiBaseUrl: normalizeBaseUrl(saved.apiBaseUrl) || 'http://localhost:8080' }
+  } catch { return { mode: 'live', apiBaseUrl: 'http://localhost:8080' } }
 }
 export const APP_CONFIG = reactive(readConfig())
 
-// 判断是否使用本地演示数据。
-export function isDemoMode() { return APP_CONFIG.mode === 'demo' }
-
-// 仅持久化模式和地址，不保存认证信息。
+// 仅保存真实后端地址，不保存密码和令牌。
 export function saveConfig(mode, address) {
+  if (mode !== 'live') throw new Error('演示模式已移除')
   const apiBaseUrl = normalizeBaseUrl(address)
-  if (mode === 'live' && !apiBaseUrl) throw new Error('请先填写后端地址')
-  const settings = { mode: mode === 'live' ? 'live' : 'demo', apiBaseUrl }
+  if (!apiBaseUrl) throw new Error('请先填写后端地址')
+  const settings = { mode: 'live', apiBaseUrl }
   uni.setStorageSync('iot-miniapp-connection', settings)
   Object.assign(APP_CONFIG, settings)
 }
