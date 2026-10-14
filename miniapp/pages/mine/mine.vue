@@ -1,24 +1,24 @@
 <template>
   <view class="page">
     <!-- 页面顶部：标题 + 演示标记 -->
-    <PageHeader title="我的" subtitle="演示账号" />
+    <PageHeader title="我的" subtitle="账号与连接" :badge="config.mode === 'live' ? '真实接口' : '演示'" />
 
     <!-- 用户信息卡片 -->
     <view class="card">
       <view class="row-between">
         <view class="row">
-          <view class="avatar"><text class="avatar-text">演</text></view>
+          <view class="avatar"><text class="avatar-text">{{ config.mode === 'live' ? '账' : '演' }}</text></view>
           <view class="user-info">
-            <text class="user-name">{{ store.user.username || '未登录' }}</text>
-            <text class="hint">本地演示账号，不保存密码、不宣称真实认证</text>
+            <text class="user-name">{{ config.mode === 'live' ? session.username || '未登录' : store.user.username || '未登录' }}</text>
+            <text class="hint">{{ config.mode === 'live' ? '使用现有系统账号，重启后重新登录' : '本地演示账号' }}</text>
           </view>
         </view>
-        <StatusTag v-if="store.user.loggedIn" text="演示" kind="green" />
+        <StatusTag :text="config.mode === 'live' ? (session.token ? '已登录' : '未登录') : '演示'" kind="green" />
       </view>
     </view>
 
     <!-- 演示操作 -->
-    <view class="card">
+    <view v-if="config.mode === 'demo'" class="card">
       <text class="section-title">演示操作</text>
       <button v-if="!store.user.loggedIn" class="btn-primary action-btn" @tap="onEnterDemo">进入演示</button>
       <button v-else class="btn-secondary action-btn" @tap="onExitDemo">退出演示</button>
@@ -30,22 +30,26 @@
       <text class="section-title">运行配置</text>
       <view class="cfg-row">
         <text class="cfg-label">运行模式</text>
-        <text class="cfg-value">demo（仅演示数据）</text>
+        <text class="cfg-value">{{ config.mode === 'live' ? '真实接口' : '演示数据' }}</text>
       </view>
       <view class="cfg-row">
         <text class="cfg-label">后端地址</text>
-        <text class="cfg-value">{{ config.apiBaseUrl || '未配置（未接入后端）' }}</text>
+        <text class="cfg-value">{{ config.apiBaseUrl || '未配置' }}</text>
       </view>
-      <view class="cfg-row">
-        <text class="cfg-label">实时推送</text>
-        <text class="cfg-value">{{ config.wsBaseUrl || '未配置（未启用）' }}</text>
+      <input v-model="address" class="address-input" placeholder="http://localhost:8080" />
+      <view class="mode-actions">
+        <button class="btn-secondary action-btn" @tap="saveDemo">使用演示模式</button>
+        <button class="btn-primary action-btn" @tap="saveLive">连接真实后端</button>
       </view>
+      <text v-if="configError" class="hint">{{ configError }}</text>
+      <text class="hint">真实接口已接入概览、设备与历史查询；其他模块仍为演示。数据按需刷新。</text>
     </view>
 
     <!-- 账号登录入口 -->
     <view class="card">
       <text class="section-title">账号</text>
-      <button class="btn-secondary action-btn" @tap="goLogin">账号登录演示</button>
+      <button class="btn-secondary action-btn" @tap="goLogin">{{ config.mode === 'live' ? '账号登录' : '登录与演示入口' }}</button>
+      <button v-if="config.mode === 'live' && session.token" class="btn-danger action-btn" @tap="logout">退出当前账号</button>
     </view>
   </view>
 </template>
@@ -56,9 +60,31 @@ import PageHeader from '../../components/PageHeader.vue'
 import StatusTag from '../../components/StatusTag.vue'
 import { useDemoStore, enterDemo, exitDemo, resetDemo } from '../../utils/demo-store.js'
 import { APP_CONFIG } from '../../config/index.js'
+import { ref } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
+import { session } from '../../utils/session.js'
+import { configure, logout } from '../../utils/live-store.js'
 
 const store = useDemoStore()
 const config = APP_CONFIG
+const address = ref(config.apiBaseUrl)
+const configError = ref('')
+
+// 回到页面时同步已保存的地址。
+onShow(() => { address.value = config.apiBaseUrl })
+
+// 校验连接设置并使旧认证失效。
+function save(mode) {
+  configError.value = ''
+  try { configure(mode, address.value); uni.showToast({ title: '已保存连接设置', icon: 'none' }) }
+  catch (err) { configError.value = err.message }
+}
+
+// 切换为本地演示模式。
+function saveDemo() { save('demo') }
+
+// 保存真实后端地址，随后由用户登录。
+function saveLive() { save('live') }
 
 // 进入演示：设置本地演示登录态
 function onEnterDemo() {
@@ -93,6 +119,8 @@ function goLogin() {
 </script>
 
 <style lang="scss" scoped>
+.address-input { margin-top: 24rpx; padding: 20rpx; height: 88rpx; background: $color-bg; border-radius: $radius-card; font-size: 26rpx; }
+.mode-actions { display: flex; flex-direction: column; }
 .page {
   padding-bottom: 40rpx;
 }

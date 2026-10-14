@@ -211,20 +211,21 @@ for (const rel of vueFiles) {
 }
 check(forbiddenNav.length === 0, '所有导航目标均在 pages 中' + (forbiddenNav.length ? '（缺失: ' + forbiddenNav.join('; ') + '）' : ''))
 
-console.log('=== 8. 禁用依赖与不联网 ===')
-const forbiddenTokens = ['window.', 'document.', 'localStorage', 'axios', 'element-plus', 'XMLHttpRequest', 'uni.request', 'fetch(', 'wx.request', 'console.log']
+console.log('=== 8. 禁用依赖与请求边界 ===')
+const forbiddenTokens = ['window.', 'document.', 'localStorage', 'axios', 'element-plus', 'XMLHttpRequest', 'fetch(', 'wx.request', 'console.log']
 const allSourceFiles = allCodeFiles.concat(['main.js', 'App.vue'])
 const violations = []
 for (const rel of allSourceFiles) {
   const raw = readText(rel)
   if (raw == null) continue
+  if (raw.includes('uni.request') && rel !== 'api/request.js') violations.push(rel + ' 在专用请求模块外调用 uni.request')
   for (const token of forbiddenTokens) {
     if (raw.includes(token)) {
       violations.push(rel + ' 含 ' + token)
     }
   }
 }
-check(violations.length === 0, '无禁用依赖/联网调用' + (violations.length ? '（' + violations.join('; ') + '）' : ''))
+check(violations.length === 0, '无禁用依赖且联网仅通过专用模块' + (violations.length ? '（' + violations.join('; ') + '）' : ''))
 
 console.log('=== 9. 定时器卸载检查 ===')
 const timerFiles = []

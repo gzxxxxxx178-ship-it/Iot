@@ -1,0 +1,93 @@
+import { reactive } from 'vue'
+import { request, staleError } from '../api/request.js'
+import { session, clearSession, acceptSession, onSessionReset } from './session.js'
+import { APP_CONFIG, saveConfig } from '../config/index.js'
+
+export const live = reactive({ stats: null, devices: [], commands: [], loading: false, error: '', updatedAt: '' })
+let refreshId = 0
+
+// 保留缺测值，避免把空读数转换为零。
+export function reading(value) { return typeof value === 'number' && Number.isFinite(value) ? value : null }
+
+// 展示温湿度时限制小数位，保持缺测占位且不修改原始读数。
+export function formatReading(value) { return reading(value) === null ? '--' : String(Number(value.toFixed(1))) }
+
+// 映射设备档案，水位始终保持原始 ADC。
+export function mapDevice(d) {
+  return { id: d.deviceId, name: d.deviceName || d.deviceId, type: d.deviceType || '传感器', status: d.status, enabled: d.enabled, lifecycleStatus: d.lifecycleStatus, temp: reading(d.temperature), hum: reading(d.humidity), water: reading(d.water), signal: reading(d.rssi), controlled: d.linkage === true, lastSeen: d.lastSeen || null }
+}
+
+// 解析后端本地接收时间，兼容小程序日期解析。
+export function parseServerTime(value) {
+  const parts = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})/)
+  return parts ? new Date(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3]), Number(parts[4]), Number(parts[5]), Number(parts[6])).getTime() : null
+}
+
+// 映射历史字段，时间使用服务端接收时间。
+export function mapHistory(row) { return { id: row.id, deviceId: row.deviceId, time: parseServerTime(row.serverReceivedTime), temp: reading(row.temperature), hum: reading(row.humidity), water: reading(row.water) } }
+
+// 格式化后端要求的本地日期时间，不附带 UTC 标记。
+export function localDateTime(time) {
+  const date = new Date(time)
+  // 补齐两位日期字段。
+  const pad = (n) => String(n).padStart(2, '0')
+  return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate()) + 'T' + pad(date.getHours()) + ':' + pad(date.getMinutes()) + ':' + pad(date.getSeconds())
+}
+
+// 清空真实数据并作废正在进行的刷新。
+function resetLive() { refreshId += 1; Object.assign(live, { stats: null, devices: [], commands: [], loading: false, error: '', updatedAt: '' }) }
+onSessionReset(resetLive)
+
+// 保存连接配置，成功后清理旧会话。
+export function configure(mode, address) { saveConfig(mode, address); clearSession() }
+
+// 清除本机令牌，不宣称已撤销服务端 JWT。
+export function logout() { clearSession() }
+
+// 登录后仅在当前进程内存中保存认证状态。
+export async function login(username, password) {
+  clearSession()
+  const generation = session.generation
+  const data = await request('/api/auth/login', { method: 'POST', anonymous: true, data: { username: username.trim(), password } })
+  if (!acceptSession(generation, data)) throw staleError()
+}
+
+// 刷新同一会话的概览、设备与回执；错误时清除旧展示。
+export async function refreshLive() {
+  if (APP_CONFIG.mode !== 'live' || !session.token) return
+  const id = ++refreshId
+  live.loading = true; live.error = ''
+  try {
+    const [stats, devices, commands] = await Promise.all([request('/api/dashboard/stats'), request('/api/devices'), request('/api/device/commands')])
+    if (id !== refreshId) return
+    if (!stats || !Array.isArray(devices) || !Array.isArray(commands)) throw new Error('后端数据格式不正确')
+    live.stats = stats; live.devices = devices.map(mapDevice); live.commands = commands
+    live.updatedAt = new Date().toLocaleTimeString()
+  } catch (error) {
+    if (id !== refreshId || error.stale) return
+    live.stats = null; live.devices = []; live.commands = []; live.error = error.message
+  } finally { if (id === refreshId) live.loading = false }
+}
+
+// 下发指令并返回审计回执，不乐观修改设备运行状态。
+export async function issueCommand(deviceId, command) {
+  const generation = session.generation
+  const device = live.devices.find((item) => item.id === deviceId)
+  if (!device || device.status !== 'online' || device.enabled === false || device.lifecycleStatus === 'ARCHIVED') throw new Error('该设备当前不可控制')
+  if (!['start', 'stop'].includes(command)) throw new Error('控制指令无效')
+  const receipt = await request('/api/device/control', { method: 'POST', data: { deviceId, command } })
+  if (generation !== session.generation) throw staleError()
+  if (!receipt?.commandId) throw new Error('命令回执不完整，请刷新确认，勿重复下发')
+  live.commands = [receipt, ...live.commands.filter((item) => item.commandId !== receipt.commandId)].slice(0, 100)
+  return receipt
+}
+
+// 读取固定时间范围内的历史分页。
+export async function queryHistory({ deviceId, start, end, page, size = 20 }) {
+  const result = await request('/esp/history/page', { data: { ...(deviceId ? { deviceId } : {}), start: localDateTime(start), end: localDateTime(end), page, size } })
+  if (!result || !Array.isArray(result.content) || !Number.isInteger(result.totalPages) || !Number.isInteger(result.page)) throw new Error('历史分页响应不完整')
+  return { ...result, content: result.content.map(mapHistory) }
+}
+
+// 翻译命令状态，保留下发与设备确认的区别。
+export function commandStatus(status) { return ({ PENDING: '待下发', DISPATCHED: '已下发，等待设备确认', ACKNOWLEDGED: '设备已确认', REJECTED: '设备拒绝执行', FAILED: '下发失败', TIMED_OUT: '设备确认超时' })[status] || status || '未知状态' }

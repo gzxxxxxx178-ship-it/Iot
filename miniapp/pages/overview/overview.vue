@@ -1,7 +1,18 @@
 <template>
   <view class="page">
     <!-- 页面顶部：标题 + 日期 + 演示标记 -->
-    <PageHeader title="概览" :subtitle="dateText" />
+    <PageHeader title="概览" :subtitle="dateText" :badge="isLive ? '真实接口' : '演示'" />
+    <LiveStatus />
+    <template v-if="isLive">
+      <view class="metrics-grid">
+        <view class="metrics-col"><MetricCard label="平均温度" :value="formatReading(live.stats?.avgTemp)" unit="℃" /></view>
+        <view class="metrics-col"><MetricCard label="平均湿度" :value="formatReading(live.stats?.avgHum)" unit="%" /></view>
+        <view class="metrics-col"><MetricCard label="在线设备" :value="live.stats?.onlineCount ?? '--'" unit="台" /></view>
+        <view class="metrics-col"><MetricCard label="设备总数" :value="live.stats?.deviceCount ?? '--'" unit="台" /></view>
+      </view>
+      <view class="card"><text class="hint">温湿度统计使用后端在线设备最新读数；趋势、报警统计及自动化统计待接入。</text></view>
+    </template>
+    <template v-else>
 
     <!-- 演示数据说明条 -->
     <view class="demo-note">以下指标与趋势均为演示数据，未接入真实后端。</view>
@@ -47,6 +58,7 @@
       </view>
     </view>
 
+    </template>
     <!-- 业务入口 -->
     <view class="card">
       <text class="section-title">快捷入口</text>
@@ -63,12 +75,20 @@
 <script setup>
 // 概览页：展示核心指标、短趋势、状态汇总与业务入口
 import { computed } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
+import { APP_CONFIG } from '../../config/index.js'
+import { live, refreshLive, formatReading } from '../../utils/live-store.js'
+import LiveStatus from '../../components/LiveStatus.vue'
 import PageHeader from '../../components/PageHeader.vue'
 import MetricCard from '../../components/MetricCard.vue'
 import BarTrend from '../../components/BarTrend.vue'
 import { useDemoStore, formatDateTime } from '../../utils/demo-store.js'
 
 const store = useDemoStore()
+// 切换概览的数据来源。
+const isLive = computed(() => APP_CONFIG.mode === 'live')
+// 页面可见时刷新后端统计。
+onShow(() => { if (isLive.value) refreshLive() })
 
 // 顶部日期文本（仅日期部分）
 const dateText = formatDateTime(Date.now()).slice(0, 10)

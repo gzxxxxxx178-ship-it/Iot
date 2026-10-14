@@ -6,7 +6,7 @@
       <text v-if="subtitle" class="ph-subtitle">{{ subtitle }}</text>
     </view>
     <view class="ph-badge">
-      <text class="ph-badge-text">演示</text>
+      <text class="ph-badge-text">{{ badge }}</text>
     </view>
   </view>
 </template>
@@ -16,6 +16,7 @@
 defineProps({
   // 页面主标题
   title: { type: String, required: true },
+  badge: { type: String, default: '演示' },
   // 可选副标题（如日期或设备上下文）
   subtitle: { type: String, default: '' }
 })
