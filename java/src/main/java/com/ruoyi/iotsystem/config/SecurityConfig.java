@@ -40,6 +40,9 @@ public class SecurityConfig {
     @Value("${web.cors.allowed-origins:http://localhost:5173}")
     private String allowedOrigins;
 
+    @Value("${app.oauth2.google.enabled:true}")
+    private boolean googleOAuthEnabled;
+
     // 主安全过滤器链：CORS、CSRF、Session、公开/保护路径、OAuth2、JWT过滤器
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -67,14 +70,18 @@ public class SecurityConfig {
                 // Swagger UI & API docs (开发/测试用)
                 .antMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-resources/**", "/webjars/**").permitAll()
                 .anyRequest().authenticated()
-                .and()
-                .oauth2Login()
-                .userInfoEndpoint().userService(customOAuth2UserService)
-                .and()
-                .successHandler(oAuth2SuccessHandler)
-                .failureHandler(oAuth2FailureHandler)
-                .and()
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .and();
+
+        if (googleOAuthEnabled) {
+            http.oauth2Login()
+                    .userInfoEndpoint().userService(customOAuth2UserService)
+                    .and()
+                    .successHandler(oAuth2SuccessHandler)
+                    .failureHandler(oAuth2FailureHandler)
+                    .and();
+        }
+
+        http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
