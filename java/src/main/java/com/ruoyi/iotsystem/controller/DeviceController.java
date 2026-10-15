@@ -5,6 +5,7 @@ import com.ruoyi.iotsystem.config.SecurityContextUtils;
 import com.ruoyi.iotsystem.dto.DeviceCreateRequest;
 import com.ruoyi.iotsystem.dto.DeviceResponse;
 import com.ruoyi.iotsystem.dto.DeviceUpdateRequest;
+import com.ruoyi.iotsystem.dto.DeviceShareRequest;
 import com.ruoyi.iotsystem.service.DeviceService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -96,5 +97,29 @@ public class DeviceController {
         return ApiResponse.success(username == null
                 ? deviceService.restoreDevice(deviceId)
                 : deviceService.restoreDevice(deviceId, username));
+    }
+
+    // 查询设备所有者配置的共享账号名单
+    @Operation(summary = "查询设备共享名单")
+    @GetMapping("/{deviceId}/shares")
+    public ApiResponse<List<String>> listShares(@PathVariable String deviceId) {
+        return ApiResponse.success(deviceService.listShares(deviceId, SecurityContextUtils.requireUsername()));
+    }
+
+    // 授权已存在账号查看、读取历史和控制设备
+    @Operation(summary = "共享设备")
+    @PostMapping("/{deviceId}/shares")
+    public ApiResponse<List<String>> addShare(@PathVariable String deviceId,
+            @Valid @RequestBody DeviceShareRequest request) {
+        return ApiResponse.success(deviceService.addShare(
+                deviceId, SecurityContextUtils.requireUsername(), request.getUsername()));
+    }
+
+    // 撤销指定账号对设备的共享权限
+    @Operation(summary = "撤销设备共享")
+    @DeleteMapping("/{deviceId}/shares/{username}")
+    public ApiResponse<List<String>> removeShare(@PathVariable String deviceId, @PathVariable String username) {
+        return ApiResponse.success(deviceService.removeShare(
+                deviceId, SecurityContextUtils.requireUsername(), username));
     }
 }

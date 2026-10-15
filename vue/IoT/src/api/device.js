@@ -20,6 +20,21 @@ export function getDeviceList(params = {}) {
   return request.get('/api/devices', { params })
 }
 
+// 查询设备所有者配置的共享账号名单
+export function getDeviceShares(deviceId) {
+  return request.get(`/api/devices/${encodeURIComponent(deviceId)}/shares`)
+}
+
+// 授权指定账号查看、读取历史并控制设备
+export function addDeviceShare(deviceId, username) {
+  return request.post(`/api/devices/${encodeURIComponent(deviceId)}/shares`, { username })
+}
+
+// 撤销指定账号的设备共享权限
+export function removeDeviceShare(deviceId, username) {
+  return request.delete(`/api/devices/${encodeURIComponent(deviceId)}/shares/${encodeURIComponent(username)}`)
+}
+
 // 注册新的设备档案
 export function createDevice(data) {
   return request.post('/api/devices', data)

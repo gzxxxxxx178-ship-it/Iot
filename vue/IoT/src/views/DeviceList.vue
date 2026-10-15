@@ -3,11 +3,14 @@ import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from '../utils/message'
 import {
   archiveDevice as archiveDeviceApi,
+  addDeviceShare,
   controlDevice,
   createDevice,
   getDeviceList,
+  getDeviceShares,
   getRecentDeviceCommands,
   restoreDevice as restoreDeviceApi,
+  removeDeviceShare,
   updateDevice,
 } from '../api/device'
 import { formatDateTime } from '../utils/format'
@@ -18,6 +21,11 @@ const loading = ref(false)
 const saving = ref(false)
 const includeArchived = ref(false)
 const dialogVisible = ref(false)
+const shareDialogVisible = ref(false)
+const shareDevice = ref(null)
+const shareUsername = ref('')
+const sharedUsers = ref([])
+const sharing = ref(false)
 const editingDeviceId = ref('')
 const formRef = ref(null)
 let refreshTimer = null
@@ -171,6 +179,35 @@ async function sendCommand(device, command) {
   await loadCommands()
 }
 
+// 打开设备共享管理并读取当前授权账号
+async function openShare(device) {
+  shareDevice.value = device
+  shareUsername.value = ''
+  sharedUsers.value = await getDeviceShares(device.deviceId) || []
+  shareDialogVisible.value = true
+}
+
+// 将设备授权给已注册账号
+async function submitShare() {
+  const username = shareUsername.value.trim()
+  if (!username || !shareDevice.value) return
+  sharing.value = true
+  try {
+    sharedUsers.value = await addDeviceShare(shareDevice.value.deviceId, username) || []
+    shareUsername.value = ''
+    ElMessage.success('设备共享已更新')
+  } finally {
+    sharing.value = false
+  }
+}
+
+// 撤销账号对设备的共享授权
+async function revokeShare(username) {
+  if (!shareDevice.value) return
+  sharedUsers.value = await removeDeviceShare(shareDevice.value.deviceId, username) || []
+  ElMessage.success('已撤销共享')
+}
+
 // 切换是否显示归档设备并重新查询
 function changeArchivedVisibility() {
   refreshWorkspace()
@@ -240,13 +277,20 @@ onUnmounted(() => window.clearInterval(refreshTimer))
         <el-table-column label="最后上报" min-width="165">
           <template #default="{ row }">{{ row.lastSeen ? formatDateTime(row.lastSeen) : '--' }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="330" fixed="right">
+        <el-table-column label="操作" width="360" fixed="right">
           <template #default="{ row }">
+            <template v-if="row.ownedByCurrentUser">
+              <el-button link type="primary" @click="openShare(row)">共享</el-button>
+              <template v-if="row.lifecycleStatus !== 'ARCHIVED'">
+                <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
+                <el-button link :type="row.enabled ? 'warning' : 'success'" @click="toggleEnabled(row)">
+                  {{ row.enabled ? '停用' : '启用' }}
+                </el-button>
+              </template>
+              <el-button v-if="row.lifecycleStatus === 'ARCHIVED'" link type="success" @click="restoreDevice(row)">恢复</el-button>
+              <el-button v-else link type="danger" @click="archiveDevice(row)">归档</el-button>
+            </template>
             <template v-if="row.lifecycleStatus !== 'ARCHIVED'">
-              <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
-              <el-button link :type="row.enabled ? 'warning' : 'success'" @click="toggleEnabled(row)">
-                {{ row.enabled ? '停用' : '启用' }}
-              </el-button>
               <el-dropdown :disabled="!row.enabled" @command="sendCommand(row, $event)">
                 <el-button link type="primary">远程控制</el-button>
                 <template #dropdown>
@@ -258,9 +302,7 @@ onUnmounted(() => window.clearInterval(refreshTimer))
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
-              <el-button link type="danger" @click="archiveDevice(row)">归档</el-button>
             </template>
-            <el-button v-else link type="success" @click="restoreDevice(row)">恢复</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -318,6 +360,24 @@ onUnmounted(() => window.clearInterval(refreshTimer))
         <el-button type="primary" :loading="saving" @click="submitDevice">保存</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="shareDialogVisible" :title="`共享设备：${shareDevice?.deviceName || ''}`" width="480px">
+      <el-alert title="共享账号可查看设备与历史，并发送控制指令；设备档案和共享名单仅所有者可管理。" type="info" :closable="false" />
+      <div class="share-entry">
+        <el-input v-model="shareUsername" placeholder="输入已注册账号名" maxlength="100" @keyup.enter="submitShare" />
+        <el-button type="primary" :loading="sharing" @click="submitShare">添加</el-button>
+      </div>
+      <el-table :data="sharedUsers" empty-text="尚未共享给其他账号">
+        <el-table-column prop="username" label="已授权账号">
+          <template #default="{ row }">{{ typeof row === 'string' ? row : row.username }}</template>
+        </el-table-column>
+        <el-table-column label="操作" width="100">
+          <template #default="{ row }">
+            <el-button link type="danger" @click="revokeShare(typeof row === 'string' ? row : row.username)">撤销</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-dialog>
   </div>
 </template>
 
@@ -327,6 +387,7 @@ onUnmounted(() => window.clearInterval(refreshTimer))
 .page-header h1 { font-size: 1.5rem; margin: 0; }
 .page-header p { color: var(--text-secondary); margin: 0.25rem 0 0; font-size: 0.9rem; }
 .header-actions { display: flex; gap: 0.5rem; }
+.share-entry { display: flex; gap: 0.5rem; margin: 1rem 0; }
 .summary-grid { display: grid; grid-template-columns: repeat(4, minmax(150px, 1fr)); gap: 0.75rem; margin-bottom: 1rem; }
 .summary-grid :deep(.el-card) { background: #182438 !important; border-color: #2a394e !important; }
 .summary-grid :deep(.el-card__body) { display: flex; align-items: center; justify-content: space-between; }

@@ -26,9 +26,15 @@ public class DeviceResponse {
     private final Boolean qualityValid;
     private final LocalDateTime createdAt;
     private final LocalDateTime updatedAt;
+    private final boolean ownedByCurrentUser;
 
     // 组合设备档案、最新读数和在线状态形成接口响应
     public DeviceResponse(DeviceEntity device, EspEntity latestReading, boolean online) {
+        this(device, latestReading, online, false);
+    }
+
+    // 组合设备档案、最新读数、在线状态和当前用户管理权限
+    public DeviceResponse(DeviceEntity device, EspEntity latestReading, boolean online, boolean ownedByCurrentUser) {
         this.id = device.getId();
         this.deviceId = device.getDeviceId();
         this.deviceName = device.getDeviceName();
@@ -48,6 +54,7 @@ public class DeviceResponse {
         this.qualityValid = latestReading == null ? null : latestReading.getQualityValid();
         this.createdAt = device.getCreatedAt();
         this.updatedAt = device.getUpdatedAt();
+        this.ownedByCurrentUser = ownedByCurrentUser;
     }
 
     // 获取设备主键
@@ -106,4 +113,7 @@ public class DeviceResponse {
 
     // 获取档案更新时间
     public LocalDateTime getUpdatedAt() { return updatedAt; }
+
+    // 判断当前用户是否为设备所有者
+    public boolean isOwnedByCurrentUser() { return ownedByCurrentUser; }
 }

@@ -79,6 +79,19 @@ test('设备API提供命令确认状态查询接口', () => {
   assert.match(apiSource, /request\.get\(['"]\/api\/device\/commands['"]\)/)
 })
 
+// 验证设备共享API和所有者共享管理入口已接入
+test('设备所有者可以管理共享并限制受邀账号的档案权限', () => {
+  const apiSource = readFileSync(resolve(projectRoot, 'src/api/device.js'), 'utf8')
+  const viewSource = readFileSync(resolve(projectRoot, 'src/views/DeviceList.vue'), 'utf8')
+  assert.match(apiSource, /export function getDeviceShares\(deviceId\)/)
+  assert.match(apiSource, /export function addDeviceShare\(deviceId, username\)/)
+  assert.match(apiSource, /export function removeDeviceShare\(deviceId, username\)/)
+  assert.match(viewSource, /async function openShare\(device\)/)
+  assert.match(viewSource, /async function submitShare\(\)/)
+  assert.match(viewSource, /row\.ownedByCurrentUser/)
+  assert.match(viewSource, /撤销/)
+})
+
 // 验证设备管理页展示命令确认状态并随工作区轮询刷新
 test('设备管理页展示最近控制命令状态', () => {
   const viewSource = readFileSync(resolve(projectRoot, 'src/views/DeviceList.vue'), 'utf8')

@@ -2,6 +2,7 @@ package com.ruoyi.iotsystem.service;
 
 import com.ruoyi.iotsystem.entity.EspEntity;
 import com.ruoyi.iotsystem.repository.EspRepository;
+import org.mockito.Mock;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,12 +26,13 @@ import static org.mockito.Mockito.when;
 class SensorHistoryServiceTest {
 
     @Mock private EspRepository espRepository;
+    @Mock private DeviceService deviceService;
     private SensorHistoryService service;
 
     // 创建历史查询服务测试对象
     @BeforeEach
     void setUp() {
-        service = new SensorHistoryService(espRepository);
+        service = new SensorHistoryService(espRepository, deviceService);
     }
 
     // 验证设备与时间范围组合查询选择组合索引对应方法
@@ -46,6 +48,18 @@ class SensorHistoryServiceTest {
 
         verify(espRepository).findByDeviceIdAndServerReceivedTimeBetweenOrderByServerReceivedTimeDesc(
                 eq("device001"), eq(start), eq(end), any(PageRequest.class));
+    }
+
+    // 验证共享设备历史授权后按设备ID读取所有者原有记录
+    @Test
+    void queryPage_已共享设备_应校验授权并读取原历史() {
+        when(espRepository.findByDeviceIdOrderByServerReceivedTimeDesc(eq("device001"), any(PageRequest.class)))
+                .thenReturn(new PageImpl<>(Collections.emptyList()));
+
+        service.queryPage("device001", null, null, 0, 20, "test");
+
+        verify(deviceService).assertCanAccess("device001", "test");
+        verify(espRepository).findByDeviceIdOrderByServerReceivedTimeDesc(eq("device001"), any(PageRequest.class));
     }
 
     // 验证分页数量超过一百时被拒绝

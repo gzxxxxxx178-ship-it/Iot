@@ -23,6 +23,9 @@ public interface DeviceRepository extends JpaRepository<DeviceEntity, Long> {
     List<DeviceEntity> findByOwnerUsernameAndLifecycleStatusOrderByCreatedAtDesc(
             String ownerUsername, String lifecycleStatus);
 
+    // 按设备ID集合查询共享设备档案
+    List<DeviceEntity> findByDeviceIdIn(List<String> deviceIds);
+
     // 查询尚未完成归属迁移的历史设备
     List<DeviceEntity> findByOwnerUsernameIsNull();
 

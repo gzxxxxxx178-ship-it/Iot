@@ -111,6 +111,14 @@ public class SensorHistoryService {
             if (deviceService != null) {
                 deviceService.claimLegacyDevices(ownerUsername);
             }
+            if (deviceId != null && deviceService != null) {
+                deviceService.assertCanAccess(deviceId, ownerUsername);
+                if (start != null) {
+                    return espRepository.findByDeviceIdAndServerReceivedTimeBetweenOrderByServerReceivedTimeDesc(
+                            deviceId, start, end, pageable);
+                }
+                return espRepository.findByDeviceIdOrderByServerReceivedTimeDesc(deviceId, pageable);
+            }
             if (deviceId != null && start != null) {
                 return espRepository.findByOwnerUsernameAndDeviceIdAndServerReceivedTimeBetweenOrderByServerReceivedTimeDesc(
                         ownerUsername, deviceId, start, end, pageable);

@@ -8,6 +8,8 @@ import com.ruoyi.iotsystem.entity.EspEntity;
 import com.ruoyi.iotsystem.exception.BusinessException;
 import com.ruoyi.iotsystem.repository.DeviceRepository;
 import com.ruoyi.iotsystem.repository.EspRepository;
+import com.ruoyi.iotsystem.repository.DeviceShareRepository;
+import com.ruoyi.iotsystem.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,13 +30,18 @@ public class DeviceService {
     private final DeviceRepository deviceRepository;
     private final EspRepository espRepository;
     private final long onlineTimeoutSeconds;
+    private final DeviceShareRepository deviceShareRepository;
+    private final UserRepository userRepository;
 
     // 注入设备档案、传感器读数和在线超时配置
     public DeviceService(DeviceRepository deviceRepository, EspRepository espRepository,
-            @Value("${dashboard.device-online-timeout-seconds:30}") long onlineTimeoutSeconds) {
+            @Value("${dashboard.device-online-timeout-seconds:30}") long onlineTimeoutSeconds,
+            DeviceShareRepository deviceShareRepository, UserRepository userRepository) {
         this.deviceRepository = deviceRepository;
         this.espRepository = espRepository;
         this.onlineTimeoutSeconds = onlineTimeoutSeconds;
+        this.deviceShareRepository = deviceShareRepository;
+        this.userRepository = userRepository;
     }
 
     // 查询设备档案并附加最新读数与实时在线状态
@@ -56,14 +63,14 @@ public class DeviceService {
                     ? deviceRepository.findAllByOrderByCreatedAtDesc()
                     : deviceRepository.findByLifecycleStatusOrderByCreatedAtDesc(ACTIVE);
         } else {
-            devices = includeArchived
-                    ? deviceRepository.findByOwnerUsernameOrderByCreatedAtDesc(ownerUsername)
-                    : deviceRepository.findByOwnerUsernameAndLifecycleStatusOrderByCreatedAtDesc(
-                            ownerUsername, ACTIVE);
+            devices = visibleDevices(ownerUsername);
+            if (!includeArchived) {
+                devices.removeIf(device -> !ACTIVE.equals(device.getLifecycleStatus()));
+            }
         }
         List<DeviceResponse> responses = new ArrayList<>();
         for (DeviceEntity device : devices) {
-            responses.add(toResponse(device));
+            responses.add(toResponse(device, ownerUsername));
         }
         return responses;
     }
@@ -78,7 +85,7 @@ public class DeviceService {
         if (ownerUsername != null) {
             claimLegacyDevices(ownerUsername);
         }
-        return toResponse(findDevice(deviceId, ownerUsername));
+        return toResponse(findAccessibleDevice(deviceId, ownerUsername), ownerUsername);
     }
 
     // 校验设备ID唯一性并创建设备档案
@@ -99,7 +106,7 @@ public class DeviceService {
                 normalizeOptional(request.getLocation()),
                 normalizeOptional(request.getDescription()),
                 request.getEnabled() == null ? Boolean.TRUE : request.getEnabled(), ownerUsername);
-        return toResponse(deviceRepository.save(device));
+        return toResponse(deviceRepository.save(device), ownerUsername);
     }
 
     // 更新设备可编辑档案但保持设备ID不变
@@ -112,7 +119,7 @@ public class DeviceService {
         if (ownerUsername != null) {
             claimLegacyDevices(ownerUsername);
         }
-        DeviceEntity device = findDevice(deviceId, ownerUsername);
+        DeviceEntity device = findOwnedDevice(deviceId, ownerUsername);
         if (ARCHIVED.equals(device.getLifecycleStatus())) {
             throw new BusinessException("归档设备需先恢复后才能编辑");
         }
@@ -122,7 +129,7 @@ public class DeviceService {
         device.setDescription(normalizeOptional(request.getDescription()));
         device.setEnabled(request.getEnabled() == null ? Boolean.TRUE : request.getEnabled());
         device.setUpdatedAt(LocalDateTime.now());
-        return toResponse(deviceRepository.save(device));
+        return toResponse(deviceRepository.save(device), ownerUsername);
     }
 
     // 软删除设备档案并禁止继续控制和接收入库
@@ -135,7 +142,7 @@ public class DeviceService {
         if (ownerUsername != null) {
             claimLegacyDevices(ownerUsername);
         }
-        DeviceEntity device = findDevice(deviceId, ownerUsername);
+        DeviceEntity device = findOwnedDevice(deviceId, ownerUsername);
         device.setLifecycleStatus(ARCHIVED);
         device.setEnabled(Boolean.FALSE);
         device.setUpdatedAt(LocalDateTime.now());
@@ -152,11 +159,11 @@ public class DeviceService {
         if (ownerUsername != null) {
             claimLegacyDevices(ownerUsername);
         }
-        DeviceEntity device = findDevice(deviceId, ownerUsername);
+        DeviceEntity device = findOwnedDevice(deviceId, ownerUsername);
         device.setLifecycleStatus(ACTIVE);
         device.setEnabled(Boolean.TRUE);
         device.setUpdatedAt(LocalDateTime.now());
-        return toResponse(deviceRepository.save(device));
+        return toResponse(deviceRepository.save(device), ownerUsername);
     }
 
     // 在发送远程控制前校验设备处于可操作状态
@@ -169,7 +176,7 @@ public class DeviceService {
         if (ownerUsername != null) {
             claimLegacyDevices(ownerUsername);
         }
-        DeviceEntity device = findDevice(deviceId, ownerUsername);
+        DeviceEntity device = findAccessibleDevice(deviceId, ownerUsername);
         if (!ACTIVE.equals(device.getLifecycleStatus()) || !Boolean.TRUE.equals(device.getEnabled())) {
             throw new BusinessException("设备已停用或归档，不能发送控制指令");
         }
@@ -188,6 +195,47 @@ public class DeviceService {
     // 返回设备所属用户，用于传感器规则执行和历史数据范围控制
     public String getOwnerUsername(String deviceId) {
         return findDevice(deviceId).getOwnerUsername();
+    }
+
+    // 查询当前设备所有者创建的共享账号名单
+    @Transactional(readOnly = true)
+    public List<String> listShares(String deviceId, String ownerUsername) {
+        DeviceEntity device = findOwnedDevice(deviceId, ownerUsername);
+        return deviceShareRepository.findByDeviceIdOrderByCreatedAtAsc(device.getDeviceId()).stream()
+                .map(share -> share.getGranteeUsername()).collect(java.util.stream.Collectors.toList());
+    }
+
+    // 由设备所有者授权一个已存在账号查看、读取历史和控制设备
+    @Transactional
+    public List<String> addShare(String deviceId, String ownerUsername, String granteeUsername) {
+        DeviceEntity device = findOwnedDevice(deviceId, ownerUsername);
+        String grantee = granteeUsername == null ? "" : granteeUsername.trim();
+        if (grantee.isEmpty() || grantee.length() > 100) {
+            throw new BusinessException("共享账号名无效");
+        }
+        if (ownerUsername.equals(grantee)) {
+            throw new BusinessException("设备所有者无需共享给自己");
+        }
+        if (userRepository == null || !userRepository.existsByUsername(grantee)) {
+            throw new BusinessException("该账号不存在");
+        }
+        if (!deviceShareRepository.existsByDeviceIdAndGranteeUsername(device.getDeviceId(), grantee)) {
+            deviceShareRepository.save(new com.ruoyi.iotsystem.entity.DeviceShareEntity(device.getDeviceId(), grantee));
+        }
+        return listShares(device.getDeviceId(), ownerUsername);
+    }
+
+    // 由设备所有者撤销指定账号的设备共享权限
+    @Transactional
+    public List<String> removeShare(String deviceId, String ownerUsername, String granteeUsername) {
+        DeviceEntity device = findOwnedDevice(deviceId, ownerUsername);
+        deviceShareRepository.deleteByDeviceIdAndGranteeUsername(device.getDeviceId(), granteeUsername);
+        return listShares(device.getDeviceId(), ownerUsername);
+    }
+
+    // 校验当前账号拥有设备或受邀共享权限
+    public void assertCanAccess(String deviceId, String username) {
+        findAccessibleDevice(deviceId, username);
     }
 
     // 将升级前无归属的历史设备和读数一次性归属给首个访问用户
@@ -239,12 +287,58 @@ public class DeviceService {
         return device;
     }
 
+    // 查询账号可访问的设备并阻止未授权的跨账号访问
+    private DeviceEntity findAccessibleDevice(String deviceId, String username) {
+        DeviceEntity device = deviceRepository.findByDeviceId(normalizeDeviceId(deviceId))
+                .orElseThrow(() -> new BusinessException("设备不存在"));
+        if (username != null && !username.equals(device.getOwnerUsername())
+                && (deviceShareRepository == null
+                    || !deviceShareRepository.existsByDeviceIdAndGranteeUsername(device.getDeviceId(), username))) {
+            throw new SecurityException("无权访问该设备");
+        }
+        return device;
+    }
+
+    // 查询设备并强制要求当前账号为所有者
+    private DeviceEntity findOwnedDevice(String deviceId, String username) {
+        DeviceEntity device = deviceRepository.findByDeviceId(normalizeDeviceId(deviceId))
+                .orElseThrow(() -> new BusinessException("设备不存在"));
+        if (username != null && !username.equals(device.getOwnerUsername())) {
+            throw new SecurityException("仅设备所有者可以管理设备档案和共享权限");
+        }
+        return device;
+    }
+
+    // 合并当前账号拥有和获授权的设备并按创建时间倒序返回
+    private List<DeviceEntity> visibleDevices(String username) {
+        List<DeviceEntity> devices = new ArrayList<>(deviceRepository.findByOwnerUsernameOrderByCreatedAtDesc(username));
+        if (deviceShareRepository != null) {
+            List<String> sharedIds = deviceShareRepository.findByGranteeUsername(username).stream()
+                    .map(share -> share.getDeviceId()).collect(java.util.stream.Collectors.toList());
+            if (!sharedIds.isEmpty()) {
+                for (DeviceEntity device : deviceRepository.findByDeviceIdIn(sharedIds)) {
+                    if (devices.stream().noneMatch(existing -> existing.getDeviceId().equals(device.getDeviceId()))) {
+                        devices.add(device);
+                    }
+                }
+            }
+        }
+        devices.sort((left, right) -> right.getCreatedAt().compareTo(left.getCreatedAt()));
+        return devices;
+    }
+
     // 组合档案和最新传感器读数形成响应对象
     private DeviceResponse toResponse(DeviceEntity device) {
+        return toResponse(device, null);
+    }
+
+    // 组合设备状态并标记当前账号是否为所有者
+    private DeviceResponse toResponse(DeviceEntity device, String username) {
         Optional<EspEntity> latest = espRepository
                 .findFirstByDeviceIdOrderByServerReceivedTimeDesc(device.getDeviceId());
         boolean online = latest.isPresent() && isOnline(device, latest.get());
-        return new DeviceResponse(device, latest.orElse(null), online);
+        return new DeviceResponse(device, latest.orElse(null), online,
+                username != null && username.equals(device.getOwnerUsername()));
     }
 
     // 根据生命周期、启用状态和最近上报时间判断设备是否在线
