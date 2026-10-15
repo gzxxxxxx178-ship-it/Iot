@@ -18,6 +18,15 @@
 
 ## 独立扩展：微信小程序本地页面（2026-10-13）
 
+### MINI-06 创建本机小程序测试账户（2026-10-15）
+
+- **状态**：`已完成`
+- **授权**：用户指定账户及密码用于本机小程序测试；不修改远程环境或已有账户密码。
+- **账户结果**：创建LOCAL测试账户test，使用后端同款BCrypt散列，仅写本机开发库。注册接口最短6位规则保留，不把用户指定密码写入源码或Git。
+- **启动修复**：首次登录已通过密码认证，但当前开发环境JWT密钥为空，令牌签发失败；生成随机签名密钥，仅存忽略的application-dev.properties，并重启本机dev后端。
+- **接口验收**：真实登录、/api/auth/me、/api/devices、/api/dashboard/stats认证访问均通过。新账户设备数量0，保留pogacar的device001归属。
+- **模拟器验收**：初次被本地域名校验拦截；用户明确授权仅本地调试后，在当前项目本地设置关闭校验。微信模拟器使用test登录成功，概览刷新正常，“我的”页显示test已连接；源码manifest及project.config.json发布校验仍为true，只有忽略目录内project.private.config.json的urlCheck=false。截图位于miniapp/unpackage/qa/wechat-test-account.png。
+
 ### MINI-05 清除演示并联调通电设备（2026-10-14）
 
 - **状态**：`受阻`

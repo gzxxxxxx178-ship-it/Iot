@@ -54,6 +54,14 @@ cd java
 
 ## 验证
 
+### 本机测试账户（2026-10-15）
+
+用户指定的LOCAL测试账户test已创建在本机开发库，BCrypt保存密码；登录、当前用户、设备和概览接口认证验证通过。账户当前没有设备，未自动转移pogacar的设备。账户密码不保存在仓库文档或业务源码中。
+
+用户授权仅本地调试后，已在微信开发者工具当前项目本地设置启用不校验域名/HTTPS的调试例外，仅影响忽略目录内的project.private.config.json。源码manifest及生成project.config.json保持urlCheck=true。微信模拟器实际登录test成功，概览刷新及“我的”已连接状态验证通过，截图在miniapp/unpackage/qa/wechat-test-account.png。
+
+当前本机开发配置曾缺少JWT签名密钥，导致密码认证通过后仍无法签发令牌。已将随机密钥保存在被Git忽略的application-dev.properties中并重启后端，未修改生产配置或放宽注册密码长度。
+
 ```bash
 node miniapp/scripts/verify.mjs
 node --experimental-vm-modules --test miniapp/tests/*.test.mjs
