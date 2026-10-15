@@ -10,10 +10,10 @@
 /* ================= 设备与MQTT配置 ================= */
 const char* DEVICE_ID = "device001";
 /* MQTT主机名用于TLS证书校验，IP用于DNS异常时的备用连接。 */
-const char* MQTT_SERVER = "38.47.98.235.nip.io";
-IPAddress MQTT_SERVER_IP(38, 47, 98, 235);
+const char* MQTT_SERVER = "node.61153652.xyz";
+IPAddress MQTT_SERVER_IP(167, 88, 186, 18);
 /* 备用IP连接使用Broker叶子证书指纹固定，避免丢失TLS身份校验。 */
-const char* MQTT_CERT_FINGERPRINT = "A0 8F FB 39 4B 65 01 A6 99 71 A4 D6 B1 A1 5C 32 F3 56 8F 33";
+const char* MQTT_CERT_FINGERPRINT = "5E 23 7E 5A CA BE A1 B0 BC 92 E2 01 E4 B6 9A 3E A5 97 47 86";
 const int MQTT_PORT = 8883;
 
 String topicControl = String("agri/") + DEVICE_ID + "/control";
@@ -68,8 +68,29 @@ String sensorErrorMessage = "";
 bool linkageAlarm = false;
 
 /* ================= WiFi连接 ================= */
+/* 仅诊断目标网络是否可见，不输出周边 SSID，便于定位 2.4 GHz 或热点兼容性问题。 */
+void reportTargetWiFiVisibility() {
+  int networkCount = WiFi.scanNetworks();
+  bool targetVisible = false;
+  int targetRssi = 0;
+  int targetEncryption = -1;
+  for (int index = 0; index < networkCount; index++) {
+    if (WiFi.SSID(index) == ssid) {
+      targetVisible = true;
+      targetRssi = WiFi.RSSI(index);
+      targetEncryption = WiFi.encryptionType(index);
+      break;
+    }
+  }
+  Serial.printf("目标WiFi可见=%s，RSSI=%d，加密类型=%d\n",
+    targetVisible ? "是" : "否", targetRssi, targetEncryption);
+  WiFi.scanDelete();
+}
+
+/* 连接配置的 2.4 GHz Wi-Fi，超时后由上层复位并重试。 */
 void setupWiFi() {
   WiFi.mode(WIFI_STA);
+  reportTargetWiFiVisibility();
   WiFi.begin(ssid, password);
   int attempts = 0;
   while (WiFi.status() != WL_CONNECTED) {
