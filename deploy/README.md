@@ -23,7 +23,9 @@ sudoedit /opt/iot/iot.env
 VPS_HOST=api.example.com VPS_USER=root ./deploy/deploy-backend.sh
 ```
 
-脚本会构建 JAR、按时间戳和 Git 短提交号上传到 `/opt/iot/releases/`，原子切换 `releases/current`，重启 systemd，轮询 `/actuator/health`；健康检查失败时恢复上一版本并重启。默认保留最近 5 个版本，可用 `KEEP_RELEASES` 调整。
+脚本会先检查服务器剩余空间，再构建并上传 JAR。它读取 `iot` systemd 单元实际配置的 `-jar` 路径，因此兼容两种布局：新安装使用 `/opt/iot/releases/current` 原子切换版本；仍使用 `/opt/iot/IoTSystem-0.0.1-SNAPSHOT.jar` 的旧服务会原子替换固定路径，并用同文件系统硬链接保留回滚副本。运行账户从 systemd 的 `User` 字段读取，未设置时按 systemd 默认的 root 处理。
+
+重启后脚本优先调用服务器上的 `/opt/iot/healthcheck.sh`；旧服务器没有该脚本时，直接轮询 `http://127.0.0.1:8080/actuator/health`。检查失败会恢复前一版本并重启。版本目录模式默认保留最近 5 个版本，可用 `KEEP_RELEASES` 调整；固定路径模式保留每次成功部署前的 JAR 回滚副本。健康检查最长等待 90 秒，可用 `HEALTHCHECK_TIMEOUT_SECONDS` 调整。
 
 发布前建议先运行：
 
