@@ -96,7 +96,7 @@ test('切换连接后旧刷新和控制回执不能恢复旧设备', async () =>
   e.store.configure('live', 'http://localhost:8081'); e.signIn('b')
   for (const r of requests) e.reply(r, [])
   await refresh; assert.equal(e.store.live.devices.length, 0)
-  e.store.live.devices = [{ id: 'd', status: 'online', enabled: true }]
+  e.store.live.devices = [{ id: 'd', status: 'online', enabled: true, ownedByCurrentUser: true }]
   const control = e.store.issueCommand('d', 'start'); const req = e.pending.shift()
   e.reply(req, { commandId: 'old', status: 'DISPATCHED' }); e.auth.clearSession()
   await assert.rejects(control, err => err.stale); assert.equal(e.store.live.commands.length, 0)
@@ -104,7 +104,7 @@ test('切换连接后旧刷新和控制回执不能恢复旧设备', async () =>
 
 test('设备DTO保持零值和缺测，控制不乐观改变运行状态', async () => {
   const e = await setup(); e.signIn()
-  const device = e.store.mapDevice({ deviceId: 'd', status: 'online', water: 0, temperature: null, humidity: 0, rssi: -60, linkage: false })
+  const device = e.store.mapDevice({ deviceId: 'd', status: 'online', water: 0, temperature: null, humidity: 0, rssi: -60, linkage: false, ownedByCurrentUser: true })
   assert.equal(device.id, 'd'); assert.equal(device.temp, null); assert.equal(device.water, 0)
   e.store.live.devices = [device]
   const control = e.store.issueCommand('d', 'start')
@@ -114,6 +114,10 @@ test('设备DTO保持零值和缺测，控制不乐观改变运行状态', async
   assert.match(e.store.commandStatus('DISPATCHED'), /等待/)
   assert.equal(e.store.commandStatus('ACKNOWLEDGED'), '设备已确认')
   device.status = 'offline'; await assert.rejects(e.store.issueCommand('d', 'start'), /不可控制/)
+  const sharedDevice = e.store.mapDevice({ deviceId: 'shared', status: 'online', ownedByCurrentUser: false })
+  e.store.live.devices = [sharedDevice]
+  await assert.rejects(e.store.issueCommand('shared', 'start'), /共享设备仅支持查看/)
+  assert.equal(e.pending.length, 0)
 })
 
 test('历史分页冻结时间、筛选时忽略旧页、失败可重试且不跳页', async () => {

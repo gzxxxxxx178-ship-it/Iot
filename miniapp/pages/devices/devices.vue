@@ -30,16 +30,17 @@
         <view class="dc-metrics">
           <view class="dc-metric"><text class="dc-metric-value">{{ formatReading(device.temp) }}℃</text><text class="dc-metric-label">温度</text></view>
           <view class="dc-metric"><text class="dc-metric-value">{{ formatReading(device.hum) }}%</text><text class="dc-metric-label">湿度</text></view>
-          <view class="dc-metric"><text class="dc-metric-value">{{ device.water ?? '--' }}</text><text class="dc-metric-label">水位 ADC</text></view>
-          <view class="dc-metric"><text class="dc-metric-value">{{ device.signal ?? '--' }}dBm</text><text class="dc-metric-label">信号</text></view>
+          <view class="dc-metric"><text class="dc-metric-value">{{ device.water ?? '--' }}</text><text class="dc-metric-label">水位原始值</text></view>
+          <view class="dc-metric"><text class="dc-metric-value">{{ formatSignal(device.signal) }}</text><text class="dc-metric-label">信号强度</text></view>
         </view>
         <view class="dc-bottom">
-          <text class="hint">最后上报：{{ showTime(device.lastSeen) }}</text>
-          <StatusTag v-if="device.controlled" text="运行中" kind="blue" />
+          <text class="hint">最近上报：{{ showTime(device.lastSeen) }}</text>
+          <StatusTag v-if="!device.ownedByCurrentUser" text="只读共享" kind="blue" />
+          <StatusTag v-else-if="device.controlled" text="运行中" kind="blue" />
         </view>
       </view>
     </view>
-    <EmptyState v-else text="当前筛选下暂无设备" />
+    <EmptyState v-else :text="devicesEmptyText" />
     <view v-if="live.commands.length" class="card">
       <text class="section-title">控制回执</text>
       <view v-for="receipt in live.commands.slice(0, 10)" :key="receipt.commandId" class="receipt">
@@ -62,10 +63,12 @@
         <view class="ds-metrics">
           <view class="ds-metric"><text class="ds-metric-value">{{ formatReading(detailDevice.temp) }}℃</text><text class="ds-metric-label">温度</text></view>
           <view class="ds-metric"><text class="ds-metric-value">{{ formatReading(detailDevice.hum) }}%</text><text class="ds-metric-label">湿度</text></view>
-          <view class="ds-metric"><text class="ds-metric-value">{{ detailDevice.water ?? '--' }}</text><text class="ds-metric-label">水位 ADC</text></view>
+          <view class="ds-metric"><text class="ds-metric-value">{{ detailDevice.water ?? '--' }}</text><text class="ds-metric-label">水位原始值</text></view>
         </view>
-        <text class="hint">最后上报：{{ showTime(detailDevice.lastSeen) }}</text>
-        <view class="ds-actions">
+        <text class="hint">最近上报：{{ showTime(detailDevice.lastSeen) }}</text>
+        <text class="hint measurement-note">水位为传感器 ADC 原始读数，尚未换算为实际高度。</text>
+        <text v-if="!detailDevice.ownedByCurrentUser" class="readonly-note">这是其他账号共享的设备，你可以查看数据；控制操作由设备所有者执行。</text>
+        <view v-else class="ds-actions">
           <button class="btn-primary ds-btn" :disabled="!canControl" @tap="startDevice">启动</button>
           <button class="btn-danger ds-btn" :disabled="!canControl" @tap="stopDevice">停止</button>
         </view>
@@ -96,6 +99,9 @@ onShow(() => { refreshLive() })
 // 缺失上报时间显示占位文本。
 function showTime(value) { return value ? formatDateTime(parseServerTime(value)) : '--' }
 
+// 缺失信号强度时不附加误导性的 dBm 单位。
+function formatSignal(value) { return value === null || value === undefined ? '--' : formatReading(value) + ' dBm' }
+
 // 筛选条件列表
 const filters = [
   { key: 'all', label: '全部' },
@@ -106,6 +112,14 @@ const filters = [
 // 当前筛选条件
 const filter = ref('all')
 
+// 按登录状态和筛选条件说明设备列表为空的原因。
+const devicesEmptyText = computed(() => {
+  if (!session.token) return '登录后查看账号可访问的设备'
+  if (filter.value === 'online') return '当前没有在线设备'
+  if (filter.value === 'offline') return '当前没有离线设备'
+  return '当前账号暂无可访问设备'
+})
+
 // 详情弹层中选中的设备
 const detailId = ref(null)
 // 从当前数据源定位详情，避免刷新后保留旧设备对象。
@@ -115,7 +129,7 @@ watch(() => session.generation, () => { detailId.value = null; sending.value = f
 // 离线、禁用、待回执与发送中的设备均不可再次控制。
 const canControl = computed(() => {
   const d = detailDevice.value
-  return d && d.status === 'online' && !sending.value && session.token && d.enabled !== false && d.lifecycleStatus !== 'ARCHIVED' && !live.commands.some((c) => c.deviceId === d.id && ['PENDING', 'DISPATCHED'].includes(c.status))
+  return d && d.ownedByCurrentUser && d.status === 'online' && !sending.value && session.token && d.enabled !== false && d.lifecycleStatus !== 'ARCHIVED' && !live.commands.some((c) => c.deviceId === d.id && ['PENDING', 'DISPATCHED'].includes(c.status))
 })
 
 // 按筛选条件过滤设备列表
@@ -263,6 +277,8 @@ function confirmControl(command) {
   align-items: center;
   justify-content: space-between;
 }
+.measurement-note { display: block; margin-top: 16rpx; }
+.readonly-note { display: block; margin-top: 20rpx; padding: 18rpx 20rpx; border-radius: $radius-card; background: $color-blue-soft; color: $color-blue; font-size: 24rpx; }
 .mask {
   position: fixed;
   left: 0;

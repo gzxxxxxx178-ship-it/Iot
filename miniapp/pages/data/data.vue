@@ -1,22 +1,28 @@
 <template>
   <view class="page">
-    <!-- 页面顶部：真实历史数据 -->
-    <PageHeader title="数据" subtitle="历史传感数据" />
+    <!-- 页面顶部：账号可访问的历史传感数据 -->
+    <PageHeader title="数据" subtitle="按设备和时间范围查看历史读数" />
     <view class="card">
-      <text v-if="!session.token" class="hint">请先到“我的”登录账号</text>
+      <template v-if="!session.token">
+        <text class="section-title">登录后查看历史数据</text>
+        <text class="hint">使用现有系统账号登录，即可查看账号拥有或获准访问的设备记录。</text>
+        <button class="btn-primary login-btn" @tap="goLogin">前往登录</button>
+      </template>
       <template v-else>
         <picker :range="deviceOptions" range-key="label" :value="deviceIndex" @change="selectDevice">
-          <view class="device-picker">设备：{{ deviceOptions[deviceIndex]?.label || '全部设备' }} ▾</view>
+          <view class="device-picker"><text class="picker-label">当前设备</text><text class="picker-value">{{ deviceOptions[deviceIndex]?.label || '全部设备' }}　⌄</text></view>
         </picker>
-        <text v-if="history.loading" class="hint">正在加载…</text>
-        <text v-if="history.error" class="hint">{{ history.error }}</text>
-        <button class="btn-secondary" :disabled="history.loading" @tap="refreshHistory">刷新历史</button>
-        <button v-if="history.error" class="btn-secondary" :disabled="history.loading" @tap="loadHistory">重试本页</button>
+        <text v-if="history.loading && !visibleList.length" class="hint state-text">正在读取所选时间范围的数据…</text>
+        <text v-if="history.error" class="error-text">{{ history.error }}</text>
+        <view class="history-actions">
+          <button class="btn-secondary" :disabled="history.loading" @tap="refreshHistory">刷新记录</button>
+          <button v-if="history.error" class="btn-secondary" :disabled="history.loading" @tap="loadHistory">重试查询</button>
+        </view>
       </template>
     </view>
 
     <!-- 时间范围筛选 -->
-    <view class="filter-bar">
+    <view v-if="session.token" class="filter-bar">
       <view
         v-for="r in ranges"
         :key="r.key"
@@ -29,12 +35,12 @@
     </view>
 
     <!-- 数据列表（分页/加载更多） -->
-    <view v-if="visibleList.length" class="card table-card">
+    <view v-if="session.token && visibleList.length" class="card table-card">
       <view class="table-head">
         <text class="th th-time">时间</text>
         <text class="th">温度</text>
         <text class="th">湿度</text>
-        <text class="th">水位 ADC</text>
+        <text class="th">水位原始值</text>
       </view>
       <view v-for="p in visibleList" :key="p.id" class="table-row">
         <text class="td td-time">{{ p.time ? formatDateTime(p.time).slice(5, 16) : '--' }}</text>
@@ -43,23 +49,21 @@
         <text class="td">{{ p.water ?? '--' }}</text>
       </view>
       <view v-if="hasMore" class="load-more" @tap="loadMore">
-        <text class="load-more-text">加载更多</text>
+        <text class="load-more-text">{{ history.loading ? '正在加载…' : '加载更多记录' }}</text>
       </view>
-      <text v-else class="hint table-end">共 {{ history.totalElements }} 条</text>
+      <text v-else class="hint table-end">共 {{ history.totalElements }} 条记录</text>
     </view>
-    <EmptyState v-else text="该时间范围内暂无数据" />
+    <EmptyState v-else-if="session.token && !history.error && !history.loading" text="当前设备和时间范围内没有历史记录" />
 
-    <!-- 导出（明确未接入） -->
-    <view class="card">
-      <text class="section-title">数据导出</text>
-      <text class="hint">CSV 导出尚未接入后端，点击仅作功能占位提示。</text>
-      <button class="btn-secondary export-btn" @tap="onExport">导出 CSV（未接入）</button>
+    <!-- 未开放的导出能力使用说明文本，不提供无效操作入口。 -->
+    <view v-if="session.token" class="export-note">
+      <text>CSV 文件导出暂未开放；你可以在此查看记录并分页浏览。</text>
     </view>
   </view>
 </template>
 
 <script setup>
-// 数据页：时间范围筛选、分页加载更多、导出占位（明确未接入）
+// 数据页：设备与时间范围筛选、分页浏览真实历史记录。
 import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { session } from '../../utils/session.js'
@@ -76,6 +80,9 @@ const deviceIndex = computed(() => Math.max(0, deviceOptions.value.findIndex((d)
 
 // 每次进入页面时按当前筛选重新读取真实历史。
 onShow(() => { if (session.token) { refreshLive(); refreshHistory() } })
+
+// 从历史页直接进入账号登录。
+function goLogin() { uni.navigateTo({ url: '/pages/login/login' }) }
 
 // 使用最新截止时间重新读取当前筛选。
 function refreshHistory() { return reloadHistory(history.deviceId, ranges.find((r) => r.key === range.value).hours) }
@@ -109,15 +116,19 @@ function setRange(key) {
 function loadMore() {
   loadHistory()
 }
-
-// 导出占位：提示功能未接入
-function onExport() {
-  uni.showToast({ title: '导出未接入后端', icon: 'none' })
-}
 </script>
 
 <style lang="scss" scoped>
-.device-picker { padding: 20rpx 0; font-size: 28rpx; overflow-wrap: anywhere; }
+.device-picker { display: flex; align-items: center; justify-content: space-between; gap: 20rpx; padding: 12rpx 0 20rpx; font-size: 28rpx; overflow-wrap: anywhere; }
+.picker-label { color: $color-text-secondary; }
+.picker-value { color: $color-text; font-weight: 600; text-align: right; }
+.section-title { display: block; margin-bottom: 12rpx; }
+.login-btn { margin-top: 24rpx; }
+.state-text { display: block; margin-top: 8rpx; }
+.error-text { display: block; margin-top: 8rpx; color: $color-red; font-size: 24rpx; overflow-wrap: anywhere; }
+.history-actions { display: flex; flex-direction: column; gap: 12rpx; margin-top: 16rpx; }
+.history-actions button { margin: 0; }
+.export-note { margin: 0 $space-page $space-page; padding: 4rpx 8rpx; color: $color-text-light; font-size: 22rpx; text-align: center; }
 .page {
   padding-bottom: 40rpx;
 }
@@ -189,9 +200,6 @@ function onExport() {
 .table-end {
   display: block;
   text-align: center;
-  margin-top: 20rpx;
-}
-.export-btn {
   margin-top: 20rpx;
 }
 </style>

@@ -14,7 +14,7 @@ export function formatReading(value) { return reading(value) === null ? '--' : S
 
 // 映射设备档案，水位始终保持原始 ADC。
 export function mapDevice(d) {
-  return { id: d.deviceId, name: d.deviceName || d.deviceId, type: d.deviceType || '传感器', status: d.status, enabled: d.enabled, lifecycleStatus: d.lifecycleStatus, temp: reading(d.temperature), hum: reading(d.humidity), water: reading(d.water), signal: reading(d.rssi), controlled: d.linkage === true, lastSeen: d.lastSeen || null }
+  return { id: d.deviceId, name: d.deviceName || d.deviceId, type: d.deviceType || '传感器', status: d.status, enabled: d.enabled, lifecycleStatus: d.lifecycleStatus, ownedByCurrentUser: d.ownedByCurrentUser !== false, temp: reading(d.temperature), hum: reading(d.humidity), water: reading(d.water), signal: reading(d.rssi), controlled: d.linkage === true, lastSeen: d.lastSeen || null }
 }
 
 // 解析后端本地接收时间，兼容小程序日期解析。
@@ -74,6 +74,7 @@ export async function issueCommand(deviceId, command) {
   const generation = session.generation
   const device = live.devices.find((item) => item.id === deviceId)
   if (!device || device.status !== 'online' || device.enabled === false || device.lifecycleStatus === 'ARCHIVED') throw new Error('该设备当前不可控制')
+  if (!device.ownedByCurrentUser) throw new Error('共享设备仅支持查看，控制操作请联系设备所有者')
   if (!['start', 'stop'].includes(command)) throw new Error('控制指令无效')
   const receipt = await request('/api/device/control', { method: 'POST', data: { deviceId, command } })
   if (generation !== session.generation) throw staleError()

@@ -9,7 +9,7 @@
       <input v-model="password" class="field" :disabled="busy" password placeholder="密码不保存" />
       <text v-if="error" class="hint">{{ error }}</text>
       <button class="btn-primary submit" :loading="busy" :disabled="busy" @tap="onLogin">登录</button>
-      <text class="hint">令牌仅保存在内存中，重启后重新登录。</text>
+      <text class="hint">密码不会保存在小程序中；重新启动后可能需要再次登录。</text>
     </view>
   </view>
 </template>

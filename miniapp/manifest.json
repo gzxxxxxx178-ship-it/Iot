@@ -1,7 +1,7 @@
 {
   "name": "智慧农业IoT小程序",
   "appid": "",
-  "description": "智慧农业 IoT 系统演示小程序（仅演示数据，未接入后端，未上线）",
+  "description": "智慧农业 IoT 系统本地调试版，连接真实后端，供开发与联调使用，未上线",
   "versionName": "1.0.0",
   "versionCode": "100",
   "transformPx": false,
@@ -18,7 +18,7 @@
     "usingComponents": true
   },
   "h5": {
-    "title": "智慧农业IoT演示"
+    "title": "智慧农业IoT本地调试版"
   },
   "vueVersion": "3"
 }

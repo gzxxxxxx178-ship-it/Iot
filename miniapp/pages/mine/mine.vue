@@ -3,14 +3,15 @@
     <PageHeader title="我的" subtitle="账号与连接" />
     <view class="card">
       <text class="section-title">{{ session.username || '未登录' }}</text>
-      <text class="hint">{{ session.token ? '已连接账号，令牌仅在内存保存' : '请使用现有系统账号登录' }}</text>
+      <text class="hint">{{ session.token ? '可查看该账号拥有或获准访问的设备与历史记录' : '登录后查看账号可访问的设备和历史记录' }}</text>
       <button class="btn-primary action" @tap="goLogin">账号登录</button>
       <button v-if="session.token" class="btn-danger action" @tap="logout">退出当前账号</button>
     </view>
     <view class="card">
-      <text class="section-title">后端连接</text>
+      <text class="section-title">服务器地址</text>
       <text class="hint">当前：{{ config.apiBaseUrl }}</text>
-      <input v-model="address" class="field" placeholder="http://localhost:8080" />
+      <text class="hint address-help">修改地址后需要重新登录。</text>
+      <input v-model="address" class="field" placeholder="如 http://localhost:8080" confirm-type="done" />
       <text v-if="error" class="hint">{{ error }}</text>
       <button class="btn-secondary action" @tap="save">保存后端地址</button>
     </view>
@@ -43,4 +44,5 @@ function goLogin() { uni.navigateTo({ url: '/pages/login/login' }) }
 .action { margin-top: 24rpx; }
 .field { height: 88rpx; margin-top: 24rpx; padding: 0 20rpx; background: $color-bg; border-radius: $radius-card; }
 .hint { display: block; overflow-wrap: anywhere; }
+.address-help { margin-top: 8rpx; }
 </style>
