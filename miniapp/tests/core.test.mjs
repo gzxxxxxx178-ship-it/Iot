@@ -137,3 +137,13 @@ test('历史分页冻结时间、筛选时忽略旧页、失败可重试且不�
   await e.history.loadHistory(); assert.equal(e.pending.length, 0)
   e.auth.clearSession(); assert.equal(e.history.history.rows.length, 0)
 })
+
+test('查询参数安全编码并可用于GET和DELETE接口', async () => {
+  const e = await setup(); e.signIn()
+  const get = e.api.request('/api/chat/history', { params: { sessionId: 'account a&b' } })
+  assert.equal(e.pending[0].url, 'http://localhost:8080/api/chat/history?sessionId=account%20a%26b')
+  e.reply(e.pending.shift(), []); await get
+  const del = e.api.request('/api/chat/history', { method: 'DELETE', params: { sessionId: 'account a&b' } })
+  assert.equal(e.pending[0].url, 'http://localhost:8080/api/chat/history?sessionId=account%20a%26b')
+  e.reply(e.pending.shift(), { ok: true }); await del
+})

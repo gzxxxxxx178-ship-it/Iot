@@ -4,8 +4,16 @@ import { session, clearSession } from '../utils/session.js'
 // 创建可被页面忽略的过期请求错误。
 export function staleError() { const error = new Error('会话已切换，请重试'); error.stale = true; return error }
 
+// 将固定接口的查询参数编码到 URL，避免将查询条件错误放入请求体。
+function serializeParams(params) {
+  if (!params || typeof params !== 'object') return ''
+  const entries = Object.entries(params).filter(([, value]) => value !== undefined && value !== null)
+  if (!entries.length) return ''
+  return '?' + entries.map(([key, value]) => encodeURIComponent(key) + '=' + encodeURIComponent(String(value))).join('&')
+}
+
 // 统一请求固定后端接口，并校验会话、HTTP和业务状态。
-export function request(path, { method = 'GET', data, anonymous = false } = {}) {
+export function request(path, { method = 'GET', data, params, anonymous = false } = {}) {
   if (!/^\/(api|esp)\//.test(path) || path.includes('..') || path.includes('?')) return Promise.reject(new Error('接口路径无效'))
   if (APP_CONFIG.mode !== 'live' || !APP_CONFIG.apiBaseUrl) return Promise.reject(new Error('请先配置真实后端'))
   if (!anonymous && !session.token) return Promise.reject(new Error('请先登录账号'))
@@ -14,7 +22,7 @@ export function request(path, { method = 'GET', data, anonymous = false } = {}) 
   const header = { 'Content-Type': 'application/json' }
   if (!anonymous) header.Authorization = 'Bearer ' + session.token
   return new Promise((resolve, reject) => {
-    uni.request({ url: base + path, method, data, header, timeout: 15000, withCredentials: false,
+    uni.request({ url: base + path + serializeParams(params), method, data, header, timeout: 15000, withCredentials: false,
       // 只接受仍属于当前会话和地址的响应。
       success(response) {
         if (generation !== session.generation || base !== APP_CONFIG.apiBaseUrl || APP_CONFIG.mode !== 'live') return reject(staleError())
