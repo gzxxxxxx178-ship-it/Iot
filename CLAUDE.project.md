@@ -36,6 +36,7 @@ graph TB
 
     subgraph Frontend["前端展示层"]
         CF[Cloudflare Pages<br/>Vue 3 + Element Plus]
+        MINI[微信小程序<br/>uni-app + Vue 3]
     end
 
     subgraph External["外部服务"]
@@ -61,6 +62,7 @@ graph TB
     %% 前端 API 请求
     CF -->|"HTTPS API 请求"| NGINX8443
     NGINX8443 -->|"REST /api/* /esp/*"| JAVA
+    MINI -->|"Bearer JWT + REST API"| NGINX8443
 
     %% 设备控制流
     CF -->|"POST /api/device/control"| JAVA
@@ -87,7 +89,7 @@ graph TB
     class BROKER mqtt
     class NGINX80,NGINX8443,JAVA vps
     class TIDB,REDIS db
-    class CF frontend
+    class CF,MINI frontend
     class GOOGLE,DEEPSEEK,ALIPAY external
 ```
 
@@ -115,6 +117,7 @@ ESP8266 ──MQTT TLS──▶ 私有 Broker ──订阅──▶ Java ──J
 | 实时监控 | WebSocket 推送实时数据，前端图表动态更新 | `SensorWebSocketHandler`, `Monitor.vue` |
 | 设备管理 | 设备档案注册、编辑、启停、归档/恢复、状态展示和远程控制 | `DeviceController`, `DeviceService`, `DeviceList.vue` |
 | 历史数据 | 设备/时间组合查询、异常质量标记、保留策略和全量 CSV 导出 | `SensorHistoryService`, `SensorDataRetentionService`, `History.vue` |
+| 微信小程序 | 移动端客户端，通过鉴权 REST API 查看实时设备、历史数据、报警、自动化、AI 对话和统计看板 | `miniapp/`, `docs/miniapp-local-development.md` |
 | 数据大屏 | 全屏实时仪表盘，适合展示大屏 | `Screen.vue` |
 | 报警管理 | 报警规则 CRUD + 报警记录查看 | `Alarm.vue` |
 | 自动化规则 | 持久化条件引擎，支持防抖、冷却、停用和执行审计 | `AutomationService`, `Automation.vue` |
@@ -135,5 +138,6 @@ ESP8266 ──MQTT TLS──▶ 私有 Broker ──订阅──▶ Java ──J
 
 ## 子项目详细文档
 
+- 微信小程序本机开发与迁移状态: [docs/miniapp-local-development.md](docs/miniapp-local-development.md)
 - Java 后端: [java/CLAUDE.md](java/CLAUDE.md)
 - Vue 前端: [vue/IoT/CLAUDE.md](vue/IoT/CLAUDE.md)
