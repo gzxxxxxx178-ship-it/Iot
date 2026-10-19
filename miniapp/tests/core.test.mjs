@@ -176,9 +176,10 @@ test('历史分页冻结时间、筛选时忽略旧页、失败可重试且不�
   const end = active.data.end
   assert.equal(active.data.page, 0); assert.equal(active.data.deviceId, 'new'); assert.equal(end.includes('Z'), false)
   e.reply(old, { content: [{ id: 99 }], page: 0, totalPages: 1, totalElements: 1 }); await first
-  e.reply(active, { content: [{ id: 1, temperature: 0, humidity: null, water: 650, rssi: -62, linkage: false, sendCount: 10, serverReceivedTime: '2026-10-14T12:00:00' }], page: 0, totalPages: 2, totalElements: 2 }); await next
+  e.reply(active, { content: [{ id: 1, deviceId: 'new', temperature: 0, humidity: null, water: 650, rssi: -62, linkage: false, sendCount: 10, uptimeMillis: 12345, qualityValid: false, qualityIssues: '温度异常', serverReceivedTime: '2026-10-14T12:00:00' }], page: 0, totalPages: 2, totalElements: 2 }); await next
   assert.equal(e.history.history.rows.length, 1); assert.equal(e.history.history.rows[0].temp, 0)
   assert.equal(e.history.history.rows[0].rssi, -62); assert.equal(e.history.history.rows[0].linkage, false); assert.equal(e.history.history.rows[0].sendCount, 10)
+  assert.equal(e.history.history.rows[0].uptimeMillis, 12345); assert.equal(e.history.history.rows[0].qualityValid, false); assert.equal(e.history.history.rows[0].qualityIssues, '温度异常')
   const more = e.history.loadHistory(); const failed = e.pending.shift()
   assert.equal(failed.data.end, end); assert.equal(failed.data.page, 1)
   failed.fail({ errMsg: 'timeout' }); await more; assert.equal(e.history.history.page, 0)
@@ -186,6 +187,17 @@ test('历史分页冻结时间、筛选时忽略旧页、失败可重试且不�
   assert.equal(e.history.history.rows.length, 2)
   await e.history.loadHistory(); assert.equal(e.pending.length, 0)
   e.auth.clearSession(); assert.equal(e.history.history.rows.length, 0)
+})
+
+test('历史查询支持自定义本地起止时间并在分页和导出状态中冻结边界', async () => {
+  const e = await setup(); e.signIn()
+  const start = new Date(2026, 5, 3, 8, 15, 0, 0).getTime()
+  const end = new Date(2026, 5, 4, 17, 45, 59, 999).getTime()
+  const query = e.history.reloadHistory('device/custom', { start, end }); const request = e.pending.shift()
+  assert.equal(request.data.start, '2026-06-03T08:15:00')
+  assert.equal(request.data.end, '2026-06-04T17:45:59')
+  assert.equal(e.history.history.start, start); assert.equal(e.history.history.end, end)
+  e.reply(request, { content: [], page: 0, totalPages: 1, totalElements: 0 }); await query
 })
 
 test('看板近期数据使用真实鉴权接口并生成按时间递增的分组趋势', async () => {

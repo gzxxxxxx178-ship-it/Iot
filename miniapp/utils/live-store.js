@@ -24,7 +24,7 @@ export function parseServerTime(value) {
 }
 
 // 映射历史字段，时间使用服务端接收时间并保留实时监控所需指标。
-export function mapHistory(row) { return { id: row.id, deviceId: row.deviceId, time: parseServerTime(row.serverReceivedTime), temp: reading(row.temperature), hum: reading(row.humidity), water: reading(row.water), rssi: reading(row.rssi), linkage: typeof row.linkage === 'boolean' ? row.linkage : null, sendCount: reading(row.sendCount) } }
+export function mapHistory(row) { return { id: row.id, deviceId: row.deviceId, time: parseServerTime(row.serverReceivedTime), temp: reading(row.temperature), hum: reading(row.humidity), water: reading(row.water), rssi: reading(row.rssi), linkage: typeof row.linkage === 'boolean' ? row.linkage : null, sendCount: reading(row.sendCount), uptimeMillis: reading(row.uptimeMillis), qualityValid: typeof row.qualityValid === 'boolean' ? row.qualityValid : null, qualityIssues: row.qualityIssues || '' } }
 
 // 格式化后端要求的本地日期时间，不附带 UTC 标记。
 export function localDateTime(time) {

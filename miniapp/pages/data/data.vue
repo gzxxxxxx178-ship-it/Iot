@@ -36,6 +36,28 @@
         <text class="filter-text">{{ r.label }}</text>
       </view>
     </view>
+    <view v-if="session.token && range === 'custom'" class="card custom-range-card">
+      <view class="date-row">
+        <text class="date-label">开始</text>
+        <picker mode="date" :value="startDate" @change="selectStartDate">
+          <view class="date-picker-value">{{ startDate }}</view>
+        </picker>
+        <picker mode="time" :value="startTime" @change="selectStartTime">
+          <view class="date-picker-value">{{ startTime }}</view>
+        </picker>
+      </view>
+      <view class="date-row">
+        <text class="date-label">结束</text>
+        <picker mode="date" :value="endDate" @change="selectEndDate">
+          <view class="date-picker-value">{{ endDate }}</view>
+        </picker>
+        <picker mode="time" :value="endTime" @change="selectEndTime">
+          <view class="date-picker-value">{{ endTime }}</view>
+        </picker>
+      </view>
+      <text v-if="customRangeError" class="error-text">{{ customRangeError }}</text>
+      <button class="btn-primary query-range-button" :disabled="history.loading" @tap="applyCustomRange">查询该时间范围</button>
+    </view>
 
     <!-- 按已加载的历史记录分桶计算趋势，避免把当前页误报为完整时间范围。 -->
     <view v-if="session.token && visibleList.length" class="card trend-card">
@@ -49,17 +71,24 @@
 
     <!-- 数据列表（分页/加载更多） -->
     <view v-if="session.token && visibleList.length" class="card table-card">
-      <view class="table-head">
-        <text class="th th-time">时间</text>
-        <text class="th">温度</text>
-        <text class="th">湿度</text>
-        <text class="th">水位原始值</text>
-      </view>
       <view v-for="p in visibleList" :key="p.id" class="table-row">
-        <text class="td td-time">{{ p.time ? formatDateTime(p.time).slice(5, 16) : '--' }}</text>
-        <text class="td">{{ formatReading(p.temp) }}℃</text>
-        <text class="td">{{ formatReading(p.hum) }}%</text>
-        <text class="td">{{ p.water ?? '--' }}</text>
+        <view class="row-heading">
+          <text class="row-device">{{ p.deviceId || '设备未知' }}</text>
+          <text class="td-time">{{ p.time ? formatDateTime(p.time) : '--' }}</text>
+        </view>
+        <view class="reading-grid">
+          <view class="reading-cell"><text class="cell-label">温度</text><text class="cell-value">{{ formatReading(p.temp) }}℃</text></view>
+          <view class="reading-cell"><text class="cell-label">湿度</text><text class="cell-value">{{ formatReading(p.hum) }}%</text></view>
+          <view class="reading-cell"><text class="cell-label">水位 ADC</text><text class="cell-value">{{ formatReading(p.water) }}</text></view>
+          <view class="reading-cell"><text class="cell-label">信号 RSSI</text><text class="cell-value">{{ p.rssi === null ? '--' : formatReading(p.rssi) + ' dBm' }}</text></view>
+        </view>
+        <view class="row-details">
+          <text class="detail-item">联动 {{ p.linkage === null ? '--' : p.linkage ? 'ON' : 'OFF' }}</text>
+          <text class="detail-item">发送 {{ formatReading(p.sendCount) }}</text>
+          <text class="detail-item">运行 {{ formatReading(p.uptimeMillis) }} ms</text>
+          <text class="quality-tag" :class="p.qualityValid === false ? 'quality-invalid' : p.qualityValid === true ? 'quality-valid' : ''">{{ p.qualityValid === false ? '异常' : p.qualityValid === true ? '有效' : '未评估' }}</text>
+        </view>
+        <text v-if="p.qualityValid === false && p.qualityIssues" class="quality-issues">{{ p.qualityIssues }}</text>
       </view>
       <view v-if="hasMore" class="load-more" @tap="loadMore">
         <text class="load-more-text">{{ history.loading ? '正在加载…' : '加载更多记录' }}</text>
@@ -69,7 +98,7 @@
     <EmptyState v-else-if="session.token && !history.error && !history.loading" text="当前设备和时间范围内没有历史记录" />
 
     <view v-if="session.token" class="export-note">
-      <text>导出当前设备和时间范围内的完整记录，最多 50,000 条；微信会打开文件分享面板。</text>
+      <text>可选快捷时间范围或自定义日期时间；导出当前筛选范围内的完整记录，最多 50,000 条。</text>
     </view>
   </view>
 </template>
@@ -99,21 +128,77 @@ onShow(() => { if (session.token) { refreshLive(); refreshHistory() } })
 function goLogin() { uni.navigateTo({ url: '/pages/login/login' }) }
 
 // 使用最新截止时间重新读取当前筛选。
-function refreshHistory() { return reloadHistory(history.deviceId, ranges.find((r) => r.key === range.value).hours) }
+function refreshHistory() {
+  if (range.value === 'custom') return applyCustomRange()
+  return reloadHistory(history.deviceId, ranges.find((r) => r.key === range.value).hours)
+}
 
-// 切换真实设备时重新开始分页。
-function selectDevice(event) { reloadHistory(deviceOptions.value[Number(event.detail.value)]?.id || '', history.hours) }
+// 切换真实设备时按当前快捷或自定义时间范围重新开始分页。
+function selectDevice(event) {
+  const deviceId = deviceOptions.value[Number(event.detail.value)]?.id || ''
+  if (range.value === 'custom') return applyCustomRange(deviceId)
+  return reloadHistory(deviceId, ranges.find((item) => item.key === range.value).hours)
+}
 
 // 时间范围选项
 const ranges = [
   { key: 'day', label: '近24小时', hours: 24 },
   { key: 'week', label: '近7天', hours: 24 * 7 },
-  { key: 'month', label: '近30天', hours: 24 * 30 }
+  { key: 'month', label: '近30天', hours: 24 * 30 },
+  { key: 'custom', label: '自定义', hours: 0 }
 ]
 
 // 当前时间范围
 const range = ref('day')
 const exporting = ref(false)
+const startDate = ref(dateInput(Date.now() - 24 * 60 * 60 * 1000))
+const endDate = ref(dateInput(Date.now()))
+const startTime = ref(timeInput(Date.now() - 24 * 60 * 60 * 1000))
+const endTime = ref(timeInput(Date.now()))
+const customRangeError = ref('')
+
+// 将本地时间转换为日期选择器需要的 YYYY-MM-DD 格式。
+function dateInput(timestamp) {
+  const date = new Date(timestamp)
+  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-')
+}
+
+// 将本地时间转换为时间选择器需要的 HH:mm 格式。
+function timeInput(timestamp) {
+  const date = new Date(timestamp)
+  return String(date.getHours()).padStart(2, '0') + ':' + String(date.getMinutes()).padStart(2, '0')
+}
+
+// 将日期和时间字段解析为本地时间戳，避免 UTC 转换改变筛选边界。
+function localTimestamp(dateValue, timeValue, endOfMinute = false) {
+  const [year, month, day] = dateValue.split('-').map(Number)
+  const [hour, minute] = timeValue.split(':').map(Number)
+  return new Date(year, month - 1, day, hour, minute, endOfMinute ? 59 : 0, endOfMinute ? 999 : 0).getTime()
+}
+
+// 记录开始日期的本地选择。
+function selectStartDate(event) { startDate.value = event.detail.value }
+
+// 记录开始时间的本地选择。
+function selectStartTime(event) { startTime.value = event.detail.value }
+
+// 记录结束日期的本地选择。
+function selectEndDate(event) { endDate.value = event.detail.value }
+
+// 记录结束时间的本地选择。
+function selectEndTime(event) { endTime.value = event.detail.value }
+
+// 校验任意本地日期时间范围后冻结边界并请求第一页。
+function applyCustomRange(deviceId = history.deviceId) {
+  const start = localTimestamp(startDate.value, startTime.value)
+  const end = localTimestamp(endDate.value, endTime.value, true)
+  if (!Number.isFinite(start) || !Number.isFinite(end) || start > end) {
+    customRangeError.value = '开始时间不能晚于结束时间'
+    return
+  }
+  customRangeError.value = ''
+  return reloadHistory(deviceId, { start, end })
+}
 
 // 下载当前筛选范围内的完整CSV，并由微信打开文件分享面板。
 async function exportCsv() {
@@ -121,7 +206,7 @@ async function exportCsv() {
   exporting.value = true
   try {
     const end = history.end
-    const start = end - history.hours * 3600000
+    const start = history.start
     const { tempFilePath } = await downloadHistoryCsv({ deviceId: history.deviceId, start, end })
     const date = formatDateTime(end).slice(0, 10)
     await shareCsvFile(tempFilePath, `sensor-history-${date}.csv`)
@@ -159,7 +244,8 @@ const hasMore = computed(() => history.page + 1 < history.totalPages)
 // 切换时间范围并重置分页
 function setRange(key) {
   range.value = key
-  refreshHistory()
+  if (key === 'custom') applyCustomRange()
+  else refreshHistory()
 }
 
 // 加载更多：增加可见条数
@@ -176,6 +262,11 @@ function loadMore() {
 .login-btn { margin-top: 24rpx; }
 .state-text { display: block; margin-top: 8rpx; }
 .error-text { display: block; margin-top: 8rpx; color: $color-red; font-size: 24rpx; overflow-wrap: anywhere; }
+.custom-range-card { margin: 0 $space-page 20rpx; }
+.date-row { display: flex; align-items: center; gap: 10rpx; padding: 14rpx 0; }
+.date-label { width: 72rpx; flex: none; color: $color-text-secondary; font-size: 23rpx; }
+.date-picker-value { flex: 1; min-width: 0; padding: 12rpx 10rpx; border: 1rpx solid $color-border; border-radius: 10rpx; color: $color-text; font-size: 22rpx; text-align: center; }
+.query-range-button { margin-top: 16rpx; }
 .history-actions { display: flex; flex-direction: column; gap: 12rpx; margin-top: 16rpx; }
 .history-actions button { margin: 0; }
 .trend-card { overflow: hidden; }
@@ -213,32 +304,25 @@ function loadMore() {
 .table-card {
   padding: 0 24rpx 24rpx;
 }
-.table-head,
 .table-row {
   display: flex;
-  flex-direction: row;
-  align-items: center;
+  flex-direction: column;
+  gap: 16rpx;
   padding: 20rpx 0;
   border-bottom: 1rpx solid $color-border;
 }
-.table-head {
-  border-bottom: 2rpx solid $color-border;
-}
-.th,
-.td {
-  flex: 1;
-  text-align: center;
-  font-size: 24rpx;
-  color: $color-text-secondary;
-}
-.td {
-  color: $color-text;
-}
-.th-time,
-.td-time {
-  flex: 2;
-  text-align: left;
-}
+.row-heading, .row-details { display: flex; align-items: center; justify-content: space-between; gap: 10rpx; }
+.row-device { color: $color-text; font-size: 24rpx; font-weight: 600; }
+.td-time, .detail-item { color: $color-text-secondary; font-size: 20rpx; }
+.reading-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8rpx; }
+.reading-cell { display: flex; min-width: 0; flex-direction: column; gap: 6rpx; }
+.cell-label { color: $color-text-secondary; font-size: 19rpx; }
+.cell-value { overflow-wrap: anywhere; color: $color-text; font-size: 22rpx; font-weight: 600; }
+.row-details { flex-wrap: wrap; justify-content: flex-start; }
+.quality-tag { margin-left: auto; color: $color-text-secondary; font-size: 20rpx; }
+.quality-valid { color: $color-primary; }
+.quality-invalid, .quality-issues { color: $color-red; }
+.quality-issues { font-size: 20rpx; }
 .load-more {
   margin-top: 20rpx;
   text-align: center;
