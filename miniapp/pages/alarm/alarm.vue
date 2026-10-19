@@ -30,14 +30,16 @@
             </view>
             <view class="rule-actions">
               <button class="btn-secondary small-button" :disabled="busyIds.has(rule.id)" @tap="toggleRule(rule)">{{ rule.enabled ? '停用' : '启用' }}</button>
+              <button class="btn-secondary small-button" :disabled="busyIds.has(rule.id) || saving" @tap="openEdit(rule)">编辑</button>
               <button class="btn-danger small-button" :disabled="busyIds.has(rule.id)" @tap="confirmDelete(rule)">删除</button>
             </view>
           </view>
         </view>
         <EmptyState v-else text="暂无报警规则" />
-        <button class="btn-primary action-button" :disabled="saving" @tap="formVisible = !formVisible">{{ formVisible ? '收起新增规则' : '新增报警规则' }}</button>
+        <button class="btn-primary action-button" :disabled="saving" @tap="formVisible ? closeForm() : openCreate()">{{ formVisible ? '收起规则表单' : '新增报警规则' }}</button>
 
         <view v-if="formVisible" class="rule-form">
+          <text class="form-title">{{ editingId ? '编辑报警规则' : '新增报警规则' }}</text>
           <text class="field-label">监控指标</text>
           <picker :range="metricOptions" range-key="label" :value="metricIndex" @change="selectMetric">
             <view class="picker-field">{{ metricOptions[metricIndex].label }}　›</view>
@@ -54,7 +56,14 @@
           </picker>
           <text class="field-label">冷却时间（秒，0–86400）</text>
           <input class="text-field" type="number" v-model="cooldown" placeholder="默认 300 秒" />
-          <button class="btn-primary action-button" :disabled="saving" @tap="createRule">{{ saving ? '正在保存…' : '保存规则' }}</button>
+          <view class="field-switch" @tap="ruleEnabled = !ruleEnabled">
+            <text class="field-label">规则状态</text>
+            <text :class="ruleEnabled ? 'is-enabled' : 'is-disabled'">{{ ruleEnabled ? '已启用' : '已停用' }}　›</text>
+          </view>
+          <view class="form-actions">
+            <button class="btn-secondary action-button" :disabled="saving" @tap="closeForm">取消</button>
+            <button class="btn-primary action-button" :disabled="saving" @tap="saveRule">{{ saving ? '正在保存…' : '保存规则' }}</button>
+          </view>
         </view>
       </view>
 
@@ -96,16 +105,25 @@ const loaded = ref(false)
 const saving = ref(false)
 const error = ref('')
 const formVisible = ref(false)
+const editingId = ref(null)
 const busyIds = ref(new Set())
 const metricOptions = [{ value: 'temperature', label: '温度' }, { value: 'humidity', label: '湿度' }, { value: 'water', label: '水位 ADC' }]
 const operatorOptions = [{ value: 'gt', label: '高于（>）' }, { value: 'lt', label: '低于（<）' }, { value: 'eq', label: '接近（≈）' }]
 const metricIndex = ref(0)
 const operatorIndex = ref(0)
-const deviceIndex = ref(0)
+const selectedDeviceId = ref('*')
 const threshold = ref('')
 const cooldown = ref('300')
+const ruleEnabled = ref(true)
 const selectedMetric = computed(() => metricOptions[metricIndex.value].value)
-const deviceOptions = computed(() => [{ id: '*', label: '全部设备' }, ...live.devices.map((device) => ({ id: String(device.id), label: device.name + '（' + device.id + '）' }))])
+const deviceOptions = computed(() => {
+  const devices = [{ id: '*', label: '全部设备' }, ...live.devices.map((device) => ({ id: String(device.id), label: device.name + '（' + device.id + '）' }))]
+  if (selectedDeviceId.value !== '*' && !devices.some((device) => device.id === selectedDeviceId.value)) {
+    devices.push({ id: selectedDeviceId.value, label: '设备 ' + selectedDeviceId.value + '（当前规则）' })
+  }
+  return devices
+})
+const deviceIndex = computed(() => Math.max(0, deviceOptions.value.findIndex((device) => device.id === selectedDeviceId.value)))
 
 // 页面显示时刷新设备选项和当前账号的报警数据。
 onShow(() => { refreshLive(); loadData() })
@@ -192,10 +210,41 @@ function selectMetric(event) { metricIndex.value = Number(event.detail.value) }
 function selectOperator(event) { operatorIndex.value = Number(event.detail.value) }
 
 // 记录用户选择的适用设备。
-function selectDevice(event) { deviceIndex.value = Number(event.detail.value) }
+function selectDevice(event) { selectedDeviceId.value = deviceOptions.value[Number(event.detail.value)]?.id || '*' }
 
-// 校验表单并创建一条启用状态的真实报警规则。
-async function createRule() {
+// 重置表单并进入新增模式。
+function openCreate() {
+  editingId.value = null
+  metricIndex.value = 0
+  operatorIndex.value = 0
+  selectedDeviceId.value = '*'
+  threshold.value = ''
+  cooldown.value = '300'
+  ruleEnabled.value = true
+  formVisible.value = true
+}
+
+// 将已有规则完整回填到表单，进入编辑模式。
+function openEdit(rule) {
+  editingId.value = rule.id
+  metricIndex.value = Math.max(0, metricOptions.findIndex((item) => item.value === rule.metric))
+  operatorIndex.value = Math.max(0, operatorOptions.findIndex((item) => item.value === rule.operator))
+  selectedDeviceId.value = String(rule.deviceId || '*')
+  threshold.value = String(rule.threshold)
+  cooldown.value = String(rule.cooldownSeconds ?? 300)
+  ruleEnabled.value = Boolean(rule.enabled)
+  formVisible.value = true
+}
+
+// 关闭表单并清除编辑目标，避免下次新增误更新旧规则。
+function closeForm() {
+  formVisible.value = false
+  editingId.value = null
+}
+
+// 校验表单并通过真实接口创建或更新报警规则。
+async function saveRule() {
+  if (threshold.value.trim() === '') return uni.showToast({ title: '请输入有效阈值', icon: 'none' })
   const value = Number(threshold.value)
   const cooldownValue = cooldown.value === '' ? 300 : Number(cooldown.value)
   if (!Number.isFinite(value)) return uni.showToast({ title: '请输入有效阈值', icon: 'none' })
@@ -205,16 +254,22 @@ async function createRule() {
   if (selectedMetric.value === 'water' && value < 0) return uni.showToast({ title: '水位 ADC 阈值不能为负数', icon: 'none' })
   saving.value = true
   try {
-    const created = await request('/api/alarm/rules', {
-      method: 'POST',
-      data: { metric: selectedMetric.value, operator: operatorOptions[operatorIndex.value].value, threshold: value, enabled: true, deviceId: deviceOptions.value[deviceIndex.value]?.id || '*', cooldownSeconds: cooldownValue }
+    const isEditing = editingId.value !== null
+    const path = isEditing ? '/api/alarm/rules/' + editingId.value : '/api/alarm/rules'
+    const saved = await request(path, {
+      method: isEditing ? 'PUT' : 'POST',
+      data: { metric: selectedMetric.value, operator: operatorOptions[operatorIndex.value].value, threshold: value, enabled: ruleEnabled.value, deviceId: selectedDeviceId.value, cooldownSeconds: cooldownValue }
     })
-    rules.value.unshift(created)
-    threshold.value = ''
-    formVisible.value = false
-    uni.showToast({ title: '规则已创建', icon: 'success' })
+    if (isEditing) {
+      const index = rules.value.findIndex((rule) => rule.id === editingId.value)
+      if (index >= 0) rules.value[index] = saved
+    } else {
+      rules.value.unshift(saved)
+    }
+    closeForm()
+    uni.showToast({ title: isEditing ? '规则已更新' : '规则已创建', icon: 'success' })
   } catch (err) {
-    if (!err?.stale) uni.showToast({ title: err.message || '规则创建失败', icon: 'none' })
+    if (!err?.stale) uni.showToast({ title: err.message || '规则保存失败', icon: 'none' })
   } finally {
     saving.value = false
   }
@@ -240,7 +295,12 @@ function goLogin() { uni.navigateTo({ url: '/pages/login/login' }) }
 .small-button { min-width: 116rpx; height: 60rpx; line-height: 60rpx; margin: 0; padding: 0 18rpx; font-size: 23rpx; }
 .action-button { width: 100%; margin: 22rpx 0 0; }
 .rule-form { margin-top: 24rpx; padding-top: 22rpx; border-top: 1rpx solid $color-border; }
+.form-title { color: $color-text; font-size: 28rpx; font-weight: 600; }
 .field-label { display: block; margin: 18rpx 0 10rpx; color: $color-text-secondary; font-size: 24rpx; }
+.field-switch { display: flex; align-items: center; justify-content: space-between; margin-top: 20rpx; }
+.field-switch .field-label { margin: 0; }
+.form-actions { display: flex; gap: 16rpx; }
+.form-actions .action-button { flex: 1; width: auto; }
 .picker-field, .text-field { box-sizing: border-box; width: 100%; min-height: 76rpx; padding: 18rpx 20rpx; border: 1rpx solid $color-border; border-radius: $radius-card; color: $color-text; font-size: 26rpx; background: #fff; }
 .text-field { height: 76rpx; }
 .record-reading { display: block; margin: 12rpx 0 8rpx; color: $color-text; font-size: 25rpx; }
