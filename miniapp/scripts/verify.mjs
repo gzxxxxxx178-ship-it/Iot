@@ -131,7 +131,7 @@ if (manifestJson) {
 console.log('=== 3. pages 路由 ===')
 const pageSet = new Set()
 if (pagesJson && Array.isArray(pagesJson.pages)) {
-  check(pagesJson.pages.length === 14, '页面总数为 14（实际 ' + pagesJson.pages.length + '）')
+  check(pagesJson.pages.length === 15, '页面总数为 15（实际 ' + pagesJson.pages.length + '）')
   for (const p of pagesJson.pages) {
     const path = p.path
     if (pageSet.has(path)) {

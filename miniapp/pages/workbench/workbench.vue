@@ -21,6 +21,7 @@ const entries = [
   { title: '自动化规则', url: '/pages/automation/automation', status: '部分迁移', kind: 'partial' },
   { title: 'AI 助手', url: '/pages/chat/chat', status: '已接入', kind: 'ready' },
   { title: '支付', url: '/pages/pay/pay', status: '已接入（沙箱）', kind: 'ready' },
+  { title: '数据大屏', url: '/pages/screen/screen', status: '部分迁移', kind: 'partial' },
   { title: '数据看板', url: '/pages/dashboard/dashboard', status: '部分迁移', kind: 'partial' },
   { title: '仿真验证', url: '/pages/simulation/simulation', status: '已接入', kind: 'ready' },
   { title: '研究工作台', url: '/pages/research/research', status: '已接入', kind: 'ready' }

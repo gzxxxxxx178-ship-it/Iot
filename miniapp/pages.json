@@ -55,6 +55,10 @@
     {
       "path": "pages/research/research",
       "style": { "navigationBarTitleText": "研究工作台" }
+    },
+    {
+      "path": "pages/screen/screen",
+      "style": { "navigationBarTitleText": "数据大屏", "navigationStyle": "custom" }
     }
   ],
   "tabBar": {
