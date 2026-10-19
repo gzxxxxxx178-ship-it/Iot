@@ -97,6 +97,13 @@ export async function queryHistory({ deviceId, start, end, page, size = 20 }) {
   return { ...result, content: result.content.map(mapHistory) }
 }
 
+// 读取后端最近20条账号可访问的历史记录，供总览指标和短趋势使用。
+export async function queryRecentHistory() {
+  const result = await request('/esp/history')
+  if (!Array.isArray(result)) throw new Error('最近历史记录响应无效')
+  return result.map(mapHistory)
+}
+
 // 按当前设备和冻结的历史时间范围下载服务端生成的完整CSV。
 export function downloadHistoryCsv({ deviceId, start, end }) {
   return downloadAuthenticatedFile('/esp/history/export', {

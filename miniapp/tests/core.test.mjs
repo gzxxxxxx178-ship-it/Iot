@@ -45,7 +45,7 @@ async function setup(initialSettings = '') {
     const module = new vm.SourceTextModule(source, { context, identifier: path })
     modules.set(path, module); return module
   }
-  const entry = new vm.SourceTextModule("export * as api from './api/request.js'; export * as auth from './utils/session.js'; export * as store from './utils/live-store.js'; export * as config from './config/index.js'; export * as history from './utils/history-store.js'; export * as realtime from './utils/realtime.js'", { context, identifier: root + '/entry.js' })
+  const entry = new vm.SourceTextModule("export * as api from './api/request.js'; export * as auth from './utils/session.js'; export * as store from './utils/live-store.js'; export * as config from './config/index.js'; export * as history from './utils/history-store.js'; export * as realtime from './utils/realtime.js'; export * as trends from './utils/trend.js'", { context, identifier: root + '/entry.js' })
   await entry.link((specifier, ref) => moduleFor(specifier === 'vue' ? 'vue' : resolve(dirname(ref.identifier), specifier)))
   await entry.evaluate()
   const env = { ...entry.namespace, pending, pendingDownloads, saved, sockets, timers }
@@ -185,6 +185,23 @@ test('历史分页冻结时间、筛选时忽略旧页、失败可重试且不�
   assert.equal(e.history.history.rows.length, 2)
   await e.history.loadHistory(); assert.equal(e.pending.length, 0)
   e.auth.clearSession(); assert.equal(e.history.history.rows.length, 0)
+})
+
+test('看板近期数据使用真实鉴权接口并生成按时间递增的分组趋势', async () => {
+  const e = await setup(); e.signIn()
+  const recent = e.store.queryRecentHistory()
+  assert.equal(e.pending[0].url, 'http://localhost:8080/esp/history')
+  assert.equal(e.pending[0].header.Authorization, 'Bearer a-token')
+  e.reply(e.pending.shift(), [
+    { id: 3, temperature: 22, humidity: null, serverReceivedTime: '2026-10-19T12:02:00' },
+    { id: 2, temperature: 20, humidity: 40, serverReceivedTime: '2026-10-19T12:01:00' },
+    { id: 1, temperature: 18, humidity: 30, serverReceivedTime: '2026-10-19T12:00:00' }
+  ])
+  const rows = await recent
+  const trend = e.trends.buildTrend(rows, 'temp', (time) => String(time))
+  assert.deepEqual(trend.map((point) => point.value), [18, 20, 22])
+  assert.deepEqual(trend.map((point) => point.label), rows.slice().reverse().map((row) => String(row.time)))
+  assert.equal(e.trends.buildTrend([{ time: 1, temp: null }], 'temp', String).length, 0)
 })
 
 test('查询参数安全编码并可用于GET和DELETE接口', async () => {

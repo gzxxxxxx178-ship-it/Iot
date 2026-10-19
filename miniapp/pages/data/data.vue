@@ -85,6 +85,7 @@ import PageHeader from '../../components/PageHeader.vue'
 import EmptyState from '../../components/EmptyState.vue'
 import BarTrend from '../../components/BarTrend.vue'
 import { formatDateTime } from '../../utils/format.js'
+import { buildTrend } from '../../utils/trend.js'
 
 // 提供当前账号的设备筛选选项。
 const deviceOptions = computed(() => [{ id: '', label: '全部设备' }, ...live.devices.map((d) => ({ id: d.id, label: d.name }))])
@@ -146,30 +147,11 @@ function shareCsvFile(filePath, fileName) {
 // 当前页可见数据点
 const visibleList = computed(() => history.rows)
 
-// 将已加载记录按时间顺序分为最多8组，分别计算温度或湿度均值。
-function buildTrend(field) {
-  const points = history.rows
-    .filter((row) => row[field] !== null && row[field] !== undefined && row[field] !== ''
-      && Number.isFinite(Number(row[field])) && row.time)
-    .slice()
-    .reverse()
-  if (!points.length) return []
-  const groupCount = Math.min(8, points.length)
-  return Array.from({ length: groupCount }, (_, index) => {
-    const start = Math.floor(index * points.length / groupCount)
-    const end = Math.floor((index + 1) * points.length / groupCount)
-    const group = points.slice(start, end)
-    const average = group.reduce((sum, row) => sum + Number(row[field]), 0) / group.length
-    const middleTime = group[Math.floor(group.length / 2)].time
-    return { label: formatDateTime(middleTime).slice(5, 16), value: Math.round(average * 10) / 10 }
-  })
-}
-
 // 根据当前已加载的真实记录生成温度趋势。
-const temperatureTrend = computed(() => buildTrend('temp'))
+const temperatureTrend = computed(() => buildTrend(history.rows, 'temp', (time) => formatDateTime(time).slice(5, 16)))
 
 // 根据当前已加载的真实记录生成湿度趋势。
-const humidityTrend = computed(() => buildTrend('hum'))
+const humidityTrend = computed(() => buildTrend(history.rows, 'hum', (time) => formatDateTime(time).slice(5, 16)))
 
 // 是否还有更多数据可加载
 const hasMore = computed(() => history.page + 1 < history.totalPages)
