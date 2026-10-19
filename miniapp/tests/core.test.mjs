@@ -4,6 +4,7 @@ import vm from 'node:vm'
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { createQrMatrix } from '../utils/qr-code.js'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const flushAsync = () => new Promise((resolve) => setImmediate(resolve))
@@ -45,7 +46,7 @@ async function setup(initialSettings = '') {
     const module = new vm.SourceTextModule(source, { context, identifier: path })
     modules.set(path, module); return module
   }
-  const entry = new vm.SourceTextModule("export * as api from './api/request.js'; export * as auth from './utils/session.js'; export * as store from './utils/live-store.js'; export * as config from './config/index.js'; export * as history from './utils/history-store.js'; export * as realtime from './utils/realtime.js'; export * as trends from './utils/trend.js'; export * as research from './utils/research-store.js'; export * as simulation from './utils/simulation-store.js'", { context, identifier: root + '/entry.js' })
+  const entry = new vm.SourceTextModule("export * as api from './api/request.js'; export * as auth from './utils/session.js'; export * as store from './utils/live-store.js'; export * as config from './config/index.js'; export * as history from './utils/history-store.js'; export * as realtime from './utils/realtime.js'; export * as trends from './utils/trend.js'; export * as research from './utils/research-store.js'; export * as simulation from './utils/simulation-store.js'; export * as pay from './utils/pay-store.js'", { context, identifier: root + '/entry.js' })
   await entry.link((specifier, ref) => moduleFor(specifier === 'vue' ? 'vue' : resolve(dirname(ref.identifier), specifier)))
   await entry.evaluate()
   const env = { ...entry.namespace, pending, requestLog, pendingDownloads, saved, sockets, timers }
@@ -242,6 +243,22 @@ test('仿真工作台只访问仿真API并覆盖数据、规则、报警及命�
   const commands = e.simulation.listPendingSimulationCommands('SIM-PADDY-001'); assert.equal(e.pending[0].url, 'http://localhost:8080/api/simulation/commands/pending?deviceId=SIM-PADDY-001'); e.reply(e.pending.shift(), []); await commands
   assert.equal(e.requestLog.every((request) => request.url.includes('/api/simulation/')), true)
   assert.equal(e.requestLog.some((request) => request.url.includes('/api/device/control') || request.url.includes('/feedback')), false)
+})
+
+test('支付页只创建当前账号沙箱订单并查询订单状态，二维码矩阵可绘制', async () => {
+  const e = await setup(); e.signIn()
+  const created = e.pay.createPaymentOrder('0.01', '本地沙箱测试')
+  assert.equal(e.pending[0].url, 'http://localhost:8080/api/alipay/create')
+  assert.equal(e.pending[0].method, 'POST')
+  assert.equal(e.pending[0].header.Authorization, 'Bearer a-token')
+  assert.equal(e.pending[0].data.amount, '0.01')
+  e.reply(e.pending.shift(), { outTradeNo: 'PAY123', qrCode: 'https://qr.alipay.com/sandbox-order' }); assert.equal((await created).outTradeNo, 'PAY123')
+  const queried = e.pay.queryPaymentOrder('PAY123')
+  assert.equal(e.pending[0].url, 'http://localhost:8080/api/alipay/query?outTradeNo=PAY123')
+  e.reply(e.pending.shift(), { status: 'SUCCESS', tradeNo: 'trade-1', amount: '0.01' }); assert.equal((await queried).tradeNo, 'trade-1')
+  const matrix = createQrMatrix('https://qr.alipay.com/sandbox-order')
+  assert.ok(matrix.size > 20); assert.equal(matrix.data.length, matrix.size * matrix.size)
+  assert.ok(matrix.data.every((module) => module === 0 || module === 1))
 })
 
 test('查询参数安全编码并可用于GET和DELETE接口', async () => {

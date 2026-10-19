@@ -117,7 +117,7 @@ ESP8266 ──MQTT TLS──▶ 私有 Broker ──订阅──▶ Java ──J
 | 实时监控 | WebSocket 推送实时数据，前端图表动态更新 | `SensorWebSocketHandler`, `Monitor.vue` |
 | 设备管理 | 设备档案注册、编辑、启停、归档/恢复、状态展示和远程控制 | `DeviceController`, `DeviceService`, `DeviceList.vue` |
 | 历史数据 | 设备/时间组合查询、异常质量标记、保留策略和全量 CSV 导出 | `SensorHistoryService`, `SensorDataRetentionService`, `History.vue` |
-| 微信小程序 | uni-app Vue 3 客户端，通过账号注册/登录及鉴权 REST API 查看设备、实时监控、历史趋势与CSV、报警、自动化、AI对话、研究实验与RAG证据问答、仿真验证、数据看板；Web 功能迁移边界见专项台账 | `miniapp/`, `docs/miniapp-local-development.md` |
+| 微信小程序 | uni-app Vue 3 客户端，通过账号注册/登录及鉴权 REST API 查看设备、实时监控、历史趋势与CSV、报警、自动化、AI对话、研究实验与RAG证据问答、仿真验证、支付沙箱、数据看板；Web 功能迁移边界见专项台账 | `miniapp/`, `docs/miniapp-local-development.md` |
 | 数据大屏 | 全屏实时仪表盘，适合展示大屏 | `Screen.vue` |
 | 报警管理 | 报警规则 CRUD + 报警记录查看 | `Alarm.vue` |
 | 自动化规则 | 持久化条件引擎，支持防抖、冷却、停用和执行审计 | `AutomationService`, `Automation.vue` |
