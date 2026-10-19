@@ -34,6 +34,16 @@
       </view>
     </view>
 
+    <!-- 按已加载的历史记录分桶计算趋势，避免把当前页误报为完整时间范围。 -->
+    <view v-if="session.token && visibleList.length" class="card trend-card">
+      <text class="section-title">已加载记录趋势</text>
+      <text class="hint">基于当前已加载的 {{ visibleList.length }} 条记录；加载更多后趋势会扩展。</text>
+      <text class="trend-title">温度（℃）</text>
+      <BarTrend :items="temperatureTrend" color="#1F6B4F" :max-bar-height="150" />
+      <text class="trend-title">湿度（%）</text>
+      <BarTrend :items="humidityTrend" color="#3484A8" :max-bar-height="150" />
+    </view>
+
     <!-- 数据列表（分页/加载更多） -->
     <view v-if="session.token && visibleList.length" class="card table-card">
       <view class="table-head">
@@ -71,6 +81,7 @@ import { live, refreshLive, formatReading } from '../../utils/live-store.js'
 import { history, reloadHistory, loadHistory } from '../../utils/history-store.js'
 import PageHeader from '../../components/PageHeader.vue'
 import EmptyState from '../../components/EmptyState.vue'
+import BarTrend from '../../components/BarTrend.vue'
 import { formatDateTime } from '../../utils/format.js'
 
 // 提供当前账号的设备筛选选项。
@@ -103,6 +114,31 @@ const range = ref('day')
 // 当前页可见数据点
 const visibleList = computed(() => history.rows)
 
+// 将已加载记录按时间顺序分为最多8组，分别计算温度或湿度均值。
+function buildTrend(field) {
+  const points = history.rows
+    .filter((row) => row[field] !== null && row[field] !== undefined && row[field] !== ''
+      && Number.isFinite(Number(row[field])) && row.time)
+    .slice()
+    .reverse()
+  if (!points.length) return []
+  const groupCount = Math.min(8, points.length)
+  return Array.from({ length: groupCount }, (_, index) => {
+    const start = Math.floor(index * points.length / groupCount)
+    const end = Math.floor((index + 1) * points.length / groupCount)
+    const group = points.slice(start, end)
+    const average = group.reduce((sum, row) => sum + Number(row[field]), 0) / group.length
+    const middleTime = group[Math.floor(group.length / 2)].time
+    return { label: formatDateTime(middleTime).slice(5, 16), value: Math.round(average * 10) / 10 }
+  })
+}
+
+// 根据当前已加载的真实记录生成温度趋势。
+const temperatureTrend = computed(() => buildTrend('temp'))
+
+// 根据当前已加载的真实记录生成湿度趋势。
+const humidityTrend = computed(() => buildTrend('hum'))
+
 // 是否还有更多数据可加载
 const hasMore = computed(() => history.page + 1 < history.totalPages)
 
@@ -128,6 +164,9 @@ function loadMore() {
 .error-text { display: block; margin-top: 8rpx; color: $color-red; font-size: 24rpx; overflow-wrap: anywhere; }
 .history-actions { display: flex; flex-direction: column; gap: 12rpx; margin-top: 16rpx; }
 .history-actions button { margin: 0; }
+.trend-card { overflow: hidden; }
+.trend-card .hint { display: block; margin-top: -4rpx; }
+.trend-title { display: block; margin: 24rpx 0 4rpx; color: $color-text-secondary; font-size: 24rpx; }
 .export-note { margin: 0 $space-page $space-page; padding: 4rpx 8rpx; color: $color-text-light; font-size: 22rpx; text-align: center; }
 .page {
   padding-bottom: 40rpx;
