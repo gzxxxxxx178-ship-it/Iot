@@ -45,7 +45,7 @@ async function setup(initialSettings = '') {
     const module = new vm.SourceTextModule(source, { context, identifier: path })
     modules.set(path, module); return module
   }
-  const entry = new vm.SourceTextModule("export * as api from './api/request.js'; export * as auth from './utils/session.js'; export * as store from './utils/live-store.js'; export * as config from './config/index.js'; export * as history from './utils/history-store.js'; export * as realtime from './utils/realtime.js'; export * as trends from './utils/trend.js'; export * as research from './utils/research-store.js'", { context, identifier: root + '/entry.js' })
+  const entry = new vm.SourceTextModule("export * as api from './api/request.js'; export * as auth from './utils/session.js'; export * as store from './utils/live-store.js'; export * as config from './config/index.js'; export * as history from './utils/history-store.js'; export * as realtime from './utils/realtime.js'; export * as trends from './utils/trend.js'; export * as research from './utils/research-store.js'; export * as simulation from './utils/simulation-store.js'", { context, identifier: root + '/entry.js' })
   await entry.link((specifier, ref) => moduleFor(specifier === 'vue' ? 'vue' : resolve(dirname(ref.identifier), specifier)))
   await entry.evaluate()
   const env = { ...entry.namespace, pending, pendingDownloads, saved, sockets, timers }
@@ -221,6 +221,26 @@ test('研究工作台读取概览、运行详情并以认证请求执行RAG证�
   assert.equal(e.pending[0].data.question, '灌溉阈值怎么确定？')
   assert.equal(e.pending[0].data.topK, 5)
   e.reply(e.pending.shift(), { abstained: true, answer: '证据不足' }); assert.equal((await rag).abstained, true)
+})
+
+test('仿真工作台只访问仿真API并覆盖数据、规则、报警及命令查询', async () => {
+  const e = await setup(); e.signIn()
+  const latest = e.simulation.getLatestSimulationTelemetry('SIM-PADDY-001')
+  assert.equal(e.pending[0].url, 'http://localhost:8080/api/simulation/telemetry/latest?deviceId=SIM-PADDY-001')
+  assert.equal(e.pending[0].header.Authorization, 'Bearer a-token')
+  e.reply(e.pending.shift(), { sourceType: 'SIMULATION', waterLevelMm: 0 }); assert.equal((await latest).waterLevelMm, 0)
+  const history = e.simulation.getSimulationTelemetryHistory('SIM-PADDY-001', 100)
+  assert.equal(e.pending[0].url, 'http://localhost:8080/api/simulation/telemetry/history?deviceId=SIM-PADDY-001&limit=100')
+  e.reply(e.pending.shift(), [{ sampleId: 'one' }]); assert.equal((await history)[0].sampleId, 'one')
+  const rules = e.simulation.listSimulationRules(); assert.equal(e.pending[0].url, 'http://localhost:8080/api/simulation/rules'); e.reply(e.pending.shift(), []); await rules
+  const payload = { name: 'water', deviceId: '*', metric: 'waterLevelMm', operator: 'gt', threshold: 200, recoveryThreshold: 180, debounceCount: 2, severity: 'WARN', action: 'NOTIFY', enabled: true }
+  const created = e.simulation.createSimulationRule(payload); assert.equal(e.pending[0].method, 'POST'); assert.equal(e.pending[0].data.recoveryThreshold, 180); e.reply(e.pending.shift(), { id: 8 }); await created
+  const updated = e.simulation.updateSimulationRule('8/9', { ...payload, enabled: false }); assert.equal(e.pending[0].url, 'http://localhost:8080/api/simulation/rules/8%2F9'); assert.equal(e.pending[0].method, 'PUT'); e.reply(e.pending.shift(), { id: '8/9', enabled: false }); await updated
+  const deleted = e.simulation.deleteSimulationRule(8); assert.equal(e.pending[0].method, 'DELETE'); e.reply(e.pending.shift(), null); await deleted
+  const alarms = e.simulation.listSimulationAlarms('SIM-PADDY-001'); assert.equal(e.pending[0].url, 'http://localhost:8080/api/simulation/alarms?deviceId=SIM-PADDY-001'); e.reply(e.pending.shift(), []); await alarms
+  const acknowledged = e.simulation.acknowledgeSimulationAlarm(3); assert.equal(e.pending[0].url, 'http://localhost:8080/api/simulation/alarms/3/acknowledge'); assert.equal(e.pending[0].method, 'POST'); e.reply(e.pending.shift(), { id: 3, status: 'ACKNOWLEDGED' }); await acknowledged
+  const commands = e.simulation.listPendingSimulationCommands('SIM-PADDY-001'); assert.equal(e.pending[0].url, 'http://localhost:8080/api/simulation/commands/pending?deviceId=SIM-PADDY-001'); e.reply(e.pending.shift(), []); await commands
+  assert.equal(e.pending.some((request) => request.url.includes('/api/device/control') || request.url.includes('/feedback')), false)
 })
 
 test('查询参数安全编码并可用于GET和DELETE接口', async () => {
