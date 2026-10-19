@@ -98,6 +98,7 @@ const requiredFiles = [
   'uni.scss',
   'config/index.js',
   'utils/live-store.js',
+  'utils/realtime.js',
   'utils/session.js'
 ]
 for (const f of requiredFiles) {
@@ -130,7 +131,7 @@ if (manifestJson) {
 console.log('=== 3. pages 路由 ===')
 const pageSet = new Set()
 if (pagesJson && Array.isArray(pagesJson.pages)) {
-  check(pagesJson.pages.length === 13, '页面总数为 13（实际 ' + pagesJson.pages.length + '）')
+  check(pagesJson.pages.length === 14, '页面总数为 14（实际 ' + pagesJson.pages.length + '）')
   for (const p of pagesJson.pages) {
     const path = p.path
     if (pageSet.has(path)) {

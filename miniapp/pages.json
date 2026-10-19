@@ -45,6 +45,10 @@
       "style": { "navigationBarTitleText": "数据看板" }
     },
     {
+      "path": "pages/monitor/monitor",
+      "style": { "navigationBarTitleText": "实时监控" }
+    },
+    {
       "path": "pages/simulation/simulation",
       "style": { "navigationBarTitleText": "仿真验证" }
     },

@@ -23,8 +23,8 @@ export function parseServerTime(value) {
   return parts ? new Date(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3]), Number(parts[4]), Number(parts[5]), Number(parts[6])).getTime() : null
 }
 
-// 映射历史字段，时间使用服务端接收时间。
-export function mapHistory(row) { return { id: row.id, deviceId: row.deviceId, time: parseServerTime(row.serverReceivedTime), temp: reading(row.temperature), hum: reading(row.humidity), water: reading(row.water) } }
+// 映射历史字段，时间使用服务端接收时间并保留实时监控所需指标。
+export function mapHistory(row) { return { id: row.id, deviceId: row.deviceId, time: parseServerTime(row.serverReceivedTime), temp: reading(row.temperature), hum: reading(row.humidity), water: reading(row.water), rssi: reading(row.rssi), linkage: typeof row.linkage === 'boolean' ? row.linkage : null, sendCount: reading(row.sendCount) } }
 
 // 格式化后端要求的本地日期时间，不附带 UTC 标记。
 export function localDateTime(time) {

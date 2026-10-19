@@ -6,17 +6,34 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const flushAsync = () => new Promise((resolve) => setImmediate(resolve))
 
 // 用隔离模块和平台替身测试真实业务逻辑，不请求网络和硬件。
 async function setup(initialSettings = '') {
-  const pending = []; const saved = []
-  const context = vm.createContext({ Date, Set, Number, String, Object, Array, Promise, Error, uni: {
+  const pending = []; const saved = []; const sockets = []; const timers = []
+  const context = vm.createContext({ Date, Set, Number, String, Object, Array, Promise, Error,
+    setTimeout(callback, delay) { const timer = { callback, delay, active: true }; timers.push(timer); return timer },
+    clearTimeout(timer) { if (timer) timer.active = false },
+    uni: {
     // 模拟仅配置持久化。
     getStorageSync() { return initialSettings },
     // 记录落盘内容供认证安全断言。
     setStorageSync(key, value) { saved.push({ key, value }) },
     // 收集平台请求供测试控制返回顺序。
-    request(options) { pending.push(options) }
+    request(options) { pending.push(options) },
+    // 模拟微信 SocketTask 并允许测试触发连接事件。
+    connectSocket(options) {
+      const handlers = {}
+      const task = { options, handlers, closed: false,
+        onOpen(callback) { handlers.open = callback },
+        onMessage(callback) { handlers.message = callback },
+        onError(callback) { handlers.error = callback },
+        onClose(callback) { handlers.close = callback },
+        close() { task.closed = true }
+      }
+      sockets.push(task)
+      return task
+    }
   } })
   const modules = new Map()
   // 在同一个隔离上下文中加载并缓存业务模块。
@@ -26,10 +43,10 @@ async function setup(initialSettings = '') {
     const module = new vm.SourceTextModule(source, { context, identifier: path })
     modules.set(path, module); return module
   }
-  const entry = new vm.SourceTextModule("export * as api from './api/request.js'; export * as auth from './utils/session.js'; export * as store from './utils/live-store.js'; export * as config from './config/index.js'; export * as history from './utils/history-store.js'", { context, identifier: root + '/entry.js' })
+  const entry = new vm.SourceTextModule("export * as api from './api/request.js'; export * as auth from './utils/session.js'; export * as store from './utils/live-store.js'; export * as config from './config/index.js'; export * as history from './utils/history-store.js'; export * as realtime from './utils/realtime.js'", { context, identifier: root + '/entry.js' })
   await entry.link((specifier, ref) => moduleFor(specifier === 'vue' ? 'vue' : resolve(dirname(ref.identifier), specifier)))
   await entry.evaluate()
-  const env = { ...entry.namespace, pending, saved }
+  const env = { ...entry.namespace, pending, saved, sockets, timers }
   env.initialConfig = { ...env.config.APP_CONFIG }
   env.store.configure('live', 'http://localhost:8080')
   // 构造一个当前会话认证状态。
@@ -127,8 +144,9 @@ test('历史分页冻结时间、筛选时忽略旧页、失败可重试且不�
   const end = active.data.end
   assert.equal(active.data.page, 0); assert.equal(active.data.deviceId, 'new'); assert.equal(end.includes('Z'), false)
   e.reply(old, { content: [{ id: 99 }], page: 0, totalPages: 1, totalElements: 1 }); await first
-  e.reply(active, { content: [{ id: 1, temperature: 0, humidity: null, water: 650, serverReceivedTime: '2026-10-14T12:00:00' }], page: 0, totalPages: 2, totalElements: 2 }); await next
+  e.reply(active, { content: [{ id: 1, temperature: 0, humidity: null, water: 650, rssi: -62, linkage: false, sendCount: 10, serverReceivedTime: '2026-10-14T12:00:00' }], page: 0, totalPages: 2, totalElements: 2 }); await next
   assert.equal(e.history.history.rows.length, 1); assert.equal(e.history.history.rows[0].temp, 0)
+  assert.equal(e.history.history.rows[0].rssi, -62); assert.equal(e.history.history.rows[0].linkage, false); assert.equal(e.history.history.rows[0].sendCount, 10)
   const more = e.history.loadHistory(); const failed = e.pending.shift()
   assert.equal(failed.data.end, end); assert.equal(failed.data.page, 1)
   failed.fail({ errMsg: 'timeout' }); await more; assert.equal(e.history.history.page, 0)
@@ -168,4 +186,57 @@ test('注册请求不发送旧令牌并拒绝迟到响应覆盖新会话', async
   assert.equal(e.auth.session.username, 'current')
   assert.equal(e.auth.session.token, 'current-token')
   assert.equal(JSON.stringify(e.saved).includes('token'), false)
+})
+
+test('实时连接领取短期票据、接收遥测并在页面停止时关闭', async () => {
+  const e = await setup(); e.signIn()
+  const readings = []; const statuses = []
+  const connection = e.realtime.createRealtimeConnection((item) => readings.push(item), (status, message) => statuses.push({ status, message }))
+  connection.start()
+  assert.equal(e.pending[0].url, 'http://localhost:8080/api/ws/ticket')
+  assert.equal(e.pending[0].method, 'POST')
+  assert.equal(e.pending[0].header.Authorization, 'Bearer a-token')
+  e.reply(e.pending.shift(), { ticket: 'one-time ticket' })
+  await flushAsync()
+  assert.equal(e.sockets.length, 1, JSON.stringify(statuses))
+  assert.equal(e.sockets[0].options.url, 'ws://localhost:8080/ws/sensor?ticket=one-time%20ticket')
+  e.sockets[0].handlers.open()
+  e.sockets[0].handlers.message({ data: JSON.stringify({ deviceId: 'd', temperature: 20 }) })
+  assert.deepEqual(readings.map((item) => item.deviceId), ['d'])
+  assert.equal(statuses.at(-1).status, 'online')
+  connection.stop()
+  assert.equal(e.sockets[0].closed, true)
+  e.sockets[0].handlers.close()
+  assert.equal(e.timers.length, 0)
+})
+
+test('账号切换后丢弃迟到的 WebSocket 票据，不为旧会话建立连接', async () => {
+  const e = await setup(); e.signIn()
+  const connection = e.realtime.createRealtimeConnection(() => {}, () => {})
+  connection.start()
+  const ticketRequest = e.pending.shift()
+  e.auth.clearSession(); e.signIn('b')
+  e.reply(ticketRequest, { ticket: 'stale-ticket' })
+  await flushAsync()
+  assert.equal(e.sockets.length, 0)
+  assert.equal(e.timers.length, 0)
+  connection.stop()
+})
+
+test('实时连接断开后延迟重连并重新领取一次性票据', async () => {
+  const e = await setup(); e.signIn()
+  const connection = e.realtime.createRealtimeConnection(() => {}, () => {})
+  connection.start()
+  e.reply(e.pending.shift(), { ticket: 'first' })
+  await flushAsync()
+  e.sockets[0].handlers.close()
+  const timer = e.timers.at(-1)
+  assert.equal(timer.delay, 5000)
+  timer.callback()
+  assert.equal(e.pending.length, 1)
+  e.reply(e.pending.shift(), { ticket: 'second' })
+  await flushAsync()
+  assert.equal(e.sockets.length, 2)
+  assert.match(e.sockets[1].options.url, /ticket=second$/)
+  connection.stop()
 })

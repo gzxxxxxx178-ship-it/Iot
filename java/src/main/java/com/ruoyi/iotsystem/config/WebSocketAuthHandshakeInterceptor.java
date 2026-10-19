@@ -10,6 +10,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketHandler;
 import org.springframework.web.socket.server.HandshakeInterceptor;
 import org.springframework.web.util.UriComponentsBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.URI;
 import java.util.Arrays;
@@ -21,6 +23,8 @@ import java.util.stream.Collectors;
 
 @Component
 public class WebSocketAuthHandshakeInterceptor implements HandshakeInterceptor {
+
+    private static final Logger logger = LoggerFactory.getLogger(WebSocketAuthHandshakeInterceptor.class);
 
     private final WebSocketTicketService ticketService;
     private final Set<String> allowedOrigins;
@@ -42,6 +46,7 @@ public class WebSocketAuthHandshakeInterceptor implements HandshakeInterceptor {
             Map<String, Object> attributes) {
         String origin = request.getHeaders().getFirst(HttpHeaders.ORIGIN);
         if (!isAllowedOrigin(origin)) {
+            logger.warn("WebSocket握手来源未允许: origin={}, allowed={}", origin, allowedOrigins);
             response.setStatusCode(HttpStatus.FORBIDDEN);
             return false;
         }
