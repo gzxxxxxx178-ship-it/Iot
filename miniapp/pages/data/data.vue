@@ -17,6 +17,9 @@
         <view class="history-actions">
           <button class="btn-secondary" :disabled="history.loading" @tap="refreshHistory">刷新记录</button>
           <button v-if="history.error" class="btn-secondary" :disabled="history.loading" @tap="loadHistory">重试查询</button>
+          <button class="btn-secondary" :disabled="history.loading || exporting" @tap="exportCsv">
+            {{ exporting ? '正在准备 CSV…' : '导出完整 CSV' }}
+          </button>
         </view>
       </template>
     </view>
@@ -65,9 +68,8 @@
     </view>
     <EmptyState v-else-if="session.token && !history.error && !history.loading" text="当前设备和时间范围内没有历史记录" />
 
-    <!-- 未开放的导出能力使用说明文本，不提供无效操作入口。 -->
     <view v-if="session.token" class="export-note">
-      <text>CSV 文件导出暂未开放；你可以在此查看记录并分页浏览。</text>
+      <text>导出当前设备和时间范围内的完整记录，最多 50,000 条；微信会打开文件分享面板。</text>
     </view>
   </view>
 </template>
@@ -77,7 +79,7 @@
 import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { session } from '../../utils/session.js'
-import { live, refreshLive, formatReading } from '../../utils/live-store.js'
+import { live, refreshLive, formatReading, downloadHistoryCsv } from '../../utils/live-store.js'
 import { history, reloadHistory, loadHistory } from '../../utils/history-store.js'
 import PageHeader from '../../components/PageHeader.vue'
 import EmptyState from '../../components/EmptyState.vue'
@@ -110,6 +112,36 @@ const ranges = [
 
 // 当前时间范围
 const range = ref('day')
+const exporting = ref(false)
+
+// 下载当前筛选范围内的完整CSV，并由微信打开文件分享面板。
+async function exportCsv() {
+  if (!session.token || !history.end || exporting.value) return
+  exporting.value = true
+  try {
+    const end = history.end
+    const start = end - history.hours * 3600000
+    const { tempFilePath } = await downloadHistoryCsv({ deviceId: history.deviceId, start, end })
+    const date = formatDateTime(end).slice(0, 10)
+    await shareCsvFile(tempFilePath, `sensor-history-${date}.csv`)
+    uni.showToast({ title: 'CSV 分享面板已打开', icon: 'success' })
+  } catch (error) {
+    const message = error?.errMsg || error?.message || 'CSV 导出失败'
+    uni.showToast({ title: /cancel/i.test(message) ? '已取消分享' : message.slice(0, 20), icon: 'none' })
+  } finally {
+    exporting.value = false
+  }
+}
+
+// 调用微信原生文件分享接口，开发工具不支持时提示改用真机调试。
+function shareCsvFile(filePath, fileName) {
+  if (typeof wx === 'undefined' || typeof wx.shareFileMessage !== 'function') {
+    return Promise.reject(new Error('当前开发工具不支持分享文件，请在真机微信中测试'))
+  }
+  return new Promise((resolve, reject) => {
+    wx.shareFileMessage({ filePath, fileName, success: resolve, fail: reject })
+  })
+}
 
 // 当前页可见数据点
 const visibleList = computed(() => history.rows)

@@ -10,7 +10,7 @@ const flushAsync = () => new Promise((resolve) => setImmediate(resolve))
 
 // 用隔离模块和平台替身测试真实业务逻辑，不请求网络和硬件。
 async function setup(initialSettings = '') {
-  const pending = []; const saved = []; const sockets = []; const timers = []
+  const pending = []; const pendingDownloads = []; const saved = []; const sockets = []; const timers = []
   const context = vm.createContext({ Date, Set, Number, String, Object, Array, Promise, Error,
     setTimeout(callback, delay) { const timer = { callback, delay, active: true }; timers.push(timer); return timer },
     clearTimeout(timer) { if (timer) timer.active = false },
@@ -21,6 +21,8 @@ async function setup(initialSettings = '') {
     setStorageSync(key, value) { saved.push({ key, value }) },
     // 收集平台请求供测试控制返回顺序。
     request(options) { pending.push(options) },
+    // 收集文件下载供测试控制HTTP状态和会话切换。
+    downloadFile(options) { pendingDownloads.push(options) },
     // 模拟微信 SocketTask 并允许测试触发连接事件。
     connectSocket(options) {
       const handlers = {}
@@ -46,13 +48,14 @@ async function setup(initialSettings = '') {
   const entry = new vm.SourceTextModule("export * as api from './api/request.js'; export * as auth from './utils/session.js'; export * as store from './utils/live-store.js'; export * as config from './config/index.js'; export * as history from './utils/history-store.js'; export * as realtime from './utils/realtime.js'", { context, identifier: root + '/entry.js' })
   await entry.link((specifier, ref) => moduleFor(specifier === 'vue' ? 'vue' : resolve(dirname(ref.identifier), specifier)))
   await entry.evaluate()
-  const env = { ...entry.namespace, pending, saved, sockets, timers }
+  const env = { ...entry.namespace, pending, pendingDownloads, saved, sockets, timers }
   env.initialConfig = { ...env.config.APP_CONFIG }
   env.store.configure('live', 'http://localhost:8080')
   // 构造一个当前会话认证状态。
   env.signIn = (name = 'a') => env.auth.acceptSession(env.auth.session.generation, { token: name + '-token', username: name })
   // 通过真实请求回调交付受控响应。
   env.reply = (request, data, status = 200, code = status) => request.success({ statusCode: status, data: { code, data, message: status === 200 ? 'success' : '后端拒绝' } })
+  env.replyDownload = (download, tempFilePath, statusCode = 200) => download.success({ statusCode, tempFilePath })
   return env
 }
 
@@ -164,6 +167,33 @@ test('查询参数安全编码并可用于GET和DELETE接口', async () => {
   const del = e.api.request('/api/chat/history', { method: 'DELETE', params: { sessionId: 'account a&b' } })
   assert.equal(e.pending[0].url, 'http://localhost:8080/api/chat/history?sessionId=account%20a%26b')
   e.reply(e.pending.shift(), { ok: true }); await del
+})
+
+test('完整历史CSV导出沿用当前账号、设备及冻结时间范围', async () => {
+  const e = await setup(); e.signIn()
+  const start = new Date(2026, 9, 18, 10, 0, 0).getTime()
+  const end = new Date(2026, 9, 19, 10, 0, 0).getTime()
+  const downloading = e.store.downloadHistoryCsv({ deviceId: 'device 01', start, end })
+  const request = e.pendingDownloads.shift()
+  assert.equal(request.url, 'http://localhost:8080/esp/history/export?deviceId=device%2001&start=2026-10-18T10%3A00%3A00&end=2026-10-19T10%3A00%3A00')
+  assert.equal(request.header.Authorization, 'Bearer a-token')
+  e.replyDownload(request, 'wxfile://tmp/history.csv')
+  const downloaded = await downloading
+  assert.equal(downloaded.tempFilePath, 'wxfile://tmp/history.csv')
+  assert.equal(downloaded.statusCode, 200)
+
+  const expired = e.api.downloadAuthenticatedFile('/esp/history/export')
+  e.replyDownload(e.pendingDownloads.shift(), '', 401)
+  await assert.rejects(expired, /登录已过期/)
+  assert.equal(e.auth.session.token, '')
+
+  e.signIn('old')
+  const stale = e.api.downloadAuthenticatedFile('/esp/history/export')
+  const oldDownload = e.pendingDownloads.shift()
+  e.auth.clearSession(); e.signIn('current')
+  e.replyDownload(oldDownload, 'wxfile://tmp/old-account.csv')
+  await assert.rejects(stale, error => error.stale)
+  assert.equal(e.auth.session.username, 'current')
 })
 
 test('注册请求不发送旧令牌并拒绝迟到响应覆盖新会话', async () => {

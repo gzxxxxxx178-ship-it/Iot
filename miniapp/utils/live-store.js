@@ -1,5 +1,5 @@
 import { reactive } from 'vue'
-import { request, staleError } from '../api/request.js'
+import { request, downloadAuthenticatedFile, staleError } from '../api/request.js'
 import { session, clearSession, acceptSession, onSessionReset } from './session.js'
 import { APP_CONFIG, saveConfig } from '../config/index.js'
 
@@ -96,6 +96,13 @@ export async function queryHistory({ deviceId, start, end, page, size = 20 }) {
   const result = await request('/esp/history/page', { data: { ...(deviceId ? { deviceId } : {}), start: localDateTime(start), end: localDateTime(end), page, size } })
   if (!result || !Array.isArray(result.content) || !Number.isInteger(result.totalPages) || !Number.isInteger(result.page)) throw new Error('历史分页响应不完整')
   return { ...result, content: result.content.map(mapHistory) }
+}
+
+// 按当前设备和冻结的历史时间范围下载服务端生成的完整CSV。
+export function downloadHistoryCsv({ deviceId, start, end }) {
+  return downloadAuthenticatedFile('/esp/history/export', {
+    params: { ...(deviceId ? { deviceId } : {}), start: localDateTime(start), end: localDateTime(end) }
+  })
 }
 
 // 翻译命令状态，保留下发与设备确认的区别。

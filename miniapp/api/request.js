@@ -42,3 +42,34 @@ export function request(path, { method = 'GET', data, params, anonymous = false 
     })
   })
 }
+
+// 下载仅限当前账号可访问的文件，并沿用统一请求的会话隔离与401处理。
+export function downloadAuthenticatedFile(path, { params, timeout = 60000 } = {}) {
+  if (!/^\/(api|esp)\//.test(path) || path.includes('..') || path.includes('?')) return Promise.reject(new Error('接口路径无效'))
+  if (APP_CONFIG.mode !== 'live' || !APP_CONFIG.apiBaseUrl) return Promise.reject(new Error('请先配置真实后端'))
+  if (!session.token) return Promise.reject(new Error('请先登录账号'))
+  const generation = session.generation
+  const base = APP_CONFIG.apiBaseUrl
+  return new Promise((resolve, reject) => {
+    uni.downloadFile({
+      url: base + path + serializeParams(params),
+      header: { Authorization: 'Bearer ' + session.token },
+      timeout,
+      success(response) {
+        if (generation !== session.generation || base !== APP_CONFIG.apiBaseUrl || APP_CONFIG.mode !== 'live') return reject(staleError())
+        if (response.statusCode === 401) {
+          clearSession()
+          return reject(new Error('登录已过期，请重新登录'))
+        }
+        if (response.statusCode < 200 || response.statusCode >= 300 || !response.tempFilePath) {
+          return reject(new Error('文件下载失败（HTTP ' + response.statusCode + '）'))
+        }
+        resolve({ tempFilePath: response.tempFilePath, statusCode: response.statusCode })
+      },
+      fail(error) {
+        if (generation !== session.generation || base !== APP_CONFIG.apiBaseUrl) return reject(staleError())
+        reject(new Error(error?.errMsg?.includes('timeout') ? '文件下载超时，请缩小查询范围后重试' : '文件下载失败，请检查后端服务和网络'))
+      }
+    })
+  })
+}
