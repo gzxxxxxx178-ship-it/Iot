@@ -14,7 +14,7 @@ export function formatReading(value) { return reading(value) === null ? '--' : S
 
 // 映射设备档案，水位始终保持原始 ADC。
 export function mapDevice(d) {
-  return { id: d.deviceId, name: d.deviceName || d.deviceId, type: d.deviceType || '传感器', status: d.status, enabled: d.enabled, lifecycleStatus: d.lifecycleStatus, ownedByCurrentUser: d.ownedByCurrentUser !== false, temp: reading(d.temperature), hum: reading(d.humidity), water: reading(d.water), signal: reading(d.rssi), controlled: d.linkage === true, lastSeen: d.lastSeen || null }
+  return { id: d.deviceId, name: d.deviceName || d.deviceId, type: d.deviceType || '传感器', location: d.location || '', description: d.description || '', status: d.status, enabled: d.enabled, lifecycleStatus: d.lifecycleStatus, ownedByCurrentUser: d.ownedByCurrentUser !== false, temp: reading(d.temperature), hum: reading(d.humidity), water: reading(d.water), signal: reading(d.rssi), controlled: d.linkage === true, lastSeen: d.lastSeen || null }
 }
 
 // 解析后端本地接收时间，兼容小程序日期解析。
@@ -82,8 +82,7 @@ export async function issueCommand(deviceId, command) {
   const generation = session.generation
   const device = live.devices.find((item) => item.id === deviceId)
   if (!device || device.status !== 'online' || device.enabled === false || device.lifecycleStatus === 'ARCHIVED') throw new Error('该设备当前不可控制')
-  if (!device.ownedByCurrentUser) throw new Error('共享设备仅支持查看，控制操作请联系设备所有者')
-  if (!['start', 'stop'].includes(command)) throw new Error('控制指令无效')
+  if (!['start', 'stop', 'read', 'status'].includes(command)) throw new Error('控制指令无效')
   const receipt = await request('/api/device/control', { method: 'POST', data: { deviceId, command } })
   if (generation !== session.generation) throw staleError()
   if (!receipt?.commandId) throw new Error('命令回执不完整，请刷新确认，勿重复下发')
@@ -103,6 +102,54 @@ export function downloadHistoryCsv({ deviceId, start, end }) {
   return downloadAuthenticatedFile('/esp/history/export', {
     params: { ...(deviceId ? { deviceId } : {}), start: localDateTime(start), end: localDateTime(end) }
   })
+}
+
+// 查询当前账号可管理的设备档案，并按需包含已归档设备。
+export async function listDeviceProfiles(includeArchived = false) {
+  const result = await request('/api/devices', { params: { includeArchived } })
+  if (!Array.isArray(result)) throw new Error('设备档案响应无效')
+  return result.map(mapDevice)
+}
+
+// 注册设备档案，不创建或修改设备的MQTT凭据。
+export async function createDeviceProfile(payload) {
+  const result = await request('/api/devices', { method: 'POST', data: payload })
+  if (!result?.deviceId) throw new Error('设备档案响应不完整')
+  return mapDevice(result)
+}
+
+// 更新指定设备的名称、类型、位置、备注和启用状态。
+export async function updateDeviceProfile(deviceId, payload) {
+  const result = await request('/api/devices/' + encodeURIComponent(deviceId), { method: 'PUT', data: payload })
+  if (!result?.deviceId) throw new Error('设备档案响应不完整')
+  return mapDevice(result)
+}
+
+// 归档设备并保留历史数据。
+export function archiveDeviceProfile(deviceId) {
+  return request('/api/devices/' + encodeURIComponent(deviceId), { method: 'DELETE' })
+}
+
+// 恢复已归档的设备档案。
+export async function restoreDeviceProfile(deviceId) {
+  const result = await request('/api/devices/' + encodeURIComponent(deviceId) + '/restore', { method: 'POST' })
+  if (!result?.deviceId) throw new Error('设备档案响应不完整')
+  return mapDevice(result)
+}
+
+// 查询设备所有者维护的共享账号名单。
+export function listDeviceShares(deviceId) {
+  return request('/api/devices/' + encodeURIComponent(deviceId) + '/shares')
+}
+
+// 向已注册账号授予设备查看、历史查询和控制权限。
+export function addDeviceShare(deviceId, username) {
+  return request('/api/devices/' + encodeURIComponent(deviceId) + '/shares', { method: 'POST', data: { username } })
+}
+
+// 撤销指定账号的设备访问权限。
+export function removeDeviceShare(deviceId, username) {
+  return request('/api/devices/' + encodeURIComponent(deviceId) + '/shares/' + encodeURIComponent(username), { method: 'DELETE' })
 }
 
 // 翻译命令状态，保留下发与设备确认的区别。

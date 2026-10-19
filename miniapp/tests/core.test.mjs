@@ -136,8 +136,36 @@ test('设备DTO保持零值和缺测，控制不乐观改变运行状态', async
   device.status = 'offline'; await assert.rejects(e.store.issueCommand('d', 'start'), /不可控制/)
   const sharedDevice = e.store.mapDevice({ deviceId: 'shared', status: 'online', ownedByCurrentUser: false })
   e.store.live.devices = [sharedDevice]
-  await assert.rejects(e.store.issueCommand('shared', 'start'), /共享设备仅支持查看/)
-  assert.equal(e.pending.length, 0)
+  const sharedControl = e.store.issueCommand('shared', 'read')
+  assert.equal(e.pending[0].data.command, 'read')
+  e.reply(e.pending.shift(), { commandId: 'shared-read', status: 'DISPATCHED' }); await sharedControl
+  await assert.rejects(e.store.issueCommand('shared', 'invalid'), /控制指令无效/)
+})
+
+test('设备档案注册编辑归档恢复和共享名单使用真实鉴权接口', async () => {
+  const e = await setup(); e.signIn()
+  const listing = e.store.listDeviceProfiles(true)
+  assert.equal(e.pending[0].url, 'http://localhost:8080/api/devices?includeArchived=true')
+  e.reply(e.pending.shift(), [{ deviceId: 'device01', deviceName: '棚内节点', deviceType: 'ESP32', location: '东侧', description: '土壤区', enabled: true, lifecycleStatus: 'ACTIVE', ownedByCurrentUser: true }])
+  const devices = await listing
+  assert.equal(devices[0].location, '东侧'); assert.equal(devices[0].description, '土壤区')
+
+  const create = e.store.createDeviceProfile({ deviceId: 'device02', deviceName: '新节点' })
+  assert.equal(e.pending[0].url, 'http://localhost:8080/api/devices'); assert.equal(e.pending[0].header.Authorization, 'Bearer a-token')
+  e.reply(e.pending.shift(), { deviceId: 'device02', deviceName: '新节点' }); await create
+  const update = e.store.updateDeviceProfile('device01', { deviceName: '新名称', enabled: false })
+  assert.equal(e.pending[0].url, 'http://localhost:8080/api/devices/device01'); assert.equal(e.pending[0].method, 'PUT')
+  e.reply(e.pending.shift(), { deviceId: 'device01', deviceName: '新名称' }); await update
+  const archive = e.store.archiveDeviceProfile('device01')
+  assert.equal(e.pending[0].method, 'DELETE'); e.reply(e.pending.shift(), null); await archive
+  const restore = e.store.restoreDeviceProfile('device01')
+  assert.equal(e.pending[0].url, 'http://localhost:8080/api/devices/device01/restore'); e.reply(e.pending.shift(), { deviceId: 'device01' }); await restore
+  const shares = e.store.listDeviceShares('device01')
+  assert.equal(e.pending[0].url, 'http://localhost:8080/api/devices/device01/shares'); e.reply(e.pending.shift(), []); await shares
+  const add = e.store.addDeviceShare('device01', 'member a')
+  assert.equal(e.pending[0].data.username, 'member a'); e.reply(e.pending.shift(), ['member a']); await add
+  const remove = e.store.removeDeviceShare('device01', 'member a')
+  assert.equal(e.pending[0].url, 'http://localhost:8080/api/devices/device01/shares/member%20a'); e.reply(e.pending.shift(), []); await remove
 })
 
 test('历史分页冻结时间、筛选时忽略旧页、失败可重试且不跳页', async () => {
