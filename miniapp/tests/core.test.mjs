@@ -46,7 +46,7 @@ async function setup(initialSettings = '') {
     const module = new vm.SourceTextModule(source, { context, identifier: path })
     modules.set(path, module); return module
   }
-  const entry = new vm.SourceTextModule("export * as api from './api/request.js'; export * as auth from './utils/session.js'; export * as store from './utils/live-store.js'; export * as config from './config/index.js'; export * as history from './utils/history-store.js'; export * as realtime from './utils/realtime.js'; export * as trends from './utils/trend.js'; export * as research from './utils/research-store.js'; export * as simulation from './utils/simulation-store.js'; export * as pay from './utils/pay-store.js'", { context, identifier: root + '/entry.js' })
+  const entry = new vm.SourceTextModule("export * as api from './api/request.js'; export * as auth from './utils/session.js'; export * as store from './utils/live-store.js'; export * as config from './config/index.js'; export * as history from './utils/history-store.js'; export * as realtime from './utils/realtime.js'; export * as trends from './utils/trend.js'; export * as dashboardMetrics from './utils/dashboard-metrics.js'; export * as research from './utils/research-store.js'; export * as simulation from './utils/simulation-store.js'; export * as pay from './utils/pay-store.js'", { context, identifier: root + '/entry.js' })
   await entry.link((specifier, ref) => moduleFor(specifier === 'vue' ? 'vue' : resolve(dirname(ref.identifier), specifier)))
   await entry.evaluate()
   const env = { ...entry.namespace, pending, requestLog, pendingDownloads, saved, sockets, timers }
@@ -215,6 +215,20 @@ test('看板近期数据使用真实鉴权接口并生成按时间递增的分�
   assert.deepEqual(trend.map((point) => point.value), [18, 20, 22])
   assert.deepEqual(trend.map((point) => point.label), rows.slice().reverse().map((row) => String(row.time)))
   assert.equal(e.trends.buildTrend([{ time: 1, temp: null }], 'temp', String).length, 0)
+})
+
+test('仪表盘辅助指标保留零值、最新联动状态和最近记录趋势', async () => {
+  const e = await setup()
+  const result = e.dashboardMetrics.summarizeRecentRows([
+    { time: 2000, temp: 20, hum: 60, water: 100, rssi: -61, linkage: false, sendCount: 4 },
+    { time: 1000, temp: 10, hum: 40, water: 0, rssi: -70, linkage: true, sendCount: 3 }
+  ], (time) => String(time))
+  assert.equal(result.avgWater, 50)
+  assert.equal(result.latestRssi, -61)
+  assert.equal(result.latestLinkage, 'OFF')
+  assert.equal(result.recentMessages, 7)
+  assert.deepEqual(result.temperatureTrend.map((item) => item.value), [10, 20])
+  assert.deepEqual(result.humidityTrend.map((item) => item.value), [40, 60])
 })
 
 test('研究工作台读取概览、运行详情并以认证请求执行RAG证据查询', async () => {
