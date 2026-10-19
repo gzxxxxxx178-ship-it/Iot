@@ -10,7 +10,7 @@ const flushAsync = () => new Promise((resolve) => setImmediate(resolve))
 
 // 用隔离模块和平台替身测试真实业务逻辑，不请求网络和硬件。
 async function setup(initialSettings = '') {
-  const pending = []; const pendingDownloads = []; const saved = []; const sockets = []; const timers = []
+  const pending = []; const requestLog = []; const pendingDownloads = []; const saved = []; const sockets = []; const timers = []
   const context = vm.createContext({ Date, Set, Number, String, Object, Array, Promise, Error,
     setTimeout(callback, delay) { const timer = { callback, delay, active: true }; timers.push(timer); return timer },
     clearTimeout(timer) { if (timer) timer.active = false },
@@ -20,7 +20,7 @@ async function setup(initialSettings = '') {
     // 记录落盘内容供认证安全断言。
     setStorageSync(key, value) { saved.push({ key, value }) },
     // 收集平台请求供测试控制返回顺序。
-    request(options) { pending.push(options) },
+    request(options) { pending.push(options); requestLog.push(options) },
     // 收集文件下载供测试控制HTTP状态和会话切换。
     downloadFile(options) { pendingDownloads.push(options) },
     // 模拟微信 SocketTask 并允许测试触发连接事件。
@@ -48,7 +48,7 @@ async function setup(initialSettings = '') {
   const entry = new vm.SourceTextModule("export * as api from './api/request.js'; export * as auth from './utils/session.js'; export * as store from './utils/live-store.js'; export * as config from './config/index.js'; export * as history from './utils/history-store.js'; export * as realtime from './utils/realtime.js'; export * as trends from './utils/trend.js'; export * as research from './utils/research-store.js'; export * as simulation from './utils/simulation-store.js'", { context, identifier: root + '/entry.js' })
   await entry.link((specifier, ref) => moduleFor(specifier === 'vue' ? 'vue' : resolve(dirname(ref.identifier), specifier)))
   await entry.evaluate()
-  const env = { ...entry.namespace, pending, pendingDownloads, saved, sockets, timers }
+  const env = { ...entry.namespace, pending, requestLog, pendingDownloads, saved, sockets, timers }
   env.initialConfig = { ...env.config.APP_CONFIG }
   env.store.configure('live', 'http://localhost:8080')
   // 构造一个当前会话认证状态。
@@ -240,7 +240,8 @@ test('仿真工作台只访问仿真API并覆盖数据、规则、报警及命�
   const alarms = e.simulation.listSimulationAlarms('SIM-PADDY-001'); assert.equal(e.pending[0].url, 'http://localhost:8080/api/simulation/alarms?deviceId=SIM-PADDY-001'); e.reply(e.pending.shift(), []); await alarms
   const acknowledged = e.simulation.acknowledgeSimulationAlarm(3); assert.equal(e.pending[0].url, 'http://localhost:8080/api/simulation/alarms/3/acknowledge'); assert.equal(e.pending[0].method, 'POST'); e.reply(e.pending.shift(), { id: 3, status: 'ACKNOWLEDGED' }); await acknowledged
   const commands = e.simulation.listPendingSimulationCommands('SIM-PADDY-001'); assert.equal(e.pending[0].url, 'http://localhost:8080/api/simulation/commands/pending?deviceId=SIM-PADDY-001'); e.reply(e.pending.shift(), []); await commands
-  assert.equal(e.pending.some((request) => request.url.includes('/api/device/control') || request.url.includes('/feedback')), false)
+  assert.equal(e.requestLog.every((request) => request.url.includes('/api/simulation/')), true)
+  assert.equal(e.requestLog.some((request) => request.url.includes('/api/device/control') || request.url.includes('/feedback')), false)
 })
 
 test('查询参数安全编码并可用于GET和DELETE接口', async () => {
