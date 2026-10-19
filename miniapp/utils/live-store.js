@@ -52,6 +52,14 @@ export async function login(username, password) {
   if (!acceptSession(generation, data)) throw staleError()
 }
 
+// 注册新账号并在当前进程内接受后端签发的会话令牌。
+export async function register(username, password) {
+  clearSession()
+  const generation = session.generation
+  const data = await request('/api/auth/register', { method: 'POST', anonymous: true, data: { username: username.trim(), password } })
+  if (!acceptSession(generation, data)) throw staleError()
+}
+
 // 刷新同一会话的概览、设备与回执；错误时清除旧展示。
 export async function refreshLive() {
   if (APP_CONFIG.mode !== 'live' || !session.token) return

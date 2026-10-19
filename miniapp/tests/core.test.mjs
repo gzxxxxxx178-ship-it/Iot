@@ -147,3 +147,25 @@ test('查询参数安全编码并可用于GET和DELETE接口', async () => {
   assert.equal(e.pending[0].url, 'http://localhost:8080/api/chat/history?sessionId=account%20a%26b')
   e.reply(e.pending.shift(), { ok: true }); await del
 })
+
+test('注册请求不发送旧令牌并拒绝迟到响应覆盖新会话', async () => {
+  const e = await setup(); e.signIn('old')
+  const registration = e.store.register(' new-user ', 'secret1')
+  const req = e.pending.shift()
+  assert.equal(req.url, 'http://localhost:8080/api/auth/register')
+  assert.equal(req.header.Authorization, undefined)
+  assert.equal(req.data.username, 'new-user')
+  assert.equal(req.data.password, 'secret1')
+  e.reply(req, { token: 'new-token', username: 'new-user' }); await registration
+  assert.equal(e.auth.session.username, 'new-user')
+  assert.equal(e.auth.session.token, 'new-token')
+
+  const delayed = e.store.register('late-user', 'secret2')
+  const oldRequest = e.pending.shift()
+  e.auth.clearSession(); e.signIn('current')
+  e.reply(oldRequest, { token: 'late-token', username: 'late-user' })
+  await assert.rejects(delayed, err => err.stale)
+  assert.equal(e.auth.session.username, 'current')
+  assert.equal(e.auth.session.token, 'current-token')
+  assert.equal(JSON.stringify(e.saved).includes('token'), false)
+})
