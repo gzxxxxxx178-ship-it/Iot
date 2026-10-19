@@ -23,7 +23,7 @@ const entries = [
   { title: '支付', url: '/pages/pay/pay', status: '未迁移', kind: 'pending' },
   { title: '数据看板', url: '/pages/dashboard/dashboard', status: '部分迁移', kind: 'partial' },
   { title: '仿真验证', url: '/pages/simulation/simulation', status: '未迁移', kind: 'pending' },
-  { title: '研究工作台', url: '/pages/research/research', status: '未迁移', kind: 'pending' }
+  { title: '研究工作台', url: '/pages/research/research', status: '已接入', kind: 'ready' }
 ]
 
 // 打开业务入口，未迁移模块不生成本地结果。

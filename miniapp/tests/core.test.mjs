@@ -45,7 +45,7 @@ async function setup(initialSettings = '') {
     const module = new vm.SourceTextModule(source, { context, identifier: path })
     modules.set(path, module); return module
   }
-  const entry = new vm.SourceTextModule("export * as api from './api/request.js'; export * as auth from './utils/session.js'; export * as store from './utils/live-store.js'; export * as config from './config/index.js'; export * as history from './utils/history-store.js'; export * as realtime from './utils/realtime.js'; export * as trends from './utils/trend.js'", { context, identifier: root + '/entry.js' })
+  const entry = new vm.SourceTextModule("export * as api from './api/request.js'; export * as auth from './utils/session.js'; export * as store from './utils/live-store.js'; export * as config from './config/index.js'; export * as history from './utils/history-store.js'; export * as realtime from './utils/realtime.js'; export * as trends from './utils/trend.js'; export * as research from './utils/research-store.js'", { context, identifier: root + '/entry.js' })
   await entry.link((specifier, ref) => moduleFor(specifier === 'vue' ? 'vue' : resolve(dirname(ref.identifier), specifier)))
   await entry.evaluate()
   const env = { ...entry.namespace, pending, pendingDownloads, saved, sockets, timers }
@@ -202,6 +202,25 @@ test('看板近期数据使用真实鉴权接口并生成按时间递增的分�
   assert.deepEqual(trend.map((point) => point.value), [18, 20, 22])
   assert.deepEqual(trend.map((point) => point.label), rows.slice().reverse().map((row) => String(row.time)))
   assert.equal(e.trends.buildTrend([{ time: 1, temp: null }], 'temp', String).length, 0)
+})
+
+test('研究工作台读取概览、运行详情并以认证请求执行RAG证据查询', async () => {
+  const e = await setup(); e.signIn()
+  const overview = e.research.getResearchOverview()
+  assert.equal(e.pending[0].url, 'http://localhost:8080/api/research/overview')
+  assert.equal(e.pending[0].header.Authorization, 'Bearer a-token')
+  e.reply(e.pending.shift(), { latestMpc: { runId: 7 } }); await overview
+  const runs = e.research.listExperiments(25)
+  assert.equal(e.pending[0].url, 'http://localhost:8080/api/research/experiments?limit=25')
+  e.reply(e.pending.shift(), [{ id: 7, title: 'MPC run' }]); assert.equal((await runs)[0].id, 7)
+  const detail = e.research.getExperimentDetail('7/8')
+  assert.equal(e.pending[0].url, 'http://localhost:8080/api/research/experiments/7%2F8')
+  e.reply(e.pending.shift(), { metrics: [{ metricName: 'MAE', metricValue: 1.2 }] }); assert.equal((await detail).metrics[0].metricName, 'MAE')
+  const rag = e.research.queryResearchEvidence('灌溉阈值怎么确定？', 5)
+  assert.equal(e.pending[0].url, 'http://localhost:8080/api/research/rag/query')
+  assert.equal(e.pending[0].data.question, '灌溉阈值怎么确定？')
+  assert.equal(e.pending[0].data.topK, 5)
+  e.reply(e.pending.shift(), { abstained: true, answer: '证据不足' }); assert.equal((await rag).abstained, true)
 })
 
 test('查询参数安全编码并可用于GET和DELETE接口', async () => {
