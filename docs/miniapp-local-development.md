@@ -87,7 +87,7 @@ WebSocket 默认来源白名单同时允许 Web 本地页 `http://localhost:5173
 - 水位为原始ADC，不是厘米；缺测显示 `--`。历史使用服务端接收时间。
 - 人工控制二次确认后操作真实设备。DISPATCHED仅表示已下发，ACKNOWLEDGED才表示设备确认；刷新读取回执，不乐观修改设备运行状态。
 - 网络超时可能发生在后端已接收命令之后，先刷新回执再决定是否重试。小程序退出会撤销当前刷新会话；JWT为无状态访问令牌，退出后仍可能有效至其15分钟到期。
-- 生产环境通过Flyway V6创建刷新会话表。升级旧版本地开发配置时，需在被Git忽略的 `application-dev.properties` 中启用Flyway并使用 `application-dev.example.properties` 的迁移基线设置；不要把开发凭据写入仓库。
+- 生产环境通过Flyway V6创建刷新会话表。Flyway的本机迁移需匹配数据库版本：当前本机MySQL报告为9.6，而项目依赖Flyway 8.5.13，启动时会报 `Unsupported Database: MySQL 9.6`，因此本机V6迁移尚未执行。升级Flyway需同时评估项目Java 8运行基线；在完成兼容升级前，可在数据库管理工具中执行 `db/migration/V6__auth_refresh_sessions.sql` 创建该表，再启动后端。不要将开发凭据写入仓库。
 
 ## 联调证据与阻塞
 
