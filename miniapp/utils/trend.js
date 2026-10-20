@@ -16,3 +16,16 @@ export function buildTrend(rows, field, labelForTime, limit = 8) {
     return { label: labelForTime(middleTime), value: Math.round(average * 10) / 10 }
   })
 }
+
+// 合并历史与实时遥测，按相同设备、时间和读数去重，排序后仅保留最近记录。
+export function mergeTrendRows(historyRows, realtimeRows, limit = 100) {
+  const byDeviceAndTime = new Map()
+  for (const row of [...(Array.isArray(historyRows) ? historyRows : []), ...(Array.isArray(realtimeRows) ? realtimeRows : [])]) {
+    if (!row || row.time === null || row.time === undefined || row.time === '' || !Number.isFinite(Number(row.time))) continue
+    const key = [row.deviceId || '', row.time, row.temp, row.hum, row.water, row.rssi, row.linkage, row.sendCount].join('\u0000')
+    byDeviceAndTime.set(key, row)
+  }
+  const maximum = Number.isFinite(Number(limit)) ? Math.max(0, Math.floor(Number(limit))) : 100
+  const ordered = [...byDeviceAndTime.values()].sort((left, right) => Number(left.time) - Number(right.time))
+  return maximum === 0 ? [] : ordered.slice(-maximum)
+}

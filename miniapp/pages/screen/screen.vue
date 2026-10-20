@@ -70,7 +70,7 @@ import { session } from '../../utils/session.js'
 import { live, refreshLive, queryHistory, formatReading, parseServerTime } from '../../utils/live-store.js'
 import { request } from '../../api/request.js'
 import { createRealtimeConnection } from '../../utils/realtime.js'
-import { buildTrend } from '../../utils/trend.js'
+import { buildTrend, mergeTrendRows } from '../../utils/trend.js'
 
 const historyRows = ref([])
 const realtimeRows = ref([])
@@ -89,7 +89,7 @@ let loadRequestId = 0
 const offlineCount = computed(() => live.stats ? Math.max(0, Number(live.stats.deviceCount) - Number(live.stats.onlineCount)) : '--')
 const connectionLabel = computed(() => ({ online: '实时连接已建立', connecting: '实时连接中', offline: '实时连接已断开' })[connectionStatus.value] || '实时状态未知')
 const linkageLabel = computed(() => latestPoint.value?.linkage === true ? 'ON' : latestPoint.value?.linkage === false ? 'OFF' : '--')
-const trendRows = computed(() => [...realtimeRows.value.slice().reverse(), ...historyRows.value].slice(0, 100))
+const trendRows = computed(() => mergeTrendRows(historyRows.value, realtimeRows.value, 100))
 const temperatureTrend = computed(() => buildTrend(trendRows.value, 'temp', (time) => formatTime(time).slice(-5), 12))
 const humidityTrend = computed(() => buildTrend(trendRows.value, 'hum', (time) => formatTime(time).slice(-5), 12))
 
