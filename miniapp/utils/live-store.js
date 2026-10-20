@@ -75,6 +75,29 @@ export async function register(username, password) {
   if (!acceptSession(generation, data)) throw staleError()
 }
 
+// 使用微信返回的服务端令牌建立小程序登录会话。
+async function acceptWechatSession(path, payload) {
+  const generation = session.generation
+  const data = await request(path, { method: 'POST', anonymous: true, data: payload })
+  if (!data?.refreshToken) throw new Error('微信登录响应缺少刷新凭据，请检查后端配置')
+  if (!acceptSession(generation, data)) throw staleError()
+}
+
+// 登录已绑定当前微信身份的系统账号。
+export function loginWithWechat(code) {
+  return acceptWechatSession('/api/auth/wechat/login', { code })
+}
+
+// 验证现有账号密码并绑定当前微信身份。
+export function linkWechatAccount(code, username, password) {
+  return acceptWechatSession('/api/auth/wechat/link', { code, username: username.trim(), password })
+}
+
+// 注册系统账号并绑定当前微信身份。
+export function registerWechatAccount(code, username, password) {
+  return acceptWechatSession('/api/auth/wechat/register', { code, username: username.trim(), password })
+}
+
 // 小程序启动时尝试从本机刷新凭据恢复登录状态。
 export function restoreSession() { return ensureSession().catch(() => false) }
 

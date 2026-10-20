@@ -136,6 +136,38 @@ test('登录不带令牌，受保护接口发送Bearer和超时设置', async ()
   await assert.rejects(e.api.request('https://elsewhere/api/devices'), /路径/)
 })
 
+test('微信登录未绑定时提示绑定，绑定现有账号后保存刷新凭据', async () => {
+  const e = await setup()
+  const firstLogin = e.store.loginWithWechat('wx-one-time-code')
+  assert.equal(e.pending[0].url, 'http://localhost:8080/api/auth/wechat/login')
+  assert.equal(e.pending[0].data.code, 'wx-one-time-code')
+  assert.equal(e.pending[0].header.Authorization, undefined)
+  e.reply(e.pending.shift(), null, 409, 409)
+  await assert.rejects(firstLogin, (error) => error.statusCode === 409)
+
+  const binding = e.store.linkWechatAccount('wx-fresh-code', ' alice ', 'test-password')
+  const request = e.pending.shift()
+  assert.equal(request.url, 'http://localhost:8080/api/auth/wechat/link')
+  assert.equal(JSON.stringify(request.data), JSON.stringify({ code: 'wx-fresh-code', username: 'alice', password: 'test-password' }))
+  e.reply(request, { token: 'wechat-access', username: 'alice', refreshToken: 'wechat-refresh', expiresIn: 900 })
+  await binding
+  assert.equal(e.auth.session.username, 'alice')
+  assert.equal(e.auth.getStoredRefreshToken(), 'wechat-refresh')
+})
+
+test('微信注册入口使用独立一次性code并建立可恢复会话', async () => {
+  const e = await setup()
+  const registration = e.store.registerWechatAccount('wx-register-code', 'new-user', 'test-password')
+  const request = e.pending.shift()
+  assert.equal(request.url, 'http://localhost:8080/api/auth/wechat/register')
+  assert.equal(request.data.code, 'wx-register-code')
+  assert.equal(request.data.username, 'new-user')
+  e.reply(request, { token: 'new-access', username: 'new-user', refreshToken: 'new-refresh', expiresIn: 900 })
+  await registration
+  assert.equal(e.auth.session.username, 'new-user')
+  assert.equal(e.auth.getStoredRefreshToken(), 'new-refresh')
+})
+
 test('冷启动轮换刷新凭据恢复账号且只持久化刷新令牌', async () => {
   const e = await setup()
   e.storage.set('miniapp.auth.refreshToken', 'first-refresh')

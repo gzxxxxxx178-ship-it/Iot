@@ -10,6 +10,7 @@ import com.ruoyi.iotsystem.entity.UserEntity;
 import com.ruoyi.iotsystem.exception.BusinessException;
 import com.ruoyi.iotsystem.service.UserService;
 import com.ruoyi.iotsystem.service.AuthRefreshTokenService;
+import com.ruoyi.iotsystem.service.WechatAuthService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -44,6 +45,7 @@ class AuthControllerTest {
     @MockBean private UserService userService;
     @MockBean private JwtUtil jwtUtil; // AuthController 注入了 JwtUtil
     @MockBean private AuthRefreshTokenService authRefreshTokenService;
+    @MockBean private WechatAuthService wechatAuthService;
 
     // ==================== 登录测试 ====================
 
@@ -160,6 +162,43 @@ class AuthControllerTest {
                 .andExpect(status().isOk());
 
         verify(authRefreshTokenService).revoke(eq("refresh-to-revoke"));
+    }
+
+    @Test
+    void wechatLogin_未绑定身份_返回409引导绑定账号() throws Exception {
+        when(wechatAuthService.login("wx-code")).thenReturn(Optional.empty());
+
+        mockMvc.perform(post("/api/auth/wechat/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"code\":\"wx-code\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value(409));
+    }
+
+    @Test
+    void wechatLogin_已绑定身份_返回可恢复认证会话且不写Cookie() throws Exception {
+        when(wechatAuthService.login("wx-code"))
+                .thenReturn(Optional.of(new AuthResponse("jwt", "testuser", "refresh", 900)));
+
+        mockMvc.perform(post("/api/auth/wechat/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"code\":\"wx-code\"}"))
+                .andExpect(status().isOk())
+                .andExpect(header().doesNotExist("Set-Cookie"))
+                .andExpect(jsonPath("$.data.username").value("testuser"))
+                .andExpect(jsonPath("$.data.refreshToken").value("refresh"));
+    }
+
+    @Test
+    void wechatLink_首次绑定现有账号() throws Exception {
+        when(wechatAuthService.linkExistingAccount("wx-code", "testuser", "password123"))
+                .thenReturn(new AuthResponse("jwt", "testuser", "refresh", 900));
+
+        mockMvc.perform(post("/api/auth/wechat/link")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"code\":\"wx-code\",\"username\":\"testuser\",\"password\":\"password123\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.username").value("testuser"));
     }
 
     @Test

@@ -14,6 +14,8 @@
       </template>
       <text v-if="error" class="hint">{{ error }}</text>
       <button class="btn-primary submit" :loading="busy" :disabled="busy" @tap="mode === 'login' ? onLogin() : onRegister()">{{ busy ? '处理中…' : mode === 'login' ? '登录' : '注册并登录' }}</button>
+      <text v-if="wechatLinkRequired" class="hint wechat-link-note">首次微信登录需要绑定已有账号；切换到注册模式可创建并绑定新账号。</text>
+      <button class="btn-secondary wechat-submit" :loading="busy" :disabled="busy" @tap="onWechatLogin">{{ busy ? '微信验证中…' : wechatLinkRequired ? mode === 'login' ? '绑定微信并登录' : '创建账号并绑定微信' : '微信登录' }}</button>
       <view class="mode-switch">
         <text class="hint">{{ mode === 'login' ? '还没有账号？' : '已有账号？' }}</text>
         <text class="switch-action" :class="{ disabled: busy }" @tap="switchMode">{{ mode === 'login' ? '立即注册' : '返回登录' }}</text>
@@ -27,13 +29,14 @@ import { ref } from 'vue'
 import { onHide } from '@dcloudio/uni-app'
 import PageHeader from '../../components/PageHeader.vue'
 import { APP_CONFIG as config } from '../../config/index.js'
-import { login, register, logout } from '../../utils/live-store.js'
+import { login, register, logout, loginWithWechat, linkWechatAccount, registerWechatAccount } from '../../utils/live-store.js'
 const mode = ref('login')
 const username = ref('')
 const password = ref('')
 const confirmPassword = ref('')
 const busy = ref(false)
 const error = ref('')
+const wechatLinkRequired = ref(false)
 
 // 提交真实账号并清空密码输入，失败时保留可操作提示。
 async function onLogin() {
@@ -73,6 +76,46 @@ async function onRegister() {
   finally { busy.value = false }
 }
 
+// 通过微信一次性code登录，首次使用时引导绑定现有账号或创建账号。
+async function onWechatLogin() {
+  if (busy.value) return
+  if (wechatLinkRequired.value) {
+    if (!username.value.trim()) { error.value = '请输入要绑定的系统用户名'; return }
+    if (!password.value) { error.value = '请输入系统账号密码'; return }
+    if (mode.value === 'register') {
+      if (username.value.trim().length > 100) { error.value = '用户名不能超过100个字符'; return }
+      if (password.value.length < 6) { error.value = '密码长度至少6位'; return }
+      if (password.value !== confirmPassword.value) { error.value = '两次输入的密码不一致'; return }
+    }
+  }
+  const shouldLink = wechatLinkRequired.value
+  const submittedUsername = username.value.trim()
+  const submittedPassword = password.value
+  if (shouldLink) { password.value = ''; confirmPassword.value = '' }
+  busy.value = true; error.value = ''
+  try {
+    const code = await getWechatLoginCode()
+    if (!shouldLink) await loginWithWechat(code)
+    else if (mode.value === 'login') await linkWechatAccount(code, submittedUsername, submittedPassword)
+    else await registerWechatAccount(code, submittedUsername, submittedPassword)
+    wechatLinkRequired.value = false
+    busy.value = false
+    uni.switchTab({ url: '/pages/overview/overview' })
+  } catch (err) {
+    if (err.statusCode === 409) {
+      wechatLinkRequired.value = true
+      error.value = mode.value === 'login' ? '首次使用，请输入已有系统账号和密码完成绑定。' : '首次使用，请填写新账号资料并完成绑定。'
+    } else if (!err.stale) error.value = err.message || '微信登录失败'
+  } finally { busy.value = false }
+}
+
+// 获取微信一次性登录凭证；AppSecret仅由后端持有。
+function getWechatLoginCode() {
+  return new Promise((resolve, reject) => {
+    uni.login({ provider: 'weixin', success: (result) => result?.code ? resolve(result.code) : reject(new Error('微信未返回登录凭证')), fail: () => reject(new Error('无法获取微信登录凭证，请检查开发者工具AppID配置')) })
+  })
+}
+
 // 切换登录或注册表单并清除敏感输入。
 function switchMode() {
   if (busy.value) return
@@ -80,6 +123,7 @@ function switchMode() {
   password.value = ''
   confirmPassword.value = ''
   error.value = ''
+  wechatLinkRequired.value = false
 }
 
 // 离开时清理密码，并作废未完成的登录。
@@ -89,6 +133,8 @@ onHide(() => { password.value = ''; if (busy.value) logout() })
 .label { display: block; margin: 24rpx 0 8rpx; }
 .field { height: 88rpx; padding: 0 20rpx; border: 1rpx solid $color-border; border-radius: $radius-card; background: $color-bg; }
 .submit { margin: 28rpx 0 20rpx; }
+.wechat-submit { margin-bottom: 20rpx; }
+.wechat-link-note { display: block; margin: 8rpx 0; }
 .hint { overflow-wrap: anywhere; }
 .password-note { display: block; margin-top: 8rpx; }
 .mode-switch { display: flex; justify-content: center; gap: 10rpx; margin: 8rpx 0 22rpx; }

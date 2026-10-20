@@ -6,9 +6,12 @@ import com.ruoyi.iotsystem.dto.AuthResponse;
 import com.ruoyi.iotsystem.dto.LoginRequest;
 import com.ruoyi.iotsystem.dto.RegisterRequest;
 import com.ruoyi.iotsystem.dto.RefreshTokenRequest;
+import com.ruoyi.iotsystem.dto.WechatAccountRequest;
+import com.ruoyi.iotsystem.dto.WechatCodeRequest;
 import com.ruoyi.iotsystem.entity.UserEntity;
 import com.ruoyi.iotsystem.service.AuthRefreshTokenService;
 import com.ruoyi.iotsystem.service.UserService;
+import com.ruoyi.iotsystem.service.WechatAuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
@@ -42,6 +45,9 @@ public class AuthController {
 
     @Autowired
     private AuthRefreshTokenService authRefreshTokenService;
+
+    @Autowired
+    private WechatAuthService wechatAuthService;
 
     @Autowired
     private JwtUtil jwtUtil;
@@ -95,6 +101,34 @@ public class AuthController {
                     .body(ApiResponse.fail(401, "登录已过期，请重新登录"));
         }
         return ResponseEntity.ok(ApiResponse.success(result.get()));
+    }
+
+    /** 使用微信一次性登录凭证登录已绑定的系统账号。 */
+    @Operation(summary = "微信小程序登录", description = "服务端验证微信登录凭证；首次登录需绑定现有账号或创建账号")
+    @PostMapping("/wechat/login")
+    public ResponseEntity<ApiResponse<AuthResponse>> wechatLogin(@Valid @RequestBody WechatCodeRequest request) {
+        Optional<AuthResponse> result = wechatAuthService.login(request.getCode());
+        if (!result.isPresent()) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(ApiResponse.fail(409, "首次使用微信登录，请绑定已有账号或创建账号"));
+        }
+        return ResponseEntity.ok(ApiResponse.success(result.get()));
+    }
+
+    /** 验证现有账号密码并将当前微信身份绑定到该账号。 */
+    @Operation(summary = "绑定微信身份", description = "首次使用微信登录时验证现有系统账号并建立身份映射")
+    @PostMapping("/wechat/link")
+    public ApiResponse<AuthResponse> linkWechat(@Valid @RequestBody WechatAccountRequest request) {
+        return ApiResponse.success(wechatAuthService.linkExistingAccount(
+                request.getCode(), request.getUsername().trim(), request.getPassword()));
+    }
+
+    /** 创建系统账号并在同一事务中绑定当前微信身份。 */
+    @Operation(summary = "微信注册", description = "为首次使用微信登录的用户创建系统账号并建立身份映射")
+    @PostMapping("/wechat/register")
+    public ApiResponse<AuthResponse> registerWechat(@Valid @RequestBody WechatAccountRequest request) {
+        return ApiResponse.success(wechatAuthService.registerWechatAccount(
+                request.getCode(), request.getUsername().trim(), request.getPassword()));
     }
 
     // 获取当前认证用户信息。
