@@ -97,6 +97,12 @@ test('工作台将自动化规则标记为已接入', () => {
   assert.match(source, /title: '自动化规则',[^\n]*status: '已接入', kind: 'ready'/)
 })
 
+// 验证已覆盖仪表盘业务能力的数据看板不会被标成部分迁移。
+test('工作台将数据看板标记为已接入', () => {
+  const source = readFileSync(resolve(root, 'pages/workbench/workbench.vue'), 'utf8')
+  assert.match(source, /title: '数据看板',[^\n]*status: '已接入', kind: 'ready'/)
+})
+
 test('地址拒绝凭据、路径及非法端口，只持久化配置', async () => {
   const e = await setup()
   for (const address of ['https://u:p@host', 'http://host/api', 'http://host?x=1', 'file:///tmp', 'http://host:99999', 'http://host/#x']) assert.throws(() => e.config.normalizeBaseUrl(address))
