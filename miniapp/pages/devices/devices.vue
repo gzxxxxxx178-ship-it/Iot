@@ -5,6 +5,7 @@
     <LiveStatus />
 
     <view v-if="session.token" class="device-toolbar">
+      <button class="btn-secondary toolbar-btn" :disabled="refreshing" @tap="refreshPage">{{ refreshing ? '刷新中…' : '刷新状态' }}</button>
       <button class="btn-primary toolbar-btn" @tap="openCreate">注册设备</button>
       <button class="btn-secondary toolbar-btn" @tap="toggleArchived">
         {{ includeArchived ? '隐藏归档设备' : '显示归档设备' }}
@@ -150,7 +151,7 @@
 <script setup>
 // 设备页：按模式展示设备、人工控制和命令回执。
 import { ref, reactive, computed, watch } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
+import { onHide, onShow } from '@dcloudio/uni-app'
 import { session } from '../../utils/session.js'
 import {
   live, refreshLive, issueCommand, commandStatus, parseServerTime, formatReading,
@@ -165,6 +166,7 @@ import { formatDateTime } from '../../utils/format.js'
 
 // 当前账号可访问的设备档案列表。
 const devices = ref([])
+const refreshing = ref(false)
 const sending = ref(false)
 const deviceError = ref('')
 const includeArchived = ref(false)
@@ -180,21 +182,49 @@ const shareUsername = ref('')
 const sharedUsers = ref([])
 const shareError = ref('')
 const form = reactive({ deviceId: '', deviceName: '', deviceType: 'ESP8266', location: '', description: '', enabled: true })
+let pageVisible = false
+let refreshTimer = null
+let refreshInFlight = false
+let refreshQueued = false
 
 // 查询设备档案并同步设备状态和命令回执。
 async function refreshPage() {
   if (!session.token) { devices.value = []; return }
+  clearTimeout(refreshTimer); refreshTimer = null
+  if (refreshInFlight) { refreshQueued = true; refreshing.value = true; return }
+  refreshInFlight = true; refreshing.value = true
+  const generation = session.generation
   deviceError.value = ''
   try {
     const [records] = await Promise.all([listDeviceProfiles(includeArchived.value), refreshLive()])
-    devices.value = records
+    if (generation === session.generation) devices.value = records
   } catch (error) {
-    if (!error.stale) deviceError.value = error.message || '设备档案读取失败'
+    if (generation === session.generation && !error.stale) deviceError.value = error.message || '设备档案读取失败'
+  } finally {
+    refreshInFlight = false
+    if (generation !== session.generation) {
+      if (session.token && pageVisible) { refreshQueued = false; refreshPage(); return }
+      refreshing.value = false
+      return
+    }
+    if (refreshQueued) {
+      refreshQueued = false
+      if (pageVisible && session.token) { refreshPage(); return }
+    }
+    refreshing.value = false
+    if (pageVisible && session.token) refreshTimer = setTimeout(refreshPage, 10000)
   }
 }
 
+// 页面显示后立即同步，并按 Web 端周期每10秒刷新设备状态。
+function startDevicePolling() { pageVisible = true; refreshPage() }
+
+// 页面隐藏时停止自动刷新，避免后台持续请求。
+function stopDevicePolling() { pageVisible = false; clearTimeout(refreshTimer); refreshTimer = null }
+
 // 页面可见时刷新设备和控制回执。
-onShow(refreshPage)
+onShow(startDevicePolling)
+onHide(stopDevicePolling)
 
 // 缺失上报时间显示占位文本。
 function showTime(value) { return value ? formatDateTime(parseServerTime(value)) : '--' }
@@ -229,8 +259,11 @@ const detailId = ref(null)
 const detailDevice = computed(() => devices.value.find((item) => item.id === detailId.value) || null)
 // 会话切换时关闭详情，旧请求不能解除新会话的发送锁。
 watch(() => session.generation, () => {
+  clearTimeout(refreshTimer); refreshTimer = null; refreshQueued = false
   devices.value = []; deviceError.value = ''; detailId.value = null; sending.value = false; saving.value = false; sharing.value = false; updatingDeviceId.value = ''; formVisible.value = false; shareVisible.value = false
   shareDevice.value = null; sharedUsers.value = []; shareUsername.value = ''
+  refreshing.value = Boolean(refreshInFlight)
+  if (session.token && pageVisible) refreshPage()
 }, { flush: 'sync' })
 // 离线、禁用、待回执与发送中的设备均不可再次控制。
 const canControl = computed(() => {
