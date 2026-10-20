@@ -266,6 +266,7 @@ const metricsTable = ref([])
 
 /** 选中的运行ID */
 const selectedRunId = ref(null)
+let metricsRequestId = 0
 
 /** RAG问答状态 */
 const ragQuestion = ref('')
@@ -368,15 +369,19 @@ async function loadExperimentRuns() {
  * 选择实验运行，加载其指标数据到对比表
  */
 async function loadMetricsTable() {
-  if (!selectedRunId.value) {
+  const requestId = ++metricsRequestId
+  const runId = selectedRunId.value
+  if (!runId) {
     metricsTable.value = []
     return
   }
   try {
-    const detail = await getExperimentDetail(selectedRunId.value)
-    metricsTable.value = detail?.metrics || []
+    const detail = await getExperimentDetail(runId)
+    if (requestId === metricsRequestId && String(selectedRunId.value) === String(runId)) {
+      metricsTable.value = detail?.metrics || []
+    }
   } catch (e) {
-    metricsTable.value = []
+    if (requestId === metricsRequestId) metricsTable.value = []
   }
 }
 

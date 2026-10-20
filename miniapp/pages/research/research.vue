@@ -130,6 +130,7 @@ const ragError = ref('')
 const ragLoading = ref(false)
 const pipelineDesc = reactive({ auth: '等待中', db: '等待中' })
 let pageGeneration = 0
+let detailRequestId = 0
 
 const pipelineStep = computed(() => {
   if (pipelineDesc.db === '数据已写入') return 3
@@ -156,8 +157,9 @@ onShow(loadResearchData)
 // 切换账号时清空研究结果并重新读取，避免旧账号数据残留。
 watch(() => session.generation, () => {
   pageGeneration += 1
+  detailRequestId += 1
   Object.assign(overview, { latestMpc: null, latestRl: null, latestRag: null })
-  runs.value = []; selectedRunId.value = ''; selectedMetrics.value = []
+  runs.value = []; selectedRunId.value = ''; selectedMetrics.value = []; detailLoading.value = false
   ragResult.value = null; ragError.value = ''; overviewError.value = ''; runsError.value = ''
   if (session.token) loadResearchData()
 })
@@ -214,6 +216,7 @@ async function loadExperimentRuns() {
 async function selectExperiment(event) {
   const index = Number(event.detail.value)
   const run = runs.value[index]
+  const requestId = ++detailRequestId
   selectedRunId.value = run ? String(run.id) : ''
   selectedMetrics.value = []
   if (!run) return
@@ -221,10 +224,14 @@ async function selectExperiment(event) {
   detailLoading.value = true
   try {
     const detail = await getExperimentDetail(run.id)
-    if (generation === pageGeneration) selectedMetrics.value = Array.isArray(detail?.metrics) ? detail.metrics : []
+    if (generation === pageGeneration && requestId === detailRequestId && String(run.id) === selectedRunId.value) {
+      selectedMetrics.value = Array.isArray(detail?.metrics) ? detail.metrics : []
+    }
   } catch (error) {
-    if (generation === pageGeneration && !error?.stale) uni.showToast({ title: error.message || '实验指标读取失败', icon: 'none' })
-  } finally { if (generation === pageGeneration) detailLoading.value = false }
+    if (generation === pageGeneration && requestId === detailRequestId && !error?.stale) uni.showToast({ title: error.message || '实验指标读取失败', icon: 'none' })
+  } finally {
+    if (generation === pageGeneration && requestId === detailRequestId) detailLoading.value = false
+  }
 }
 
 // 校验问题长度并提交至内部知识库，保留后端回答或拒答结果。
