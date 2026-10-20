@@ -13,14 +13,17 @@ const flushAsync = () => new Promise((resolve) => setImmediate(resolve))
 // 用隔离模块和平台替身测试真实业务逻辑，不请求网络和硬件。
 async function setup(initialSettings = '') {
   const pending = []; const requestLog = []; const pendingDownloads = []; const saved = []; const sockets = []; const timers = []
+  const storage = new Map()
+  if (initialSettings) storage.set('iot-miniapp-connection', initialSettings)
   const context = vm.createContext({ Date, Set, Number, String, Object, Array, Promise, Error,
     setTimeout(callback, delay) { const timer = { callback, delay, active: true }; timers.push(timer); return timer },
     clearTimeout(timer) { if (timer) timer.active = false },
     uni: {
     // 模拟仅配置持久化。
-    getStorageSync() { return initialSettings },
+    getStorageSync(key) { return storage.get(key) || '' },
     // 记录落盘内容供认证安全断言。
-    setStorageSync(key, value) { saved.push({ key, value }) },
+    setStorageSync(key, value) { saved.push({ key, value }); storage.set(key, value) },
+    removeStorageSync(key) { storage.delete(key) },
     // 收集平台请求供测试控制返回顺序。
     request(options) { pending.push(options); requestLog.push(options) },
     // 收集文件下载供测试控制HTTP状态和会话切换。
@@ -50,7 +53,7 @@ async function setup(initialSettings = '') {
   const entry = new vm.SourceTextModule("export * as api from './api/request.js'; export * as auth from './utils/session.js'; export * as store from './utils/live-store.js'; export * as config from './config/index.js'; export * as history from './utils/history-store.js'; export * as realtime from './utils/realtime.js'; export * as trends from './utils/trend.js'; export * as dashboardMetrics from './utils/dashboard-metrics.js'; export * as research from './utils/research-store.js'; export * as simulation from './utils/simulation-store.js'; export * as pay from './utils/pay-store.js'", { context, identifier: root + '/entry.js' })
   await entry.link((specifier, ref) => moduleFor(specifier === 'vue' ? 'vue' : resolve(dirname(ref.identifier), specifier)))
   await entry.evaluate()
-  const env = { ...entry.namespace, pending, requestLog, pendingDownloads, saved, sockets, timers }
+  const env = { ...entry.namespace, pending, requestLog, pendingDownloads, saved, storage, sockets, timers }
   env.initialConfig = { ...env.config.APP_CONFIG }
   env.store.configure('live', 'http://localhost:8080')
   // 构造一个当前会话认证状态。
@@ -124,12 +127,102 @@ test('登录不带令牌，受保护接口发送Bearer和超时设置', async ()
   const login = e.store.login(' b ', 'test-only')
   assert.equal(e.pending[0].header.Authorization, undefined)
   assert.equal(e.pending[0].data.username, 'b')
+  assert.equal(e.pending[0].data.rememberMe, true)
   assert.equal(e.pending[0].timeout, 15000)
-  e.reply(e.pending.shift(), { token: 'b-token', username: 'b' }); await login
+  e.reply(e.pending.shift(), { token: 'b-token', username: 'b', refreshToken: 'b-refresh', expiresIn: 900 }); await login
   const get = e.api.request('/api/devices')
   assert.equal(e.pending[0].header.Authorization, 'Bearer b-token')
   e.reply(e.pending.shift(), []); await get
   await assert.rejects(e.api.request('https://elsewhere/api/devices'), /路径/)
+})
+
+test('冷启动轮换刷新凭据恢复账号且只持久化刷新令牌', async () => {
+  const e = await setup()
+  e.storage.set('miniapp.auth.refreshToken', 'first-refresh')
+  const restore = e.store.restoreSession()
+  await flushAsync()
+  const request = e.pending.shift()
+  assert.equal(request.url, 'http://localhost:8080/api/auth/refresh')
+  assert.equal(request.data.refreshToken, 'first-refresh')
+  assert.equal(request.header.Authorization, undefined)
+  e.reply(request, { token: 'restored-access', username: 'alice', refreshToken: 'rotated-refresh', expiresIn: 900 })
+  assert.equal(await restore, true)
+  assert.equal(e.auth.session.username, 'alice')
+  assert.equal(e.auth.session.token, 'restored-access')
+  assert.equal(e.auth.getStoredRefreshToken(), 'rotated-refresh')
+  assert.equal(JSON.stringify([...e.storage.entries()]).includes('restored-access'), false)
+  assert.match(readFileSync(resolve(root, 'App.vue'), 'utf8'), /onLaunch\(\)[\s\S]*restoreSession\(\)/)
+})
+
+test('服务端拒绝已过期刷新凭据后清理本机会话', async () => {
+  const e = await setup()
+  e.storage.set('miniapp.auth.refreshToken', 'expired-refresh')
+  const restore = e.store.restoreSession()
+  await flushAsync()
+  e.reply(e.pending.shift(), null, 401)
+  assert.equal(await restore, false)
+  assert.equal(e.auth.getStoredRefreshToken(), '')
+  assert.equal(e.auth.session.token, '')
+})
+
+test('并发受保护请求共享一次刷新并使用新访问令牌', async () => {
+  const e = await setup()
+  e.auth.acceptSession(e.auth.session.generation, { token: 'short-lived', username: 'alice', refreshToken: 'refresh-one', expiresIn: 1 })
+  const first = e.api.request('/api/devices')
+  const second = e.api.request('/api/dashboard/stats')
+  await flushAsync()
+  assert.equal(e.pending.length, 1)
+  assert.equal(e.pending[0].url, 'http://localhost:8080/api/auth/refresh')
+  e.reply(e.pending.shift(), { token: 'renewed-access', username: 'alice', refreshToken: 'refresh-two', expiresIn: 900 })
+  await flushAsync()
+  assert.equal(e.pending.length, 2)
+  assert.deepEqual(e.pending.map((item) => item.header.Authorization), ['Bearer renewed-access', 'Bearer renewed-access'])
+  e.reply(e.pending.shift(), []); e.reply(e.pending.shift(), { total: 0 })
+  await Promise.all([first, second])
+})
+
+test('401时刷新后以新访问令牌重试原请求', async () => {
+  const e = await setup()
+  e.auth.acceptSession(e.auth.session.generation, { token: 'old-access', username: 'alice', refreshToken: 'refresh-before', expiresIn: 900 })
+  const pending = e.api.request('/api/devices')
+  e.reply(e.pending.shift(), null, 401)
+  await flushAsync()
+  const refresh = e.pending.shift()
+  assert.equal(refresh.url, 'http://localhost:8080/api/auth/refresh')
+  e.reply(refresh, { token: 'new-access', username: 'alice', refreshToken: 'refresh-after', expiresIn: 900 })
+  await flushAsync()
+  const retry = e.pending.shift()
+  assert.equal(retry.header.Authorization, 'Bearer new-access')
+  e.reply(retry, [{ id: 'd' }])
+  assert.deepEqual(await pending, [{ id: 'd' }])
+  assert.equal(e.auth.getStoredRefreshToken(), 'refresh-after')
+})
+
+test('刷新遇到网络故障时保留凭据供重试', async () => {
+  const e = await setup()
+  e.auth.acceptSession(e.auth.session.generation, { token: 'old-access', username: 'alice', refreshToken: 'keep-refresh', expiresIn: 900 })
+  const pending = e.api.request('/api/devices')
+  e.reply(e.pending.shift(), null, 401)
+  await flushAsync()
+  const refresh = e.pending.shift()
+  assert.equal(refresh.url, 'http://localhost:8080/api/auth/refresh')
+  refresh.fail({ errMsg: 'request:fail timeout' })
+  await assert.rejects(pending, /超时/)
+  assert.equal(e.auth.getStoredRefreshToken(), 'keep-refresh')
+  assert.equal(e.auth.session.token, 'old-access')
+})
+
+test('退出时在线撤销刷新会话并在网络失败时仍清理本机凭据', async () => {
+  const e = await setup()
+  e.auth.acceptSession(e.auth.session.generation, { token: 'access', username: 'alice', refreshToken: 'logout-refresh', expiresIn: 900 })
+  const logout = e.store.logout()
+  const request = e.pending.shift()
+  assert.equal(request.url, 'http://localhost:8080/api/auth/logout')
+  assert.equal(request.data.refreshToken, 'logout-refresh')
+  request.fail({ errMsg: 'request:fail' })
+  assert.equal(await logout, false)
+  assert.equal(e.auth.session.token, '')
+  assert.equal(e.auth.getStoredRefreshToken(), '')
 })
 
 test('HTTP、业务错误、超时均拒绝，401清理认证与数据', async () => {
@@ -419,7 +512,8 @@ test('注册请求不发送旧令牌并拒绝迟到响应覆盖新会话', async
   assert.equal(req.header.Authorization, undefined)
   assert.equal(req.data.username, 'new-user')
   assert.equal(req.data.password, 'secret1')
-  e.reply(req, { token: 'new-token', username: 'new-user' }); await registration
+  assert.equal(req.data.rememberMe, true)
+  e.reply(req, { token: 'new-token', username: 'new-user', refreshToken: 'new-refresh', expiresIn: 900 }); await registration
   assert.equal(e.auth.session.username, 'new-user')
   assert.equal(e.auth.session.token, 'new-token')
 
@@ -430,7 +524,8 @@ test('注册请求不发送旧令牌并拒绝迟到响应覆盖新会话', async
   await assert.rejects(delayed, err => err.stale)
   assert.equal(e.auth.session.username, 'current')
   assert.equal(e.auth.session.token, 'current-token')
-  assert.equal(JSON.stringify(e.saved).includes('token'), false)
+  assert.equal(e.auth.getStoredRefreshToken(), '')
+  assert.equal(JSON.stringify([...e.storage.entries()]).includes('new-token'), false)
 })
 
 test('实时连接领取短期票据、接收遥测并在页面停止时关闭', async () => {

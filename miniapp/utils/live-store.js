@@ -1,6 +1,6 @@
 import { reactive } from 'vue'
 import { request, downloadAuthenticatedFile, staleError } from '../api/request.js'
-import { session, clearSession, acceptSession, onSessionReset } from './session.js'
+import { session, clearSession, acceptSession, onSessionReset, setSessionRefreshHandler, getStoredRefreshToken, ensureSession } from './session.js'
 import { APP_CONFIG, saveConfig } from '../config/index.js'
 
 export const live = reactive({ stats: null, devices: [], commands: [], loading: false, error: '', updatedAt: '' })
@@ -38,17 +38,31 @@ export function localDateTime(time) {
 function resetLive() { refreshId += 1; Object.assign(live, { stats: null, devices: [], commands: [], loading: false, error: '', updatedAt: '' }) }
 onSessionReset(resetLive)
 
+// 注册只使用匿名刷新接口的会话轮换处理器。
+setSessionRefreshHandler((refreshToken) => request('/api/auth/refresh', {
+  method: 'POST', anonymous: true, data: { refreshToken }
+}))
+
 // 保存连接配置，成功后清理旧会话。
 export function configure(mode, address) { saveConfig(mode, address); clearSession() }
 
-// 清除本机令牌，不宣称已撤销服务端 JWT。
-export function logout() { clearSession() }
+// 尝试撤销当前刷新会话，并无论网络结果如何都清除本机账号状态。
+export async function logout() {
+  const refreshToken = getStoredRefreshToken()
+  let revoked = Boolean(refreshToken)
+  try {
+    if (refreshToken) await request('/api/auth/logout', { method: 'POST', anonymous: true, data: { refreshToken } })
+  } catch { revoked = false }
+  finally { clearSession() }
+  return revoked
+}
 
 // 登录后仅在当前进程内存中保存认证状态。
 export async function login(username, password) {
   clearSession()
   const generation = session.generation
-  const data = await request('/api/auth/login', { method: 'POST', anonymous: true, data: { username: username.trim(), password } })
+  const data = await request('/api/auth/login', { method: 'POST', anonymous: true, data: { username: username.trim(), password, rememberMe: true } })
+  if (!data?.refreshToken) throw new Error('后端尚未启用记住登录，请先更新 Java 后端')
   if (!acceptSession(generation, data)) throw staleError()
 }
 
@@ -56,9 +70,13 @@ export async function login(username, password) {
 export async function register(username, password) {
   clearSession()
   const generation = session.generation
-  const data = await request('/api/auth/register', { method: 'POST', anonymous: true, data: { username: username.trim(), password } })
+  const data = await request('/api/auth/register', { method: 'POST', anonymous: true, data: { username: username.trim(), password, rememberMe: true } })
+  if (!data?.refreshToken) throw new Error('后端尚未启用记住登录，请先更新 Java 后端')
   if (!acceptSession(generation, data)) throw staleError()
 }
+
+// 小程序启动时尝试从本机刷新凭据恢复登录状态。
+export function restoreSession() { return ensureSession().catch(() => false) }
 
 // 刷新同一会话的概览、设备与回执；错误时清除旧展示。
 export async function refreshLive() {

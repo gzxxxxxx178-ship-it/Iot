@@ -27,6 +27,7 @@ class UserServiceTest {
     @Mock private UserRepository userRepository;
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private JwtUtil jwtUtil;
+    @Mock private AuthRefreshTokenService authRefreshTokenService;
     @Mock private AuthenticationManager authenticationManager;
 
     @InjectMocks
@@ -89,6 +90,22 @@ class UserServiceTest {
         assertEquals(token, resp.getToken());
         assertEquals(username, resp.getUsername());
         verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
+    }
+
+    @Test
+    void login_记住登录_返回短期访问令牌和刷新会话() {
+        LoginRequest req = new LoginRequest();
+        req.setUsername(username);
+        req.setPassword(password);
+        req.setRememberMe(true);
+        AuthResponse session = new AuthResponse("short.jwt", username, "refresh.secret", 900);
+        when(authRefreshTokenService.createSession(username)).thenReturn(session);
+
+        AuthResponse response = userService.login(req);
+
+        assertSame(session, response);
+        verify(authRefreshTokenService).createSession(username);
+        verify(jwtUtil, never()).generateToken(any());
     }
 
     @Test

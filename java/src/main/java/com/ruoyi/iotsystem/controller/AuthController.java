@@ -5,7 +5,9 @@ import com.ruoyi.iotsystem.dto.ApiResponse;
 import com.ruoyi.iotsystem.dto.AuthResponse;
 import com.ruoyi.iotsystem.dto.LoginRequest;
 import com.ruoyi.iotsystem.dto.RegisterRequest;
+import com.ruoyi.iotsystem.dto.RefreshTokenRequest;
 import com.ruoyi.iotsystem.entity.UserEntity;
+import com.ruoyi.iotsystem.service.AuthRefreshTokenService;
 import com.ruoyi.iotsystem.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -26,6 +28,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 
 @Tag(name = "认证管理", description = "用户登录、注册、个人信息的 REST API")
 @RestController
@@ -36,6 +39,9 @@ public class AuthController {
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private AuthRefreshTokenService authRefreshTokenService;
 
     @Autowired
     private JwtUtil jwtUtil;
@@ -49,33 +55,49 @@ public class AuthController {
     @Value("${jwt.expiration:900000}")
     private long tokenLifetimeMs;
 
-    @Operation(summary = "用户登录", description = "用户名密码登录，写入HttpOnly Cookie并返回仅供当前页面内存使用的JWT")
+    // 使用账号密码登录；Web写入HttpOnly Cookie，小程序按需取得可轮换的刷新会话。
+    @Operation(summary = "用户登录", description = "用户名密码登录，Web使用HttpOnly Cookie，小程序可选择刷新会话")
     @PostMapping("/login")
     public ApiResponse<AuthResponse> login(@Valid @RequestBody LoginRequest request,
             HttpServletResponse response) {
         AuthResponse resp = userService.login(request);
-        writeAuthCookie(response, resp.getToken(), false);
+        if (!request.isRememberMe()) writeAuthCookie(response, resp.getToken(), false);
         logger.info("用户登录成功: {}", request.getUsername());
         return ApiResponse.success(resp);
     }
 
-    @Operation(summary = "用户注册", description = "注册新用户，写入HttpOnly Cookie并返回仅供当前页面内存使用的JWT")
+    // 注册账号；Web写入HttpOnly Cookie，小程序按需取得可轮换的刷新会话。
+    @Operation(summary = "用户注册", description = "注册新用户，Web使用HttpOnly Cookie，小程序可选择刷新会话")
     @PostMapping("/register")
     public ApiResponse<AuthResponse> register(@Valid @RequestBody RegisterRequest request,
             HttpServletResponse response) {
         AuthResponse resp = userService.register(request);
-        writeAuthCookie(response, resp.getToken(), false);
+        if (!request.isRememberMe()) writeAuthCookie(response, resp.getToken(), false);
         logger.info("用户注册成功: {}", request.getUsername());
         return ApiResponse.success(resp);
     }
 
-    // 清除HttpOnly认证Cookie
+    // 撤销请求携带的刷新会话并清除HttpOnly认证Cookie。
     @PostMapping("/logout")
-    public ApiResponse<Void> logout(HttpServletResponse response) {
+    public ApiResponse<Void> logout(@RequestBody(required = false) RefreshTokenRequest request, HttpServletResponse response) {
+        if (request != null) authRefreshTokenService.revoke(request.getRefreshToken());
         writeAuthCookie(response, "", true);
         return ApiResponse.success();
     }
 
+    /** 轮换小程序刷新凭据并签发新的短期访问令牌。 */
+    @Operation(summary = "刷新小程序会话", description = "原子轮换刷新凭据并返回短期JWT")
+    @PostMapping("/refresh")
+    public ResponseEntity<ApiResponse<AuthResponse>> refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        Optional<AuthResponse> result = authRefreshTokenService.rotate(request.getRefreshToken());
+        if (!result.isPresent()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.fail(401, "登录已过期，请重新登录"));
+        }
+        return ResponseEntity.ok(ApiResponse.success(result.get()));
+    }
+
+    // 获取当前认证用户信息。
     @Operation(summary = "获取当前用户信息", description = "从 SecurityContext 读取已登录用户，返回用户名和创建时间")
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<Map<String, Object>>> me() {

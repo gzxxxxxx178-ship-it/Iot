@@ -18,7 +18,7 @@
         <text class="hint">{{ mode === 'login' ? '还没有账号？' : '已有账号？' }}</text>
         <text class="switch-action" :class="{ disabled: busy }" @tap="switchMode">{{ mode === 'login' ? '立即注册' : '返回登录' }}</text>
       </view>
-      <text class="hint security-note">密码不会保存在小程序中；令牌仅保存在当前运行内存，重新启动后可能需要再次登录。</text>
+      <text class="hint security-note">密码不会保存在小程序中。访问令牌仅保存在运行内存；已登录设备会保存可撤销的刷新凭据，最长有效30天。</text>
     </view>
   </view>
 </template>

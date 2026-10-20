@@ -1,9 +1,12 @@
 <script>
+import { restoreSession } from './utils/live-store.js'
+
 // App.vue
-// 应用根组件：定义全局生命周期与全局样式，不包含任何网络请求
+// 应用根组件：定义全局生命周期与启动会话恢复。
 export default {
-  // 应用启动回调：认证仅保留在内存，页面负责按需读取真实接口。
+  // 应用启动回调：尝试轮换持久刷新凭据并恢复账号会话。
   onLaunch() {
+    restoreSession()
   },
   // 应用进入前台回调
   onShow() {},

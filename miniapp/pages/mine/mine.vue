@@ -5,7 +5,7 @@
       <text class="section-title">{{ session.username || '未登录' }}</text>
       <text class="hint">{{ session.token ? '可查看该账号拥有或获准访问的设备与历史记录' : '登录后查看账号可访问的设备和历史记录' }}</text>
       <button class="btn-primary action" @tap="goLogin">账号登录</button>
-      <button v-if="session.token" class="btn-danger action" @tap="logout">退出当前账号</button>
+      <button v-if="session.token" class="btn-danger action" @tap="signOut">退出当前账号</button>
     </view>
     <view class="card">
       <text class="section-title">服务器地址</text>
@@ -39,6 +39,12 @@ function save() {
 
 // 打开真实账号登录页面。
 function goLogin() { uni.navigateTo({ url: '/pages/login/login' }) }
+
+// 退出当前账号并提示刷新会话是否已在服务端撤销。
+async function signOut() {
+  const revoked = await logout()
+  if (!revoked) uni.showToast({ title: '本机已退出；服务端撤销失败，旧凭据将在30天内失效', icon: 'none', duration: 3500 })
+}
 </script>
 <style lang="scss" scoped>
 .action { margin-top: 24rpx; }

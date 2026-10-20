@@ -15,9 +15,20 @@ public class LoginRequest {
     @NotBlank(message = "密码不能为空")
     private String password;
 
+    private boolean rememberMe;
+
+    /** 获取用户名。 */
     public String getUsername() { return username; }
+    /** 设置用户名。 */
     public void setUsername(String username) { this.username = username; }
 
+    /** 获取密码。 */
     public String getPassword() { return password; }
+    /** 设置密码。 */
     public void setPassword(String password) { this.password = password; }
+
+    /** 判断是否创建可恢复登录会话。 */
+    public boolean isRememberMe() { return rememberMe; }
+    /** 设置是否创建可恢复登录会话。 */
+    public void setRememberMe(boolean rememberMe) { this.rememberMe = rememberMe; }
 }

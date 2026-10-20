@@ -21,8 +21,13 @@ public class JwtUtil {
 
     // 生成JWT令牌，24小时有效
     public String generateToken(String username) {
+        return generateToken(username, expiration);
+    }
+
+    // 生成使用指定有效期的JWT令牌。
+    public String generateToken(String username, long validityMs) {
         Date now = new Date();
-        Date expiry = new Date(now.getTime() + expiration);
+        Date expiry = new Date(now.getTime() + validityMs);
         return Jwts.builder()
                 .setSubject(username)
                 .setIssuedAt(now)

@@ -32,6 +32,9 @@ public class UserService implements UserDetailsService {
     @Autowired
     private JwtUtil jwtUtil;
 
+    @Autowired
+    private AuthRefreshTokenService authRefreshTokenService;
+
     @Lazy
     @Autowired
     private AuthenticationManager authenticationManager;
@@ -44,6 +47,7 @@ public class UserService implements UserDetailsService {
         UserEntity user = new UserEntity(request.getUsername(),
                 passwordEncoder.encode(request.getPassword()));
         userRepository.save(user);
+        if (request.isRememberMe()) return authRefreshTokenService.createSession(user.getUsername());
         String token = jwtUtil.generateToken(user.getUsername());
         return new AuthResponse(token, user.getUsername());
     }
@@ -52,6 +56,7 @@ public class UserService implements UserDetailsService {
     public AuthResponse login(LoginRequest request) {
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword()));
+        if (request.isRememberMe()) return authRefreshTokenService.createSession(request.getUsername());
         String token = jwtUtil.generateToken(request.getUsername());
         return new AuthResponse(token, request.getUsername());
     }
