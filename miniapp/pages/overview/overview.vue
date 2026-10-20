@@ -38,7 +38,7 @@
   </view>
 </template>
 <script setup>
-import { computed, reactive } from 'vue'
+import { computed, reactive, watch } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { session } from '../../utils/session.js'
 import PageHeader from '../../components/PageHeader.vue'
@@ -52,9 +52,17 @@ import { formatDateTime } from '../../utils/format.js'
 
 const recent = reactive({ rows: [], loading: false, error: '' })
 
+// 处理冷启动登录恢复晚于首页显示的情况，并在退出时清除首页数据。
+watch(() => session.token, (token) => {
+  if (token) loadOverview()
+  else { recent.rows = []; recent.loading = false; recent.error = '' }
+})
+
 // 页面可见时刷新真实统计和最近历史，忽略账号切换前的迟到结果。
 async function loadOverview() {
-  if (!session.token) { recent.rows = []; recent.error = ''; return }
+  if (!session.token) { recent.rows = []; recent.loading = false; recent.error = ''; return }
+  // 页面显示和会话恢复可能同时触发，合并同一轮首页请求。
+  if (recent.loading) return
   const generation = session.generation
   recent.loading = true; recent.error = ''
   try {

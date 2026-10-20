@@ -106,6 +106,14 @@ test('工作台将数据看板标记为已接入', () => {
   assert.match(source, /title: '数据看板',[^\n]*status: '已接入', kind: 'ready'/)
 })
 
+// 验证冷启动登录恢复晚于首页显示时会加载数据，并避免同轮重复请求。
+test('首页响应异步会话恢复并合并重复加载', () => {
+  const source = readFileSync(resolve(root, 'pages/overview/overview.vue'), 'utf8')
+  assert.match(source, /watch\(\(\) => session\.token, \(token\) => \{[\s\S]*?if \(token\) loadOverview\(\)/)
+  assert.match(source, /if \(recent\.loading\) return/)
+  assert.match(source, /else \{ recent\.rows = \[\]; recent\.loading = false; recent\.error = '' \}/)
+})
+
 // 验证小程序注册用户名上限与 Web/后端规则一致，登录保留数据库兼容长度。
 test('登录表单用户名长度与账号存储约束一致', () => {
   const source = readFileSync(resolve(root, 'pages/login/login.vue'), 'utf8')
