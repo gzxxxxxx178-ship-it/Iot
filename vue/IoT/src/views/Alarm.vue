@@ -40,11 +40,11 @@ const metricOptions = [
 const operatorOptions = [
   { label: '大于', value: 'gt' },
   { label: '小于', value: 'lt' },
-  { label: '等于', value: 'eq' },
+  { label: '接近（容差±0.05）', value: 'eq' },
 ]
 
 // 操作符中文映射
-const operatorLabel = (op) => ({ gt: '>', lt: '<', eq: '=' }[op] || op)
+const operatorLabel = (op) => ({ gt: '>', lt: '<', eq: '≈（容差±0.05）' }[op] || op)
 
 // 加载报警规则列表
 async function fetchRules() {
