@@ -217,7 +217,7 @@ test('看板近期数据使用真实鉴权接口并生成按时间递增的分�
   assert.equal(e.trends.buildTrend([{ time: 1, temp: null }], 'temp', String).length, 0)
 })
 
-test('大屏合并历史与实时数据时去重、按接收时间排序并保留最新点', async () => {
+test('大屏合并历史与实时数据时去重、保留最新点并生成正序趋势', async () => {
   const e = await setup()
   const rows = e.trends.mergeTrendRows(
     [
@@ -232,8 +232,10 @@ test('大屏合并历史与实时数据时去重、按接收时间排序并保�
     ],
     4
   )
-  assert.deepEqual(Array.from(rows, (row) => row.time), [2000, 2000, 2000, 3000])
-  assert.deepEqual(Array.from(rows, (row) => row.temp), [20, 30, 21, 40])
+  assert.deepEqual(Array.from(rows, (row) => row.time), [3000, 2000, 2000, 2000])
+  assert.deepEqual(Array.from(rows, (row) => row.temp), [40, 20, 30, 21])
+  const chart = e.trends.buildTrend(rows, 'temp', (time) => String(time), 4)
+  assert.deepEqual(Array.from(chart, (point) => point.label), ['2000', '2000', '2000', '3000'])
 })
 
 test('仪表盘辅助指标保留零值、最新联动状态和最近记录趋势', async () => {
