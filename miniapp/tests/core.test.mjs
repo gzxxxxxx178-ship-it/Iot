@@ -297,6 +297,21 @@ test('切换连接后旧刷新和控制回执不能恢复旧设备', async () =>
   await assert.rejects(control, err => err.stale); assert.equal(e.store.live.commands.length, 0)
 })
 
+test('设备页复用档案查询结果时跳过重复设备列表请求', async () => {
+  const e = await setup(); e.signIn()
+  e.store.live.devices = [{ id: 'cached', status: 'online' }]
+  const refresh = e.store.refreshLive({ includeDevices: false })
+  assert.deepEqual(e.pending.map((request) => request.url), [
+    'http://localhost:8080/api/dashboard/stats',
+    'http://localhost:8080/api/device/commands'
+  ])
+  e.reply(e.pending.shift(), { deviceCount: 1, onlineCount: 1 })
+  e.reply(e.pending.shift(), [])
+  await refresh
+  assert.deepEqual(e.store.live.devices, [{ id: 'cached', status: 'online' }])
+  assert.equal(e.store.live.stats.deviceCount, 1)
+})
+
 test('设备DTO保持零值和缺测，控制不乐观改变运行状态', async () => {
   const e = await setup(); e.signIn()
   const device = e.store.mapDevice({ deviceId: 'd', status: 'online', water: 0, temperature: null, humidity: 0, rssi: -60, linkage: false, ownedByCurrentUser: true })

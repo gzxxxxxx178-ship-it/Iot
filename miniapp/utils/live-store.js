@@ -101,20 +101,28 @@ export function registerWechatAccount(code, username, password) {
 // 小程序启动时尝试从本机刷新凭据恢复登录状态。
 export function restoreSession() { return ensureSession().catch(() => false) }
 
-// 刷新同一会话的概览、设备与回执；错误时清除旧展示。
-export async function refreshLive() {
+// 刷新同一会话的概览、可选设备列表与回执；错误时清除对应旧展示。
+export async function refreshLive({ includeDevices = true } = {}) {
   if (APP_CONFIG.mode !== 'live' || !session.token) return
   const id = ++refreshId
   live.loading = true; live.error = ''
   try {
-    const [stats, devices, commands] = await Promise.all([request('/api/dashboard/stats'), request('/api/devices'), request('/api/device/commands')])
+    const [stats, devices, commands] = await Promise.all([
+      request('/api/dashboard/stats'),
+      includeDevices ? request('/api/devices') : Promise.resolve(null),
+      request('/api/device/commands')
+    ])
     if (id !== refreshId) return
-    if (!stats || !Array.isArray(devices) || !Array.isArray(commands)) throw new Error('后端数据格式不正确')
-    live.stats = stats; live.devices = devices.map(mapDevice); live.commands = commands
+    if (!stats || (includeDevices && !Array.isArray(devices)) || !Array.isArray(commands)) throw new Error('后端数据格式不正确')
+    live.stats = stats
+    if (includeDevices) live.devices = devices.map(mapDevice)
+    live.commands = commands
     live.updatedAt = new Date().toLocaleTimeString()
   } catch (error) {
     if (id !== refreshId || error.stale) return
-    live.stats = null; live.devices = []; live.commands = []; live.error = error.message
+    live.stats = null
+    if (includeDevices) live.devices = []
+    live.commands = []; live.error = error.message
   } finally { if (id === refreshId) live.loading = false }
 }
 

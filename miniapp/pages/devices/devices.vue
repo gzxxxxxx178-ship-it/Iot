@@ -196,8 +196,14 @@ async function refreshPage() {
   const generation = session.generation
   deviceError.value = ''
   try {
-    const [records] = await Promise.all([listDeviceProfiles(includeArchived.value), refreshLive()])
-    if (generation === session.generation) devices.value = records
+    const [records] = await Promise.all([
+      listDeviceProfiles(includeArchived.value),
+      refreshLive({ includeDevices: false })
+    ])
+    if (generation === session.generation) {
+      devices.value = records
+      live.devices = records.filter((device) => device.lifecycleStatus !== 'ARCHIVED')
+    }
   } catch (error) {
     if (generation === session.generation && !error.stale) deviceError.value = error.message || '设备档案读取失败'
   } finally {
