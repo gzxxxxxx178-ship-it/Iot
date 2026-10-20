@@ -168,6 +168,8 @@ let deviceChangeTimer = null
 let pollRequestId = 0
 let pollInFlight = false
 let pollQueued = false
+let nextAuxiliaryPollAt = 0
+const auxiliaryPollInterval = 10000
 
 // 页面显示时启动真实仿真数据轮询。
 onShow(startPolling)
@@ -178,6 +180,7 @@ onHide(stopPolling)
 // 账号切换时清空旧账号数据并仅对新会话重新加载。
 watch(() => session.generation, () => {
   invalidatePoll()
+  nextAuxiliaryPollAt = 0
   latest.value = null; history.value = []; rules.value = []; alarms.value = []; commands.value = []
   pollError.value = ''; updatedAt.value = ''; formVisible.value = false
   if (pageVisible && session.token) startPolling()
@@ -187,6 +190,7 @@ watch(() => session.generation, () => {
 // 设备ID停止输入后立即刷新对应仿真数据。
 watch(deviceId, () => {
   if (!pageVisible || !session.token) return
+  nextAuxiliaryPollAt = 0
   clearTimeout(deviceChangeTimer)
   deviceChangeTimer = setTimeout(() => poll(), 400)
 })
@@ -200,6 +204,7 @@ function createEmptyForm() {
 function startPolling() {
   pageVisible = true
   if (!session.token) return
+  nextAuxiliaryPollAt = 0
   clearInterval(pollTimer)
   poll(); pollTimer = setInterval(poll, 2000)
 }
@@ -215,7 +220,7 @@ function stopPolling() {
 // 使当前请求失效并复位轮询状态，防止页面隐藏后旧数据回写。
 function invalidatePoll() { pollRequestId += 1; pollInFlight = false; pollQueued = false; polling.value = false }
 
-// 并行读取遥测、历史、规则、报警和待处理仿真命令。
+// 快速读取遥测和历史，规则、报警及待处理命令按较低频率刷新。
 async function poll() {
   if (!pageVisible || !session.token) return
   if (pollInFlight) { pollQueued = true; return }
@@ -224,22 +229,29 @@ async function poll() {
   const currentDevice = deviceId.value.trim()
   if (!currentDevice || currentDevice.length > 64) { pollStatus.value = 'error'; pollError.value = '设备ID必须为1–64个字符'; return }
   pollInFlight = true; polling.value = true; pollStatus.value = 'polling'; pollError.value = ''
+  const refreshAuxiliary = Date.now() >= nextAuxiliaryPollAt
+  if (refreshAuxiliary) nextAuxiliaryPollAt = Date.now() + auxiliaryPollInterval
   const results = await Promise.allSettled([
     getLatestSimulationTelemetry(currentDevice),
     getSimulationTelemetryHistory(currentDevice, 100),
-    listSimulationRules(),
-    listSimulationAlarms(currentDevice),
-    listPendingSimulationCommands(currentDevice)
+    refreshAuxiliary ? listSimulationRules() : Promise.resolve(null),
+    refreshAuxiliary ? listSimulationAlarms(currentDevice) : Promise.resolve(null),
+    refreshAuxiliary ? listPendingSimulationCommands(currentDevice) : Promise.resolve(null)
   ])
   if (id !== pollRequestId || generation !== session.generation || currentDevice !== deviceId.value.trim()) {
     finishPolling(id)
     return
+  }
+  // 辅助接口失败时提前重试，避免10秒轮询间隔延迟错误恢复。
+  if (refreshAuxiliary && results.slice(2).some((result) => result.status === 'rejected')) {
+    nextAuxiliaryPollAt = Date.now() + 2000
   }
   const failures = []
   // 按请求结果更新单个数据区，接口短暂失败时保留其上一次有效值。
   const accept = (index, target, fallback, expectedType) => {
     const result = results[index]
     if (result.status === 'fulfilled') {
+      if (result.value === null) return
       if (expectedType === 'array' && !Array.isArray(result.value)) failures.push('后端数据格式不正确')
       else target(result.value ?? fallback)
     } else if (!result.reason?.stale) failures.push(result.reason?.message || '仿真数据读取失败')

@@ -491,6 +491,16 @@ test('仿真工作台只访问仿真API并覆盖数据、规则、报警及命�
   assert.equal(e.requestLog.some((request) => request.url.includes('/api/device/control') || request.url.includes('/feedback')), false)
 })
 
+// 验证高频仿真遥测与低频规则状态分开轮询，限制页面可见时的请求量。
+test('仿真页每2秒刷新遥测并将辅助接口降至10秒一次', () => {
+  const source = readFileSync(resolve(root, 'pages/simulation/simulation.vue'), 'utf8')
+  assert.match(source, /const auxiliaryPollInterval = 10000/)
+  assert.match(source, /setInterval\(poll, 2000\)/)
+  assert.match(source, /refreshAuxiliary \? listSimulationRules\(\) : Promise\.resolve\(null\)/)
+  assert.match(source, /refreshAuxiliary \? listSimulationAlarms\(currentDevice\) : Promise\.resolve\(null\)/)
+  assert.match(source, /refreshAuxiliary \? listPendingSimulationCommands\(currentDevice\) : Promise\.resolve\(null\)/)
+})
+
 test('支付页只创建当前账号沙箱订单并查询订单状态，二维码矩阵可绘制', async () => {
   const e = await setup(); e.signIn()
   const created = e.pay.createPaymentOrder('0.01', '本地沙箱测试')
