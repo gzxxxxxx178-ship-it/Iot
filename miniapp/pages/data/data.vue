@@ -21,6 +21,12 @@
             {{ exporting ? '正在准备 CSV…' : '导出完整 CSV' }}
           </button>
         </view>
+        <view class="page-size-control">
+          <text class="picker-label">每页条数</text>
+          <picker :range="pageSizeOptions" :value="pageSizeIndex" :disabled="history.loading || !history.end" @change="selectPageSize">
+            <view class="picker-value">{{ history.size }} 条　⌄</view>
+          </picker>
+        </view>
       </template>
     </view>
 
@@ -130,14 +136,24 @@ function goLogin() { uni.navigateTo({ url: '/pages/login/login' }) }
 // 使用最新截止时间重新读取当前筛选。
 function refreshHistory() {
   if (range.value === 'custom') return applyCustomRange()
-  return reloadHistory(history.deviceId, ranges.find((r) => r.key === range.value).hours)
+  return reloadHistory(history.deviceId, ranges.find((r) => r.key === range.value).hours, history.size)
 }
 
 // 切换真实设备时按当前快捷或自定义时间范围重新开始分页。
 function selectDevice(event) {
   const deviceId = deviceOptions.value[Number(event.detail.value)]?.id || ''
   if (range.value === 'custom') return applyCustomRange(deviceId)
-  return reloadHistory(deviceId, ranges.find((item) => item.key === range.value).hours)
+  return reloadHistory(deviceId, ranges.find((item) => item.key === range.value).hours, history.size)
+}
+
+const pageSizeOptions = [10, 20, 50, 100]
+const pageSizeIndex = computed(() => Math.max(0, pageSizeOptions.indexOf(history.size)))
+
+// 修改每页条数后从第一页重新查询，并沿用当前设备和冻结时间边界。
+function selectPageSize(event) {
+  const size = pageSizeOptions[Number(event.detail.value)]
+  if (!size || !history.end) return
+  return reloadHistory(history.deviceId, { start: history.start, end: history.end }, size)
 }
 
 // 时间范围选项
@@ -197,7 +213,7 @@ function applyCustomRange(deviceId = history.deviceId) {
     return
   }
   customRangeError.value = ''
-  return reloadHistory(deviceId, { start, end })
+  return reloadHistory(deviceId, { start, end }, history.size)
 }
 
 // 下载当前筛选范围内的完整CSV，并由微信打开文件分享面板。
@@ -269,6 +285,7 @@ function loadMore() {
 .query-range-button { margin-top: 16rpx; }
 .history-actions { display: flex; flex-direction: column; gap: 12rpx; margin-top: 16rpx; }
 .history-actions button { margin: 0; }
+.page-size-control { display: flex; align-items: center; justify-content: space-between; margin-top: 18rpx; padding-top: 16rpx; border-top: 1rpx solid $color-border; }
 .trend-card { overflow: hidden; }
 .trend-card .hint { display: block; margin-top: -4rpx; }
 .trend-title { display: block; margin: 24rpx 0 4rpx; color: $color-text-secondary; font-size: 24rpx; }

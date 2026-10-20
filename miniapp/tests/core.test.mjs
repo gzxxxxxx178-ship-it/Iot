@@ -216,6 +216,7 @@ test('历史分页冻结时间、筛选时忽略旧页、失败可重试且不�
   const next = e.history.reloadHistory('new', 168); const active = e.pending.shift()
   const end = active.data.end
   assert.equal(active.data.page, 0); assert.equal(active.data.deviceId, 'new'); assert.equal(end.includes('Z'), false)
+  assert.equal(active.data.size, 20)
   e.reply(old, { content: [{ id: 99 }], page: 0, totalPages: 1, totalElements: 1 }); await first
   e.reply(active, { content: [{ id: 1, deviceId: 'new', temperature: 0, humidity: null, water: 650, rssi: -62, linkage: false, sendCount: 10, uptimeMillis: 12345, qualityValid: false, qualityIssues: '温度异常', serverReceivedTime: '2026-10-14T12:00:00' }], page: 0, totalPages: 2, totalElements: 2 }); await next
   assert.equal(e.history.history.rows.length, 1); assert.equal(e.history.history.rows[0].temp, 0)
@@ -223,11 +224,35 @@ test('历史分页冻结时间、筛选时忽略旧页、失败可重试且不�
   assert.equal(e.history.history.rows[0].uptimeMillis, 12345); assert.equal(e.history.history.rows[0].qualityValid, false); assert.equal(e.history.history.rows[0].qualityIssues, '温度异常')
   const more = e.history.loadHistory(); const failed = e.pending.shift()
   assert.equal(failed.data.end, end); assert.equal(failed.data.page, 1)
+  assert.equal(failed.data.size, 20)
   failed.fail({ errMsg: 'timeout' }); await more; assert.equal(e.history.history.page, 0)
   const retry = e.history.loadHistory(); e.reply(e.pending.shift(), { content: [{ id: 2 }], page: 1, totalPages: 2, totalElements: 2 }); await retry
   assert.equal(e.history.history.rows.length, 2)
   await e.history.loadHistory(); assert.equal(e.pending.length, 0)
   e.auth.clearSession(); assert.equal(e.history.history.rows.length, 0)
+})
+
+test('历史分页支持10、20、50、100条并在调整条数时保留筛选边界', async () => {
+  const e = await setup(); e.signIn()
+  const start = new Date(2026, 5, 3, 8, 15, 0, 0).getTime()
+  const end = new Date(2026, 5, 4, 17, 45, 0, 0).getTime()
+  const first = e.history.reloadHistory('device/page-size', { start, end }, 50)
+  const request = e.pending.shift()
+  assert.equal(request.data.page, 0)
+  assert.equal(request.data.size, 50)
+  assert.equal(request.data.start, '2026-06-03T08:15:00')
+  assert.equal(request.data.end, '2026-06-04T17:45:00')
+  e.reply(request, { content: [], page: 0, totalPages: 2, totalElements: 60 }); await first
+
+  const more = e.history.loadHistory()
+  const nextPage = e.pending.shift()
+  assert.equal(nextPage.data.page, 1)
+  assert.equal(nextPage.data.size, 50)
+  e.reply(nextPage, { content: [], page: 1, totalPages: 2, totalElements: 60 }); await more
+
+  const source = readFileSync(resolve(root, 'pages/data/data.vue'), 'utf8')
+  assert.match(source, /const pageSizeOptions = \[10, 20, 50, 100\]/)
+  assert.match(source, /:range="pageSizeOptions"/)
 })
 
 test('历史查询支持自定义本地起止时间并在分页和导出状态中冻结边界', async () => {
