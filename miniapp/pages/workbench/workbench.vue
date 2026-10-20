@@ -18,7 +18,7 @@ import { live } from '../../utils/live-store.js'
 const entries = [
   { title: '实时监控', url: '/pages/monitor/monitor', status: '已接入', kind: 'ready' },
   { title: '报警管理', url: '/pages/alarm/alarm', status: '已接入', kind: 'ready' },
-  { title: '自动化规则', url: '/pages/automation/automation', status: '部分迁移', kind: 'partial' },
+  { title: '自动化规则', url: '/pages/automation/automation', status: '已接入', kind: 'ready' },
   { title: 'AI 助手', url: '/pages/chat/chat', status: '已接入', kind: 'ready' },
   { title: '支付', url: '/pages/pay/pay', status: '已接入（沙箱）', kind: 'ready' },
   { title: '数据大屏', url: '/pages/screen/screen', status: '部分迁移', kind: 'partial' },

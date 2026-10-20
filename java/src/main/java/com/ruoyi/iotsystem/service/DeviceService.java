@@ -182,6 +182,19 @@ public class DeviceService {
         }
     }
 
+    // 校验自动化规则目标属于当前用户，并按规则启用状态确认设备生命周期与启用状态
+    @Transactional
+    public void assertAutomationTarget(String deviceId, String ownerUsername,
+            boolean requireActive, boolean requireEnabled) {
+        DeviceEntity device = findDevice(deviceId, ownerUsername);
+        if (requireActive && !ACTIVE.equals(device.getLifecycleStatus())) {
+            throw new BusinessException("自动化规则目标设备已归档");
+        }
+        if (requireEnabled && !Boolean.TRUE.equals(device.getEnabled())) {
+            throw new BusinessException("启用自动化规则要求目标设备处于启用状态");
+        }
+    }
+
     // 接收可信上报时自动登记未知设备并拒绝停用或归档设备
     public void ensureTelemetryAllowed(String deviceId) {
         String normalized = normalizeDeviceId(deviceId);

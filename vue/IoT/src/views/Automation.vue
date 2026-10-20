@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from '../utils/message'
 import { Plus, Delete, Edit } from '@element-plus/icons-vue'
 import {
@@ -9,14 +9,22 @@ import {
   getAutomationRules,
   updateAutomationRule,
 } from '../api/automation'
+import { getDeviceList } from '../api/device'
 
 const rules = ref([])
 const executions = ref([])
+const devices = ref([])
+const deviceLoading = ref(false)
+const devicesLoaded = ref(false)
+const deviceLoadError = ref('')
 const loading = ref(false)
 const saving = ref(false)
 const dialogVisible = ref(false)
 const editingId = ref(null)
 const form = ref(createEmptyForm())
+// 只提供当前账号拥有、处于有效生命周期且已启用的设备。
+const ownedDevices = computed(() => devices.value.filter((device) =>
+  device.ownedByCurrentUser && device.lifecycleStatus !== 'ARCHIVED' && device.enabled !== false))
 
 const metricOptions = [
   { label: '温度（℃）', value: 'temperature' },
@@ -34,7 +42,7 @@ const actionOptions = [
 function createEmptyForm() {
   return {
     name: '',
-    deviceId: 'device001',
+    deviceId: '',
     metric: 'temperature',
     operator: 'gt',
     threshold: 30,
@@ -99,15 +107,36 @@ async function loadData() {
   }
 }
 
+// 加载当前账号拥有且启用的设备，供自动化规则选择目标。
+async function loadDevices() {
+  deviceLoading.value = true
+  deviceLoadError.value = ''
+  try {
+    const result = await getDeviceList()
+    devices.value = Array.isArray(result) ? result : []
+  } catch (error) {
+    devices.value = []
+    deviceLoadError.value = error.message || '设备列表加载失败，暂时不能创建自动化规则'
+  } finally {
+    deviceLoading.value = false
+    devicesLoaded.value = true
+  }
+}
+
 // 打开新增规则弹窗
 function openAdd() {
+  if (deviceLoading.value) return ElMessage.info('正在加载本人设备')
+  if (!ownedDevices.value.length) return ElMessage.warning(deviceLoadError.value || '请先注册并启用一台本人设备')
   editingId.value = null
-  form.value = createEmptyForm()
+  form.value = { ...createEmptyForm(), deviceId: ownedDevices.value[0].deviceId }
   dialogVisible.value = true
 }
 
 // 打开编辑规则弹窗并复制当前规则值
 function openEdit(rule) {
+  if (!ownedDevices.value.some((device) => device.deviceId === rule.deviceId)) {
+    return ElMessage.warning('目标设备已不可用或不属于当前账号，无法编辑该规则；可先删除规则')
+  }
   editingId.value = rule.id
   form.value = {
     name: rule.name,
@@ -125,8 +154,12 @@ function openEdit(rule) {
 
 // 校验表单并创建或更新持久化规则
 async function saveRule() {
-  if (!form.value.name.trim() || !form.value.deviceId.trim()) {
-    ElMessage.warning('请填写规则名称和设备ID')
+  if (!form.value.name.trim()) {
+    ElMessage.warning('请填写规则名称')
+    return
+  }
+  if (!form.value.deviceId || !ownedDevices.value.some((device) => device.deviceId === form.value.deviceId)) {
+    ElMessage.warning('请选择当前账号拥有且已启用的设备')
     return
   }
   saving.value = true
@@ -170,7 +203,8 @@ async function toggleRule(rule, enabled) {
   }
 }
 
-onMounted(loadData)
+// 页面进入时分别加载规则记录和可选设备，设备接口失败不影响查看已有规则。
+onMounted(() => { loadData(); loadDevices() })
 </script>
 
 <template>
@@ -180,8 +214,10 @@ onMounted(loadData)
         <h1>自动化规则</h1>
         <p>规则由服务端持续评估，防抖和冷却时间用于抑制传感器波动导致的频繁启停。</p>
       </div>
-      <el-button type="primary" :icon="Plus" @click="openAdd">添加规则</el-button>
+      <el-button type="primary" :icon="Plus" :disabled="deviceLoading || !ownedDevices.length" @click="openAdd">添加规则</el-button>
     </div>
+    <el-alert v-if="deviceLoadError" :title="deviceLoadError" type="warning" :closable="false" class="section-card" />
+    <el-alert v-else-if="devicesLoaded && !ownedDevices.length" title="请先注册并启用本人设备，再创建自动化规则。" type="info" :closable="false" class="section-card" />
 
     <el-card class="section-card" header="规则列表">
       <el-table v-if="rules.length" :data="rules" stripe size="small">
@@ -245,8 +281,15 @@ onMounted(loadData)
             </el-form-item>
           </el-col>
           <el-col :span="10">
-            <el-form-item label="设备ID">
-              <el-input v-model="form.deviceId" placeholder="device001" />
+            <el-form-item label="目标设备">
+              <el-select v-model="form.deviceId" :loading="deviceLoading" :disabled="!ownedDevices.length" placeholder="选择本人已启用设备">
+                <el-option
+                  v-for="device in ownedDevices"
+                  :key="device.deviceId"
+                  :label="`${device.deviceName || device.deviceId}（${device.deviceId}）`"
+                  :value="device.deviceId"
+                />
+              </el-select>
             </el-form-item>
           </el-col>
         </el-row>

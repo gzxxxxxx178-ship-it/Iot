@@ -16,3 +16,9 @@ export function automationStatusClass(status) {
   if (status === 'DISPATCHED') return 'is-pending'
   return 'is-failed'
 }
+
+// 仅返回当前用户拥有且可接收遥测的自动化目标设备。
+export function filterAutomationTargets(devices) {
+  return (Array.isArray(devices) ? devices : []).filter((device) =>
+    device.ownedByCurrentUser && device.lifecycleStatus !== 'ARCHIVED' && device.enabled !== false)
+}

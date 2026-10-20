@@ -69,9 +69,9 @@
         </view>
         <text class="field-label">规则名称</text>
         <input class="text-field" v-model="form.name" maxlength="100" placeholder="例如：高温自动通风" />
-        <text class="field-label">目标设备（仅限本人拥有）</text>
+        <text class="field-label">目标设备（本人已启用设备）</text>
         <picker :range="ownedDevices" range-key="label" :value="formDeviceIndex" @change="selectDevice">
-          <view class="picker-field">{{ ownedDevices[formDeviceIndex]?.label || '暂无本人拥有的设备' }}　›</view>
+          <view class="picker-field">{{ ownedDevices[formDeviceIndex]?.label || '暂无本人已启用的设备' }}　›</view>
         </picker>
         <text class="field-label">监控指标</text>
         <picker :range="metricOptions" range-key="label" :value="form.metricIndex" @change="selectMetric">
@@ -111,7 +111,7 @@ import { request } from '../../api/request.js'
 import { session } from '../../utils/session.js'
 import { live, refreshLive } from '../../utils/live-store.js'
 import { formatDateTime } from '../../utils/format.js'
-import { automationStatusClass, automationStatusLabel } from '../../utils/automation.js'
+import { automationStatusClass, automationStatusLabel, filterAutomationTargets } from '../../utils/automation.js'
 
 const metricOptions = [{ value: 'temperature', label: '温度（℃）' }, { value: 'humidity', label: '湿度（%）' }, { value: 'water', label: '水位（ADC）' }]
 const operatorOptions = [{ value: 'gt', label: '大于（>）' }, { value: 'lt', label: '小于（<）' }, { value: 'eq', label: '接近（容差±0.05）' }]
@@ -126,7 +126,8 @@ const saving = ref(false)
 const editingId = ref(null)
 const busyIds = ref(new Set())
 const form = reactive(createEmptyForm())
-const ownedDevices = computed(() => live.devices.filter((device) => device.ownedByCurrentUser).map((device) => ({ id: String(device.id), label: device.name + '（' + device.id + '）' })))
+// 根据当前账号和设备状态生成可配置的规则目标。
+const ownedDevices = computed(() => filterAutomationTargets(live.devices).map((device) => ({ id: String(device.id), label: device.name + '（' + device.id + '）' })))
 const formDeviceIndex = computed(() => Math.max(0, ownedDevices.value.findIndex((device) => device.id === form.deviceId)))
 const selectedMetric = computed(() => metricOptions[form.metricIndex].value)
 
@@ -216,7 +217,7 @@ async function saveRule() {
   const cooldownSeconds = Number(form.cooldownSeconds)
   if (!form.name.trim()) return uni.showToast({ title: '请填写规则名称', icon: 'none' })
   if (form.threshold === '') return uni.showToast({ title: '请输入触发阈值', icon: 'none' })
-  if (!form.deviceId || !ownedDevices.value.some((device) => device.id === form.deviceId)) return uni.showToast({ title: '请选择本人拥有的设备', icon: 'none' })
+  if (!form.deviceId || !ownedDevices.value.some((device) => device.id === form.deviceId)) return uni.showToast({ title: '请选择本人已启用的设备', icon: 'none' })
   if (!Number.isFinite(threshold)) return uni.showToast({ title: '请输入有效阈值', icon: 'none' })
   if (!Number.isInteger(debounceCount) || debounceCount < 1 || debounceCount > 20) return uni.showToast({ title: '连续命中次数需为1–20的整数', icon: 'none' })
   if (!Number.isInteger(cooldownSeconds) || cooldownSeconds < 0 || cooldownSeconds > 86400) return uni.showToast({ title: '冷却时间需为0–86400秒整数', icon: 'none' })

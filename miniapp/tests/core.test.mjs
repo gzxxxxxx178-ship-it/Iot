@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createQrMatrix } from '../utils/qr-code.js'
-import { automationStatusClass, automationStatusLabel } from '../utils/automation.js'
+import { automationStatusClass, automationStatusLabel, filterAutomationTargets } from '../utils/automation.js'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const flushAsync = () => new Promise((resolve) => setImmediate(resolve))
@@ -78,6 +78,23 @@ test('自动化命令等待设备确认使用警示状态，状态文字与 Web 
     assert.equal(automationStatusClass(status), 'is-failed')
   }
   assert.equal(automationStatusLabel('UNKNOWN'), '未知状态')
+})
+
+test('自动化规则目标只保留本人持有且已启用的设备', () => {
+  const devices = [
+    { id: 'owned', ownedByCurrentUser: true, lifecycleStatus: 'ACTIVE', enabled: true },
+    { id: 'shared', ownedByCurrentUser: false, lifecycleStatus: 'ACTIVE', enabled: true },
+    { id: 'disabled', ownedByCurrentUser: true, lifecycleStatus: 'ACTIVE', enabled: false },
+    { id: 'archived', ownedByCurrentUser: true, lifecycleStatus: 'ARCHIVED', enabled: true }
+  ]
+  assert.deepEqual(filterAutomationTargets(devices).map((device) => device.id), ['owned'])
+  assert.deepEqual(filterAutomationTargets(null), [])
+})
+
+// 验证工作台不会把已经完成真实接口迁移的自动化入口标为部分迁移。
+test('工作台将自动化规则标记为已接入', () => {
+  const source = readFileSync(resolve(root, 'pages/workbench/workbench.vue'), 'utf8')
+  assert.match(source, /title: '自动化规则',[^\n]*status: '已接入', kind: 'ready'/)
 })
 
 test('地址拒绝凭据、路径及非法端口，只持久化配置', async () => {

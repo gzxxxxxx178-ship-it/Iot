@@ -21,15 +21,18 @@ public class AutomationService {
     private final AutomationRuleRepository ruleRepository;
     private final AutomationExecutionRepository executionRepository;
     private final DeviceCommandService deviceCommandService;
+    private final DeviceService deviceService;
 
-    // 注入规则、执行记录仓库和可审计的设备命令服务
+    // 注入规则与执行记录仓库、设备命令服务和设备状态校验服务
     public AutomationService(
             AutomationRuleRepository ruleRepository,
             AutomationExecutionRepository executionRepository,
-            DeviceCommandService deviceCommandService) {
+            DeviceCommandService deviceCommandService,
+            DeviceService deviceService) {
         this.ruleRepository = ruleRepository;
         this.executionRepository = executionRepository;
         this.deviceCommandService = deviceCommandService;
+        this.deviceService = deviceService;
     }
 
     // 查询全部自动化规则
@@ -50,6 +53,7 @@ public class AutomationService {
     // 校验并创建归属于当前用户的自动化规则
     public AutomationRuleEntity createRule(AutomationRuleRequest request, String ownerUsername) {
         validateThreshold(request.getMetric(), request.getThreshold());
+        validateTarget(request, ownerUsername, false);
         AutomationRuleEntity rule = new AutomationRuleEntity(
                 request.getName().trim(),
                 request.getDeviceId().trim(),
@@ -74,6 +78,7 @@ public class AutomationService {
         AutomationRuleEntity rule = ruleRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("自动化规则不存在"));
         assertOwner(rule.getOwnerUsername(), ownerUsername);
+        validateTarget(request, ownerUsername, true);
         rule.setName(request.getName().trim());
         rule.setDeviceId(request.getDeviceId().trim());
         rule.setMetric(request.getMetric());
@@ -173,6 +178,7 @@ public class AutomationService {
                 saveExecution(rule, deviceId, actualValue, "SUCCESS", "通知事件已记录");
                 return;
             }
+            deviceService.assertAutomationTarget(deviceId, rule.getOwnerUsername(), true, true);
             com.ruoyi.iotsystem.entity.DeviceCommandEntity command = deviceCommandService.issue(
                     deviceId, rule.getOwnerUsername(), rule.getAction());
             saveExecution(rule, deviceId, actualValue, command.getStatus(),
@@ -246,6 +252,13 @@ public class AutomationService {
         if ("water".equals(metric) && threshold < 0.0) {
             throw new BusinessException("水位ADC阈值不能为负数");
         }
+    }
+
+    // 校验规则目标设备归属，并允许停用过期规则而不允许启用不可用设备规则
+    private void validateTarget(AutomationRuleRequest request, String ownerUsername, boolean allowInactive) {
+        boolean enabled = request.getEnabled() == null || request.getEnabled();
+        deviceService.assertAutomationTarget(request.getDeviceId().trim(), ownerUsername,
+                enabled || !allowInactive, enabled);
     }
 
     // 截断异常信息避免执行记录字段溢出

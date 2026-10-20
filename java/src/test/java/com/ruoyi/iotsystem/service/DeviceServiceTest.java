@@ -5,6 +5,7 @@ import com.ruoyi.iotsystem.dto.DeviceResponse;
 import com.ruoyi.iotsystem.dto.DeviceUpdateRequest;
 import com.ruoyi.iotsystem.entity.DeviceEntity;
 import com.ruoyi.iotsystem.entity.EspEntity;
+import com.ruoyi.iotsystem.exception.BusinessException;
 import com.ruoyi.iotsystem.repository.DeviceRepository;
 import com.ruoyi.iotsystem.repository.EspRepository;
 import com.ruoyi.iotsystem.repository.DeviceShareRepository;
@@ -172,6 +173,32 @@ class DeviceServiceTest {
         deviceService.assertControllable("device001", "test");
 
         assertThrows(SecurityException.class, () -> deviceService.assertControllable("device001", "stranger"));
+    }
+
+    // 验证自动化规则只能指向本人有效设备且硬件动作要求设备启用
+    @Test
+    void assertAutomationTarget_校验归属生命周期与启用状态() {
+        DeviceEntity owned = new DeviceEntity("device001", "一号节点", "ESP8266", null, null, true, "pogacar");
+        DeviceEntity disabled = new DeviceEntity("device002", "二号节点", "ESP8266", null, null, false, "pogacar");
+        DeviceEntity archived = new DeviceEntity("device003", "三号节点", "ESP8266", null, null, true, "pogacar");
+        archived.setLifecycleStatus("ARCHIVED");
+        when(deviceRepository.findByDeviceId("device001")).thenReturn(Optional.of(owned));
+        when(deviceRepository.findByDeviceId("device002")).thenReturn(Optional.of(disabled));
+        when(deviceRepository.findByDeviceId("device003")).thenReturn(Optional.of(archived));
+        when(deviceRepository.findByDeviceId("device004"))
+                .thenReturn(Optional.of(new DeviceEntity("device004", "他人设备", "ESP8266", null, null, true, "other")));
+
+        deviceService.assertAutomationTarget("device001", "pogacar", true, true);
+        deviceService.assertAutomationTarget("device002", "pogacar", true, false);
+        assertThrows(BusinessException.class,
+                () -> deviceService.assertAutomationTarget("device002", "pogacar", true, true));
+        assertThrows(BusinessException.class,
+                () -> deviceService.assertAutomationTarget("device003", "pogacar", true, false));
+        deviceService.assertAutomationTarget("device003", "pogacar", false, false);
+        assertThrows(SecurityException.class,
+                () -> deviceService.assertAutomationTarget("device004", "pogacar", true, true));
+        assertThrows(BusinessException.class,
+                () -> deviceService.assertAutomationTarget("missing", "pogacar", true, false));
     }
 
     // 验证授权不存在的用户名时不创建共享关系

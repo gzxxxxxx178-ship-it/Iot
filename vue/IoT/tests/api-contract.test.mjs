@@ -92,6 +92,15 @@ test('设备所有者可以管理共享并限制受邀账号的档案权限', ()
   assert.match(viewSource, /撤销/)
 })
 
+// 验证自动化目标从本人有效设备中选择，不再接受自由填写的任意设备ID。
+test('自动化规则只能选择本人启用设备', () => {
+  const viewSource = readFileSync(resolve(projectRoot, 'src/views/Automation.vue'), 'utf8')
+  assert.match(viewSource, /import \{ getDeviceList \} from '\.\.\/api\/device'/)
+  assert.match(viewSource, /device\.ownedByCurrentUser && device\.lifecycleStatus !== 'ARCHIVED' && device\.enabled !== false/)
+  assert.match(viewSource, /<el-select v-model="form\.deviceId"/)
+  assert.doesNotMatch(viewSource, /<el-input v-model="form\.deviceId"/)
+})
+
 // 验证设备管理页展示命令确认状态并随工作区轮询刷新
 test('设备管理页展示最近控制命令状态', () => {
   const viewSource = readFileSync(resolve(projectRoot, 'src/views/DeviceList.vue'), 'utf8')
