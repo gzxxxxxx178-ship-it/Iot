@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createQrMatrix } from '../utils/qr-code.js'
+import { automationStatusClass, automationStatusLabel } from '../utils/automation.js'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const flushAsync = () => new Promise((resolve) => setImmediate(resolve))
@@ -66,6 +67,17 @@ test('只使用真实接口，旧演示配置仅迁移地址且拒绝切回演�
   assert.equal(e.initialConfig.apiBaseUrl, 'http://localhost:8080')
   assert.throws(() => e.store.configure('demo', 'http://localhost:8080'), /已移除/)
   assert.equal(e.pending.length, 0)
+})
+
+test('自动化命令等待设备确认使用警示状态，状态文字与 Web 一致', () => {
+  assert.equal(automationStatusLabel('DISPATCHED'), '等待设备确认')
+  assert.equal(automationStatusClass('DISPATCHED'), 'is-pending')
+  assert.equal(automationStatusLabel('ACKNOWLEDGED'), '设备已确认')
+  assert.equal(automationStatusClass('ACKNOWLEDGED'), 'is-enabled')
+  for (const status of ['TIMED_OUT', 'REJECTED', 'FAILED']) {
+    assert.equal(automationStatusClass(status), 'is-failed')
+  }
+  assert.equal(automationStatusLabel('UNKNOWN'), '未知状态')
 })
 
 test('地址拒绝凭据、路径及非法端口，只持久化配置', async () => {

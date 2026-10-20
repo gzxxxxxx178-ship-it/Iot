@@ -51,7 +51,7 @@
           <view v-for="item in executions" :key="item.id" class="execution-item">
             <view class="execution-top">
               <text class="execution-title">{{ deviceName(item.deviceId) }} · {{ actionLabel(item.action) }}</text>
-              <text class="execution-status" :class="item.status === 'SUCCESS' || item.status === 'ACKNOWLEDGED' ? 'is-enabled' : 'is-failed'">{{ statusLabel(item.status) }}</text>
+              <text class="execution-status" :class="automationStatusClass(item.status)">{{ automationStatusLabel(item.status) }}</text>
             </view>
             <text class="hint">{{ formatDateTime(item.createdAt) }} · 触发值 {{ item.actualValue ?? '--' }}</text>
             <text class="execution-message">{{ item.message }}</text>
@@ -111,6 +111,7 @@ import { request } from '../../api/request.js'
 import { session } from '../../utils/session.js'
 import { live, refreshLive } from '../../utils/live-store.js'
 import { formatDateTime } from '../../utils/format.js'
+import { automationStatusClass, automationStatusLabel } from '../../utils/automation.js'
 
 const metricOptions = [{ value: 'temperature', label: '温度（℃）' }, { value: 'humidity', label: '湿度（%）' }, { value: 'water', label: '水位（ADC）' }]
 const operatorOptions = [{ value: 'gt', label: '大于（>）' }, { value: 'lt', label: '小于（<）' }, { value: 'eq', label: '接近（容差±0.05）' }]
@@ -312,9 +313,6 @@ function metricUnit(metric) { return metric === 'temperature' ? '℃' : metric =
 // 根据设备标识读取当前设备名称。
 function deviceName(deviceId) { return live.devices.find((device) => String(device.id) === String(deviceId))?.name || String(deviceId) }
 
-// 将后端执行状态转换为可理解的状态文字。
-function statusLabel(status) { return status === 'SUCCESS' ? '成功' : status === 'ACKNOWLEDGED' ? '设备已确认' : status === 'DISPATCHED' ? '等待设备确认' : status === 'TIMED_OUT' ? '设备超时' : status === 'REJECTED' ? '设备拒绝' : '失败' }
-
 // 打开账号登录页。
 function goLogin() { uni.navigateTo({ url: '/pages/login/login' }) }
 </script>
@@ -334,6 +332,7 @@ function goLogin() { uni.navigateTo({ url: '/pages/login/login' }) }
 .rule-name, .execution-title { color: $color-text; font-size: 28rpx; font-weight: 600; }
 .rule-state, .execution-status { flex: none; font-size: 22rpx; }
 .is-enabled { color: $color-primary; }
+.is-pending { color: $color-amber; }
 .is-disabled { color: $color-text-light; }
 .is-failed { color: $color-red; }
 .rule-bottom { display: flex; flex-direction: column; gap: 14rpx; margin-top: 14rpx; }
