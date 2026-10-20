@@ -4,7 +4,7 @@
     <view class="card">
       <text class="hint">后端：{{ config.apiBaseUrl }}</text>
       <text class="label">用户名</text>
-      <input v-model="username" class="field" :disabled="busy" maxlength="100" placeholder="用户名" />
+      <input v-model="username" class="field" :disabled="busy" :maxlength="mode === 'register' ? 100 : 255" placeholder="用户名" />
       <text class="label">密码</text>
       <input v-model="password" class="field" :disabled="busy" password :placeholder="mode === 'register' ? '至少 6 位密码' : '密码不保存'" />
       <template v-if="mode === 'register'">

@@ -4,11 +4,12 @@ import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.Size;
 
 /**
- * 注册请求体：用户名不能为空、密码至少6位
+ * 注册请求体：用户名为1到100个字符、密码至少6位
  */
 public class RegisterRequest {
 
     @NotBlank(message = "用户名不能为空")
+    @Size(max = 100, message = "用户名不能超过100个字符")
     private String username;
 
     @NotBlank(message = "密码不能为空")

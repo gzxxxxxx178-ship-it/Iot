@@ -72,7 +72,7 @@ async function onSubmit() {
 
       <el-form ref="formRef" :model="form" :rules="rules" @submit.prevent="onSubmit" label-position="top">
         <el-form-item label="用户名" prop="username">
-          <el-input v-model="form.username" placeholder="请输入用户名" :prefix-icon="User" size="large" />
+          <el-input v-model="form.username" placeholder="请输入用户名" :prefix-icon="User" size="large" maxlength="255" />
         </el-form-item>
         <el-form-item label="密码" prop="password">
           <el-input

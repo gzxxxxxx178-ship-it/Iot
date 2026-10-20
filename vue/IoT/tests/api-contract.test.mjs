@@ -16,6 +16,14 @@ const apiFiles = [
   'research.js',
 ]
 
+// 验证 Web 登录与注册表单遵循数据库和业务归属字段的用户名长度约束。
+test('认证表单限制登录用户名255字符、注册用户名100字符', () => {
+  const loginSource = readFileSync(resolve(projectRoot, 'src/views/Login.vue'), 'utf8')
+  const registerSource = readFileSync(resolve(projectRoot, 'src/views/Register.vue'), 'utf8')
+  assert.match(loginSource, /maxlength="255"/)
+  assert.match(registerSource, /maxlength="100"/)
+})
+
 // 验证生产环境通过 Pages 同源 Functions 访问 API，避免浏览器直接请求 VPS 的非标准端口。
 test('生产环境使用 Pages 同源代理并覆盖认证与实时连接路由', () => {
   const productionEnv = readFileSync(resolve(projectRoot, '.env.production'), 'utf8')

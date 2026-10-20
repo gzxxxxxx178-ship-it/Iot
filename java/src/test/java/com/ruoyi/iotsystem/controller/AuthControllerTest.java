@@ -137,6 +137,32 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.code").value(400));
     }
 
+    @Test
+    void register_用户名超过100位_应返回400校验错误() throws Exception {
+        RegisterRequest req = new RegisterRequest();
+        req.setUsername(new String(new char[101]).replace('\0', 'u'));
+        req.setPassword("password123");
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400));
+    }
+
+    @Test
+    void login_用户名超过255位_应返回400校验错误() throws Exception {
+        LoginRequest req = new LoginRequest();
+        req.setUsername(new String(new char[256]).replace('\0', 'u'));
+        req.setPassword("password123");
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400));
+    }
+
     // ==================== 获取当前用户测试 ====================
 
     @Test

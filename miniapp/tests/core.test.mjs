@@ -103,6 +103,12 @@ test('工作台将数据看板标记为已接入', () => {
   assert.match(source, /title: '数据看板',[^\n]*status: '已接入', kind: 'ready'/)
 })
 
+// 验证小程序注册用户名上限与 Web/后端规则一致，登录保留数据库兼容长度。
+test('登录表单用户名长度与账号存储约束一致', () => {
+  const source = readFileSync(resolve(root, 'pages/login/login.vue'), 'utf8')
+  assert.match(source, /:maxlength="mode === 'register' \? 100 : 255"/)
+})
+
 test('地址拒绝凭据、路径及非法端口，只持久化配置', async () => {
   const e = await setup()
   for (const address of ['https://u:p@host', 'http://host/api', 'http://host?x=1', 'file:///tmp', 'http://host:99999', 'http://host/#x']) assert.throws(() => e.config.normalizeBaseUrl(address))
