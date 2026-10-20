@@ -127,6 +127,8 @@ onShow(() => { loadDashboard(); loadDistribution() })
 // 并行刷新服务端统计及最近20条传感器历史，隔离旧会话响应。
 async function loadDashboard() {
   if (!session.token) return
+  // 登录状态监听与页面显示可能同时触发，合并同一轮近期数据请求。
+  if (recentLoading.value) return
   const requestId = ++dashboardRequestId
   const generation = session.generation
   recentLoading.value = true; recentError.value = ''
@@ -140,6 +142,8 @@ async function loadDashboard() {
 // 获取设备在线和离线数量分布，不将其误标为传感器趋势。
 async function loadDistribution() {
   if (!session.token) return
+  // 登录状态监听与页面显示可能同时触发，避免重复请求设备分布。
+  if (distributionLoading.value) return
   const requestId = ++distributionRequestId
   distributionLoading.value = true
   distributionError.value = ''
