@@ -113,7 +113,7 @@ import { live, refreshLive } from '../../utils/live-store.js'
 import { formatDateTime } from '../../utils/format.js'
 
 const metricOptions = [{ value: 'temperature', label: '温度（℃）' }, { value: 'humidity', label: '湿度（%）' }, { value: 'water', label: '水位（ADC）' }]
-const operatorOptions = [{ value: 'gt', label: '大于（>）' }, { value: 'lt', label: '小于（<）' }, { value: 'eq', label: '接近（≈）' }]
+const operatorOptions = [{ value: 'gt', label: '大于（>）' }, { value: 'lt', label: '小于（<）' }, { value: 'eq', label: '接近（容差±0.05）' }]
 const actionOptions = [{ value: 'start', label: '启动设备' }, { value: 'stop', label: '停止设备' }, { value: 'notify', label: '记录通知' }]
 const rules = ref([])
 const executions = ref([])
@@ -301,7 +301,7 @@ async function deleteRule(rule) {
 function metricLabel(metric) { return metricOptions.find((item) => item.value === metric)?.label || metric }
 
 // 将运算符转换为页面中文文字。
-function operatorLabel(operator) { return { gt: '大于', lt: '小于', eq: '接近' }[operator] || operator }
+function operatorLabel(operator) { return { gt: '大于', lt: '小于', eq: '接近（容差±0.05）' }[operator] || operator }
 
 // 将动作代码转换为页面中文名称。
 function actionLabel(action) { return actionOptions.find((item) => item.value === action)?.label || action }

@@ -47,7 +47,7 @@ function createEmptyForm() {
 
 // 将比较运算符转换为页面文字
 function operatorLabel(operator) {
-  return { gt: '大于', lt: '小于', eq: '等于' }[operator] || operator
+  return { gt: '大于', lt: '小于', eq: '接近（容差±0.05）' }[operator] || operator
 }
 
 // 将动作代码转换为页面文字
@@ -62,7 +62,21 @@ function metricLabel(metric) {
 
 // 将执行状态转换为页面文字
 function statusLabel(status) {
-  return status === 'SUCCESS' ? '成功' : '失败'
+  return {
+    SUCCESS: '成功',
+    DISPATCHED: '等待设备确认',
+    ACKNOWLEDGED: '设备已确认',
+    TIMED_OUT: '设备超时',
+    REJECTED: '设备拒绝',
+    FAILED: '失败',
+  }[status] || '未知状态'
+}
+
+// 根据命令执行状态选择与实际结果匹配的标签颜色
+function statusType(status) {
+  if (status === 'SUCCESS' || status === 'ACKNOWLEDGED') return 'success'
+  if (status === 'DISPATCHED') return 'warning'
+  return 'danger'
 }
 
 // 格式化服务端时间用于执行记录展示
@@ -212,7 +226,7 @@ onMounted(loadData)
         <el-table-column prop="actualValue" label="触发值" width="100" />
         <el-table-column label="状态" width="90">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'SUCCESS' ? 'success' : 'danger'">
+            <el-tag :type="statusType(row.status)">
               {{ statusLabel(row.status) }}
             </el-tag>
           </template>
@@ -249,7 +263,7 @@ onMounted(loadData)
               <el-select v-model="form.operator">
                 <el-option label="大于" value="gt" />
                 <el-option label="小于" value="lt" />
-                <el-option label="等于" value="eq" />
+                <el-option label="接近（容差±0.05）" value="eq" />
               </el-select>
             </el-form-item>
           </el-col>
