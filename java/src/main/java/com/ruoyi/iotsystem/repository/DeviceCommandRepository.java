@@ -8,10 +8,14 @@ import org.springframework.data.repository.query.Param;
 import java.util.Optional;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Collection;
 
 public interface DeviceCommandRepository extends JpaRepository<DeviceCommandEntity, Long> {
     // 根据不可变命令标识查询审计记录。
     Optional<DeviceCommandEntity> findByCommandId(String commandId);
+
+    // 一次查询执行列表关联的命令，避免逐条查询。
+    List<DeviceCommandEntity> findByCommandIdIn(Collection<String> commandIds);
 
     // 仅恢复仍在有效时限内的待派发命令，每批限制一百条。
     List<DeviceCommandEntity> findTop100ByStatusAndCreatedAtGreaterThanEqualOrderByCreatedAtAsc(

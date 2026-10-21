@@ -1,12 +1,14 @@
 package com.ruoyi.iotsystem.service;
 
 import com.ruoyi.iotsystem.dto.AutomationRuleRequest;
+import com.ruoyi.iotsystem.dto.AutomationExecutionView;
 import com.ruoyi.iotsystem.entity.AutomationExecutionEntity;
 import com.ruoyi.iotsystem.entity.AutomationRuleEntity;
 import com.ruoyi.iotsystem.entity.EspEntity;
 import com.ruoyi.iotsystem.exception.BusinessException;
 import com.ruoyi.iotsystem.repository.AutomationExecutionRepository;
 import com.ruoyi.iotsystem.repository.AutomationRuleRepository;
+import com.ruoyi.iotsystem.repository.DeviceCommandRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,6 +19,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.Optional;
+import java.util.Arrays;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -35,13 +39,14 @@ class AutomationServiceTest {
     @Mock private AutomationExecutionRepository executionRepository;
     @Mock private DeviceCommandService deviceCommandService;
     @Mock private DeviceService deviceService;
+    @Mock private DeviceCommandRepository commandRepository;
 
     private AutomationService service;
 
     // 创建自动化服务测试对象
     @BeforeEach
     void setUp() {
-        service = new AutomationService(ruleRepository, executionRepository, deviceCommandService, deviceService);
+        service = new AutomationService(ruleRepository, executionRepository, deviceCommandService, deviceService, commandRepository);
     }
 
     // 验证条件连续命中设定次数后才发布设备动作
@@ -64,6 +69,7 @@ class AutomationServiceTest {
         verify(executionRepository).save(captor.capture());
         assertEquals("DISPATCHED", captor.getValue().getStatus());
         assertEquals(31.0, captor.getValue().getActualValue());
+        assertEquals("command-1", captor.getValue().getCommandId());
         assertNotNull(rule.getLastTriggeredAt());
     }
 
@@ -173,6 +179,93 @@ class AutomationServiceTest {
         verifyNoInteractions(deviceService);
     }
 
+    // 批量读取命令当前状态，保留执行实体的原始审计快照。
+    @Test
+    void executionListResolvesBatchWithoutChangingSnapshots() {
+        AutomationExecutionEntity first = execution("alice", "device001", "start");
+        first.setCommandId("command-1");
+        AutomationExecutionEntity second = execution("alice", "device001", "start");
+        second.setCommandId("command-1");
+        when(executionRepository.findTop100ByOwnerUsernameOrderByCreatedAtDesc("alice"))
+                .thenReturn(Arrays.asList(first, second));
+        // 测试命令须与执行账号一致，避免依赖空账号兼容路径。
+        com.ruoyi.iotsystem.entity.DeviceCommandEntity command =
+                new com.ruoyi.iotsystem.entity.DeviceCommandEntity("command-1", "device001", "alice", "start");
+        command.setStatus("ACKNOWLEDGED");
+        command.setMessage("设备已确认");
+        when(commandRepository.findByCommandIdIn(Collections.singleton("command-1")))
+                .thenReturn(Collections.singletonList(command));
+
+        List<AutomationExecutionView> views = service.getExecutions("alice");
+
+        assertEquals(2, views.size());
+        assertEquals("ACKNOWLEDGED", views.get(0).getStatus());
+        assertEquals("设备已确认", views.get(0).getMessage());
+        assertEquals("PENDING", views.get(0).getInitialStatus());
+        assertEquals("PENDING", first.getStatus());
+        verify(commandRepository).findByCommandIdIn(Collections.singleton("command-1"));
+        verify(executionRepository, never()).save(any());
+    }
+
+    // 旧快照仅按完整UUID后缀关联，通知与缺失命令保留原语义。
+    @Test
+    void legacyReferencesAndNotificationsRemainCompatible() {
+        String id = "d7f44543-7706-4a24-a14f-bad5d332d379";
+        AutomationExecutionEntity legacy = execution(null, "device001", "start");
+        legacy.setMessage("已发布，等待设备确认，commandId=" + id);
+        AutomationExecutionEntity notify = execution(null, "device001", "notify");
+        notify.setStatus("SUCCESS");
+        AutomationExecutionEntity missing = execution(null, "device001", "start");
+        missing.setCommandId("missing");
+        com.ruoyi.iotsystem.entity.DeviceCommandEntity command =
+                new com.ruoyi.iotsystem.entity.DeviceCommandEntity(id, "device001", null, "start");
+        command.setStatus("TIMED_OUT");
+        when(executionRepository.findTop100ByOrderByCreatedAtDesc()).thenReturn(Arrays.asList(legacy, notify, missing));
+        when(commandRepository.findByCommandIdIn(any())).thenReturn(Collections.singletonList(command));
+
+        List<AutomationExecutionView> views = service.getExecutions();
+
+        assertEquals("TIMED_OUT", views.get(0).getStatus());
+        assertEquals(true, views.get(0).isCommandLinked());
+        assertEquals("SUCCESS", views.get(1).getStatus());
+        assertEquals(false, views.get(1).isCommandLinked());
+        assertEquals("PENDING", views.get(2).getStatus());
+        assertEquals(false, views.get(2).isCommandLinked());
+    }
+
+    // 关联标识相同也必须匹配账号、设备与动作，不能泄露其他命令结果。
+    @Test
+    void mismatchedCommandIdentityNeverSuppliesState() {
+        AutomationExecutionEntity owner = execution("other", "device001", "start");
+        AutomationExecutionEntity device = execution(null, "other", "start");
+        AutomationExecutionEntity action = execution(null, "device001", "stop");
+        for (AutomationExecutionEntity execution : Arrays.asList(owner, device, action)) {
+            execution.setCommandId("command-1");
+        }
+        when(executionRepository.findTop100ByOrderByCreatedAtDesc()).thenReturn(Arrays.asList(owner, device, action));
+        when(commandRepository.findByCommandIdIn(any())).thenReturn(Collections.singletonList(command("REJECTED", "private")));
+
+        for (AutomationExecutionView view : service.getExecutions()) {
+            assertEquals("PENDING", view.getStatus());
+            assertEquals(false, view.isCommandLinked());
+            assertEquals("原始快照", view.getMessage());
+        }
+    }
+
+    // 无关联的通知列表不访问命令表。
+    @Test
+    void notificationsNeedNoCommandLookup() {
+        when(executionRepository.findTop100ByOwnerUsernameOrderByCreatedAtDesc("alice"))
+                .thenReturn(Collections.singletonList(execution("alice", "device001", "notify")));
+        service.getExecutions("alice");
+        verifyNoInteractions(commandRepository);
+    }
+
+    // 构造未关联命令的触发快照。
+    private AutomationExecutionEntity execution(String owner, String deviceId, String action) {
+        return new AutomationExecutionEntity(1L, deviceId, action, "PENDING", 31.0, "原始快照", owner);
+    }
+
     // 创建测试使用的高温启动规则
     private AutomationRuleEntity createRule(int debounceCount, int cooldownSeconds) {
         AutomationRuleEntity rule = new AutomationRuleEntity(
@@ -197,6 +290,7 @@ class AutomationServiceTest {
         return request;
     }
 
+    // 构造命令服务返回的审计结果。
     private com.ruoyi.iotsystem.entity.DeviceCommandEntity command(String status, String message) {
         com.ruoyi.iotsystem.entity.DeviceCommandEntity command =
                 new com.ruoyi.iotsystem.entity.DeviceCommandEntity("command-1", "device001", null, "start");

@@ -29,6 +29,9 @@ public class AutomationExecutionEntity {
     @Column(name = "owner_username", length = 100)
     private String ownerUsername;
 
+    @Column(name = "command_id", length = 64)
+    private String commandId;
+
     @Column(nullable = false, length = 16)
     private String action;
 
@@ -83,6 +86,10 @@ public class AutomationExecutionEntity {
     public String getOwnerUsername() { return ownerUsername; }
     // 设置记录归属用户名
     public void setOwnerUsername(String ownerUsername) { this.ownerUsername = ownerUsername; }
+    // 获取关联的设备命令标识，通知及旧记录可为空。
+    public String getCommandId() { return commandId; }
+    // 保存关联命令标识，不将设备回执覆盖到触发快照。
+    public void setCommandId(String commandId) { this.commandId = commandId; }
     // 获取执行动作
     public String getAction() { return action; }
     // 设置执行动作

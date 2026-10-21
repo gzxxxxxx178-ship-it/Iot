@@ -53,7 +53,14 @@ PENDING → TIMED_OUT
 
 ## 发布前检查
 
-1. 执行后端完整测试，确认 V4、V8 Flyway 迁移随 JAR 发布；V8 为命令表增加派发时间及状态扫描索引，必须在新代码启动前完成迁移。本轮 H2 测试不代替目标 MySQL/TiDB 迁移验收。
+1. 执行后端完整测试，确认 V4、V8、V9 Flyway 迁移随 JAR 发布；V8 为命令表增加派发时间及状态扫描索引，V9 为自动化审计增加命令标识，必须在新代码启动前完成迁移。本轮 H2 测试不代替目标 MySQL/TiDB 迁移验收。
 2. 编译并烧录 ESP8266 固件；旧固件仅能接受文本命令，不能确认 JSON 命令。
 3. 使用控制页面发送 `status`，确认命令表从 `DISPATCHED` 转为 `ACKNOWLEDGED`。
 4. 断开设备或阻止状态回执，确认命令在超时后变为 `TIMED_OUT`。
+
+## 自动化执行列表
+
+- 新自动化控制审计将 `commandId` 单独持久化，与命令意图同事务提交。原始 `status` 和 `message` 保留触发时快照，不由回执反复改写。
+- `/api/automation/executions` 批量读取相关命令，在设备、发起账号和动作一致时，返回命令当前 `status`、`message`、`acknowledgedAt`。`initialStatus` 保留触发时状态，`commandLinked=true` 表示当前结果来自已校验的关联命令。
+- 旧记录仅按历史格式 `，commandId=<完整UUID>` 后缀尝试关联，并执行相同身份校验；无匹配命令时保留快照并返回 `commandLinked=false`，该快照不能作为新的设备执行确认。通知无需设备命令，继续使用原有 `SUCCESS` 语义。
+- 查询最多一百条执行记录并一次批量查命令，保留按账号过滤与列表顺序，查询不会更新数据库审计快照。

@@ -1,38 +1,53 @@
 package com.ruoyi.iotsystem.service;
 
 import com.ruoyi.iotsystem.dto.AutomationRuleRequest;
+import com.ruoyi.iotsystem.dto.AutomationExecutionView;
+import com.ruoyi.iotsystem.entity.DeviceCommandEntity;
 import com.ruoyi.iotsystem.entity.AutomationExecutionEntity;
 import com.ruoyi.iotsystem.entity.AutomationRuleEntity;
 import com.ruoyi.iotsystem.entity.EspEntity;
 import com.ruoyi.iotsystem.exception.BusinessException;
 import com.ruoyi.iotsystem.repository.AutomationExecutionRepository;
 import com.ruoyi.iotsystem.repository.AutomationRuleRepository;
+import com.ruoyi.iotsystem.repository.DeviceCommandRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.Collections;
 
 @Service
 public class AutomationService {
 
     private static final double EQUALITY_TOLERANCE = 0.05;
+    private static final Pattern LEGACY_COMMAND = Pattern.compile(
+            "，commandId=([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$");
 
     private final AutomationRuleRepository ruleRepository;
     private final AutomationExecutionRepository executionRepository;
     private final DeviceCommandService deviceCommandService;
     private final DeviceService deviceService;
+    private final DeviceCommandRepository commandRepository;
 
     // 注入规则与执行记录仓库、设备命令服务和设备状态校验服务
     public AutomationService(
             AutomationRuleRepository ruleRepository,
             AutomationExecutionRepository executionRepository,
             DeviceCommandService deviceCommandService,
-            DeviceService deviceService) {
+            DeviceService deviceService, DeviceCommandRepository commandRepository) {
         this.ruleRepository = ruleRepository;
         this.executionRepository = executionRepository;
         this.deviceCommandService = deviceCommandService;
         this.deviceService = deviceService;
+        this.commandRepository = commandRepository;
     }
 
     // 查询全部自动化规则
@@ -107,13 +122,40 @@ public class AutomationService {
     }
 
     // 查询最近一百条动作执行审计记录
-    public List<AutomationExecutionEntity> getExecutions() {
-        return executionRepository.findTop100ByOrderByCreatedAtDesc();
+    public List<AutomationExecutionView> getExecutions() {
+        return resolveCommands(executionRepository.findTop100ByOrderByCreatedAtDesc());
     }
 
     // 按当前用户查询自动化执行记录
-    public List<AutomationExecutionEntity> getExecutions(String ownerUsername) {
-        return executionRepository.findTop100ByOwnerUsernameOrderByCreatedAtDesc(ownerUsername);
+    public List<AutomationExecutionView> getExecutions(String ownerUsername) {
+        return resolveCommands(executionRepository.findTop100ByOwnerUsernameOrderByCreatedAtDesc(ownerUsername));
+    }
+
+    // 批量关联命令，并同时核对设备、账号和动作以防串用其他审计结果。
+    private List<AutomationExecutionView> resolveCommands(List<AutomationExecutionEntity> executions) {
+        Set<String> ids = executions.stream().map(this::commandReference).filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<String, DeviceCommandEntity> commands = ids.isEmpty() ? Collections.emptyMap()
+                : commandRepository.findByCommandIdIn(ids).stream()
+                        .collect(Collectors.toMap(DeviceCommandEntity::getCommandId, Function.identity()));
+        return executions.stream().map(execution -> {
+            String id = commandReference(execution);
+            DeviceCommandEntity command = commands.get(id);
+            if (command != null && !(Objects.equals(execution.getDeviceId(), command.getDeviceId())
+                    && Objects.equals(execution.getOwnerUsername(), command.getOwnerUsername())
+                    && Objects.equals(execution.getAction(), command.getCommand()))) {
+                command = null;
+            }
+            return new AutomationExecutionView(execution, id, command);
+        }).collect(Collectors.toList());
+    }
+
+    // 新记录使用独立字段；旧记录仅识别服务端历史格式的完整UUID后缀。
+    private String commandReference(AutomationExecutionEntity execution) {
+        if ("notify".equals(execution.getAction())) return null;
+        if (execution.getCommandId() != null) return execution.getCommandId();
+        Matcher matcher = LEGACY_COMMAND.matcher(execution.getMessage() == null ? "" : execution.getMessage());
+        return matcher.find() ? matcher.group(1) : null;
     }
 
     // 串行评估最新读数，避免同一实例并发更新防抖计数
@@ -179,10 +221,12 @@ public class AutomationService {
                 return;
             }
             deviceService.assertAutomationTarget(deviceId, rule.getOwnerUsername(), true, true);
-            com.ruoyi.iotsystem.entity.DeviceCommandEntity command = deviceCommandService.issue(
+            DeviceCommandEntity command = deviceCommandService.issue(
                     deviceId, rule.getOwnerUsername(), rule.getAction());
-            saveExecution(rule, deviceId, actualValue, command.getStatus(),
-                    command.getMessage() + "，commandId=" + command.getCommandId());
+            AutomationExecutionEntity execution = new AutomationExecutionEntity(rule.getId(), deviceId,
+                    rule.getAction(), command.getStatus(), actualValue, command.getMessage(), rule.getOwnerUsername());
+            execution.setCommandId(command.getCommandId());
+            executionRepository.save(execution);
         } catch (Exception exception) {
             saveExecution(rule, deviceId, actualValue, "FAILED", safeErrorMessage(exception));
         }

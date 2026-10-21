@@ -3,7 +3,7 @@ package com.ruoyi.iotsystem.controller;
 import com.ruoyi.iotsystem.dto.ApiResponse;
 import com.ruoyi.iotsystem.config.SecurityContextUtils;
 import com.ruoyi.iotsystem.dto.AutomationRuleRequest;
-import com.ruoyi.iotsystem.entity.AutomationExecutionEntity;
+import com.ruoyi.iotsystem.dto.AutomationExecutionView;
 import com.ruoyi.iotsystem.entity.AutomationRuleEntity;
 import com.ruoyi.iotsystem.service.AutomationService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -78,7 +78,7 @@ public class AutomationController {
     // 查询最近一百条自动化执行记录
     @Operation(summary = "自动化执行记录")
     @GetMapping("/executions")
-    public ApiResponse<List<AutomationExecutionEntity>> getExecutions() {
+    public ApiResponse<List<AutomationExecutionView>> getExecutions() {
         String username = SecurityContextUtils.currentUsernameOrNull();
         return ApiResponse.success(username == null
                 ? automationService.getExecutions() : automationService.getExecutions(username));
