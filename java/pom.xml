@@ -139,6 +139,11 @@
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-core</artifactId>
         </dependency>
+        <!-- Flyway 8将MySQL支持拆为独立模块，版本跟随Spring Boot依赖管理。 -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-mysql</artifactId>
+        </dependency>
         
         <!-- Apache Commons Pool for Redis connection pooling -->
         <dependency>

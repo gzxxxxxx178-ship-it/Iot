@@ -1,0 +1,12 @@
+# 与忽略的application-dev.properties合并；本文件只保存可提交的开发环境默认值。
+spring:
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    # 已有未版本化数据库必须先备份、审计并显式登记基线，不能自动跳过历史版本。
+    baseline-on-migrate: false
+    validate-on-migrate: true
+    clean-disabled: true
+  jpa:
+    hibernate:
+      ddl-auto: validate
