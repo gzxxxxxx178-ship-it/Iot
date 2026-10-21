@@ -1,5 +1,7 @@
 # 智慧农业 IoT 系统
 
+> 2026-10-21：用户已要求全部由 Codex 自行实现，不再调用 Claude。此文件保留为历史 worker 约束；未获用户重新明确授权时，不得作为实现 worker 修改文件，应停止执行。当前工作入口以 `AGENTS.md` 为准。
+
 ## 项目概述
 
 前后端分离的智能农业物联网系统。ESP8266 设备通过私有 MQTT TLS Broker 上报传感器数据，后端接收并持久化，通过鉴权 WebSocket 实时推送至前端。详细架构见 [CLAUDE.project.md](CLAUDE.project.md)。

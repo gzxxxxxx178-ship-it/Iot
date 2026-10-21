@@ -2,7 +2,7 @@
 
 ## 项目概述
 
-前后端分离的智能农业物联网系统。ESP32 设备通过 MQTT 上报传感器数据，后端接收并持久化，通过 WebSocket 实时推送至前端。详细架构见 [Codex.project.md](Codex.project.md)。
+前后端分离的智能农业物联网系统。ESP8266 设备通过 MQTT 上报传感器数据，后端接收并持久化，通过 WebSocket 实时推送至前端。详细架构见 [CLAUDE.project.md](CLAUDE.project.md)，固件依赖与控制语义见 [arduino/README.md](arduino/README.md)。
 
 ## 子项目
 
@@ -10,7 +10,7 @@
 |------|------|--------|
 | Java 后端 | [java/](java/) | Spring Boot 2.7 + MQTT + WebSocket + JPA + MySQL + Redis |
 | Vue 前端 | [vue/IoT/](vue/IoT/) | Vue 3 + Element Plus + ECharts + WebSocket + axios |
-| Arduino 固件 | [arduino/](arduino/) | ESP32 + DHT11 + 水位传感器 + PubSubClient |
+| Arduino 固件 | [arduino/](arduino/) | ESP8266 + DHT11 + 水位传感器 + PubSubClient + TLS |
 
 ## 工作规范
 
@@ -18,16 +18,14 @@
 - **后端每个方法前必须写注释**，说明该方法的功能
 - **前端每个函数/API/composable 前必须写注释**，说明其功能
 
-## Codex 与 Claude 协作模式
+## Codex 独立实现模式（2026-10-21 起）
 
 - Codex 是项目主负责人：理解需求、设计目标和流程、编写验收标准、拆分任务、审查代码、独立验证、更新台账并创建最终提交。
-- Claude Code 是实现 worker：根据 `.ai/tasks/current.md` 完成具体编码和定向测试，不自行改变需求、架构目标或验收标准。
-- 代码任务默认通过 `scripts/claude_worker.sh` 交给 Claude；咨询、审查、诊断、任务设计、生产部署和最终验收仍由 Codex 负责。
-- Claude 不执行 `git add`、`git commit`、`git push`、部署、SSH、数据库写操作、凭据读取或硬件上传；这些边界由 worker 权限配置和守卫脚本共同限制。
-- Claude 完成后，Codex 必须检查完整 `git diff`，复核运行测试并完成正确性、简洁性、安全性审查；发现问题时退回 Claude 修订或由 Codex 做最小修正。
-- 未通过 Codex 验收的 Claude 输出不得标记完成、提交或部署。Claude 不可用、任务涉及敏感凭据/生产环境，或委派成本高于实现成本时，Codex 可以直接完成并说明原因。
-- 同一时间只允许一个实现者修改工作区。运行受管 worker 时，不得让手动打开的 Claude 会话同时修改相同文件。
-- 详细流程见 [docs/CODEX_CLAUDE_WORKFLOW.md](docs/CODEX_CLAUDE_WORKFLOW.md)。
+- 用户已明确要求全部由 Codex 自行完成，不再调用 Claude。所有编码、定向测试、完整差异审查和最终验收均由 Codex 直接执行。
+- 不启动 Claude Code、`scripts/claude_worker.sh` 或外部实现 worker；只有用户之后明确改变该要求，才能恢复委派。
+- 实现完成后检查完整 `git diff`，独立运行适用测试并完成正确性、简洁性和安全性审查；未通过验收不得标记完成、提交或部署。
+- 同一时间只允许一个实现者修改工作区，保护用户已有改动。
+- 旧 worker 脚本、任务书和权限配置仅作为历史资产保留；[旧流程说明](docs/CODEX_CLAUDE_WORKFLOW.md) 已停用，不是当前默认入口。
 
 ## Git 仓库边界
 
@@ -46,7 +44,7 @@ cd java && ./mvnw spring-boot:run        # → http://localhost:8080
 cd vue/IoT && npm install && npm run dev  # → http://localhost:5173
 
 # 3. Arduino 上传
-# 用 Arduino IDE 打开 arduino/MQTT/MQTT.ino → 修改WiFi配置 → 上传到ESP32
+# 按 arduino/README.md 准备依赖；凭据仅写忽略的 secrets.h，烧录须单独授权
 ```
 
 ## 生产部署
