@@ -108,9 +108,6 @@ public class SensorHistoryService {
     private Page<EspEntity> query(String deviceId, LocalDateTime start, LocalDateTime end,
             PageRequest pageable, String ownerUsername) {
         if (ownerUsername != null) {
-            if (deviceService != null) {
-                deviceService.claimLegacyDevices(ownerUsername);
-            }
             if (deviceId != null && deviceService != null) {
                 deviceService.assertCanAccess(deviceId, ownerUsername);
                 if (start != null) {

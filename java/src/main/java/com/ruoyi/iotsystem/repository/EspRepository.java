@@ -73,13 +73,6 @@ public interface EspRepository extends JpaRepository<EspEntity, Long> {
     Optional<EspEntity> findFirstByOwnerUsernameAndDeviceIdOrderByServerReceivedTimeDesc(
             String ownerUsername, String deviceId);
 
-    // 将升级前没有归属的历史数据归属到设备所有者
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("UPDATE EspEntity e SET e.ownerUsername = :ownerUsername "
-            + "WHERE e.deviceId = :deviceId AND e.ownerUsername IS NULL")
-    int assignOwnerToUnownedData(@Param("deviceId") String deviceId,
-            @Param("ownerUsername") String ownerUsername);
-
     // 通过单条批量语句删除保留期之前的传感器历史数据
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("DELETE FROM EspEntity e WHERE e.serverReceivedTime < :cutoff")

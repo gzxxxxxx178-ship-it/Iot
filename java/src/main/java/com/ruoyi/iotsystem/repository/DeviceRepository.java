@@ -26,9 +26,6 @@ public interface DeviceRepository extends JpaRepository<DeviceEntity, Long> {
     // 按设备ID集合查询共享设备档案
     List<DeviceEntity> findByDeviceIdIn(List<String> deviceIds);
 
-    // 查询尚未完成归属迁移的历史设备
-    List<DeviceEntity> findByOwnerUsernameIsNull();
-
     // 按不可变设备ID查询档案
     Optional<DeviceEntity> findByDeviceId(String deviceId);
 

@@ -50,13 +50,10 @@ public class DeviceService {
         return listDevices(includeArchived, null);
     }
 
-    // 查询指定用户设备并在首次访问时认领升级前的历史设备
+    // 查询指定用户设备并保留无主遥测设备的自动发现
     @Transactional
     public List<DeviceResponse> listDevices(boolean includeArchived, String ownerUsername) {
         synchronizeLegacyDevices();
-        if (ownerUsername != null) {
-            claimLegacyDevices(ownerUsername);
-        }
         List<DeviceEntity> devices;
         if (ownerUsername == null) {
             devices = includeArchived
@@ -80,11 +77,8 @@ public class DeviceService {
         return getDevice(deviceId, null);
     }
 
-    // 查询指定用户所属设备详情
+    // 查询当前用户可访问的设备详情
     public DeviceResponse getDevice(String deviceId, String ownerUsername) {
-        if (ownerUsername != null) {
-            claimLegacyDevices(ownerUsername);
-        }
         return toResponse(findAccessibleDevice(deviceId, ownerUsername), ownerUsername);
     }
 
@@ -116,9 +110,6 @@ public class DeviceService {
 
     // 更新当前用户所属设备档案
     public DeviceResponse updateDevice(String deviceId, DeviceUpdateRequest request, String ownerUsername) {
-        if (ownerUsername != null) {
-            claimLegacyDevices(ownerUsername);
-        }
         DeviceEntity device = findOwnedDevice(deviceId, ownerUsername);
         if (ARCHIVED.equals(device.getLifecycleStatus())) {
             throw new BusinessException("归档设备需先恢复后才能编辑");
@@ -139,9 +130,6 @@ public class DeviceService {
 
     // 归档当前用户所属设备并保留历史数据
     public void archiveDevice(String deviceId, String ownerUsername) {
-        if (ownerUsername != null) {
-            claimLegacyDevices(ownerUsername);
-        }
         DeviceEntity device = findOwnedDevice(deviceId, ownerUsername);
         device.setLifecycleStatus(ARCHIVED);
         device.setEnabled(Boolean.FALSE);
@@ -156,9 +144,6 @@ public class DeviceService {
 
     // 恢复当前用户所属设备档案
     public DeviceResponse restoreDevice(String deviceId, String ownerUsername) {
-        if (ownerUsername != null) {
-            claimLegacyDevices(ownerUsername);
-        }
         DeviceEntity device = findOwnedDevice(deviceId, ownerUsername);
         device.setLifecycleStatus(ACTIVE);
         device.setEnabled(Boolean.TRUE);
@@ -173,9 +158,6 @@ public class DeviceService {
 
     // 校验当前用户是否拥有可控制的设备
     public void assertControllable(String deviceId, String ownerUsername) {
-        if (ownerUsername != null) {
-            claimLegacyDevices(ownerUsername);
-        }
         DeviceEntity device = findAccessibleDevice(deviceId, ownerUsername);
         if (!ACTIVE.equals(device.getLifecycleStatus()) || !Boolean.TRUE.equals(device.getEnabled())) {
             throw new BusinessException("设备已停用或归档，不能发送控制指令");
@@ -251,21 +233,6 @@ public class DeviceService {
         findAccessibleDevice(deviceId, username);
     }
 
-    // 将升级前无归属的历史设备和读数一次性归属给首个访问用户
-    @Transactional
-    public void claimLegacyDevices(String ownerUsername) {
-        if (ownerUsername == null || ownerUsername.trim().isEmpty()) {
-            return;
-        }
-        List<DeviceEntity> legacyDevices = deviceRepository.findByOwnerUsernameIsNull();
-        for (DeviceEntity device : legacyDevices) {
-            device.setOwnerUsername(ownerUsername);
-            device.setUpdatedAt(LocalDateTime.now());
-            deviceRepository.save(device);
-            espRepository.assignOwnerToUnownedData(device.getDeviceId(), ownerUsername);
-        }
-    }
-
     // 将升级前已经存在历史读数的设备补录为可管理档案
     private void synchronizeLegacyDevices() {
         for (String deviceId : espRepository.findDistinctDeviceIds()) {
@@ -300,10 +267,13 @@ public class DeviceService {
         return device;
     }
 
-    // 查询账号可访问的设备并阻止未授权的跨账号访问
+    // 查询账号可访问的设备并阻止访问无主设备或越权访问
     private DeviceEntity findAccessibleDevice(String deviceId, String username) {
         DeviceEntity device = deviceRepository.findByDeviceId(normalizeDeviceId(deviceId))
                 .orElseThrow(() -> new BusinessException("设备不存在"));
+        if (device.getOwnerUsername() == null || device.getOwnerUsername().trim().isEmpty()) {
+            throw new SecurityException("无权访问该设备");
+        }
         if (username != null && !username.equals(device.getOwnerUsername())
                 && (deviceShareRepository == null
                     || !deviceShareRepository.existsByDeviceIdAndGranteeUsername(device.getDeviceId(), username))) {
@@ -330,6 +300,9 @@ public class DeviceService {
                     .map(share -> share.getDeviceId()).collect(java.util.stream.Collectors.toList());
             if (!sharedIds.isEmpty()) {
                 for (DeviceEntity device : deviceRepository.findByDeviceIdIn(sharedIds)) {
+                    if (device.getOwnerUsername() == null || device.getOwnerUsername().trim().isEmpty()) {
+                        continue;
+                    }
                     if (devices.stream().noneMatch(existing -> existing.getDeviceId().equals(device.getDeviceId()))) {
                         devices.add(device);
                     }
