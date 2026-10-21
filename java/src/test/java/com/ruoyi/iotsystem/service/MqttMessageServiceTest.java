@@ -76,7 +76,20 @@ class MqttMessageServiceTest {
         ArgumentCaptor<EspEntity> captor = ArgumentCaptor.forClass(EspEntity.class);
         verify(espService).saveData(captor.capture());
         assertEquals("device001", captor.getValue().getDeviceId());
-        verify(sensorWebSocketHandler).broadcastToOwner(eq("owner"), any(String.class));
+        verify(sensorWebSocketHandler).broadcastToDevice(eq("device001"), any(String.class));
+    }
+
+    // 验证兼容纯文本也按设备重新授权分发，不依赖历史所有者快照。
+    @Test
+    void plainTextTelemetryUsesDeviceAuthorization() throws Exception {
+        EspEntity saved = new EspEntity("device001", 25.0, 60.0, 1L);
+        saved.setOwnerUsername("previous-owner");
+        when(espService.saveData(any(EspEntity.class))).thenReturn(saved);
+
+        service.messageArrived("agri/device001/data", new MqttMessage(
+                "Received data from device: device001 Temperature: 25 Humidity: 60 Timestamp: 1".getBytes()));
+
+        verify(sensorWebSocketHandler).broadcastToDevice(eq("device001"), any(String.class));
     }
 
     // 验证空值、错误类型、缺少必需值、非有限数值和整数溢出均在入库前拒绝。
@@ -113,7 +126,7 @@ class MqttMessageServiceTest {
         service.messageArrived("agri/device001/data", new MqttMessage(payload.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
 
         verify(espService, never()).saveData(any(EspEntity.class));
-        verify(sensorWebSocketHandler, never()).broadcastToOwner(any(), any(String.class));
+        verify(sensorWebSocketHandler, never()).broadcastToDevice(any(), any(String.class));
     }
 
     // 验证真实零值和缺省可选字段不会被误判为转换失败。
@@ -162,7 +175,7 @@ class MqttMessageServiceTest {
                 new MqttMessage("{\"deviceId\":\"device002\",\"temperature\":25}".getBytes()));
 
         verify(espService, never()).saveData(any(EspEntity.class));
-        verify(sensorWebSocketHandler, never()).broadcastToOwner(any(), any(String.class));
+        verify(sensorWebSocketHandler, never()).broadcastToDevice(any(), any(String.class));
     }
 
     // 验证状态主题中的设备确认只按设备ID和命令ID交给命令审计服务处理

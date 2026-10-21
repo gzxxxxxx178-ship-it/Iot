@@ -4,6 +4,7 @@ import com.ruoyi.iotsystem.dto.DeviceCreateRequest;
 import com.ruoyi.iotsystem.dto.DeviceResponse;
 import com.ruoyi.iotsystem.dto.DeviceUpdateRequest;
 import com.ruoyi.iotsystem.entity.DeviceEntity;
+import com.ruoyi.iotsystem.entity.DeviceShareEntity;
 import com.ruoyi.iotsystem.entity.EspEntity;
 import com.ruoyi.iotsystem.exception.BusinessException;
 import com.ruoyi.iotsystem.repository.DeviceRepository;
@@ -17,6 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -190,6 +193,24 @@ public class DeviceService {
     // 返回设备所属用户，用于传感器规则执行和历史数据范围控制
     public String getOwnerUsername(String deviceId) {
         return findDevice(deviceId).getOwnerUsername();
+    }
+
+    // 每次推送重新读取当前设备归属与共享关系，无主或失效设备不得分发遥测。
+    @Transactional(readOnly = true)
+    public Set<String> getTelemetryRecipients(String deviceId) {
+        DeviceEntity device = deviceRepository.findByDeviceId(normalizeDeviceId(deviceId)).orElse(null);
+        Set<String> recipients = new HashSet<>();
+        if (device == null || device.getOwnerUsername() == null || device.getOwnerUsername().trim().isEmpty()
+                || !ACTIVE.equals(device.getLifecycleStatus()) || !Boolean.TRUE.equals(device.getEnabled())) {
+            return recipients;
+        }
+        recipients.add(device.getOwnerUsername());
+        for (DeviceShareEntity share
+                : deviceShareRepository.findByDeviceIdOrderByCreatedAtAsc(device.getDeviceId())) {
+            String username = share.getGranteeUsername();
+            if (username != null && !username.trim().isEmpty()) recipients.add(username);
+        }
+        return recipients;
     }
 
     // 查询当前设备所有者创建的共享账号名单

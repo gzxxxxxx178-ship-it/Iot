@@ -259,8 +259,8 @@ public class MqttMessageService implements MqttCallbackExtended {
         EspEntity entity = new EspEntity(
                 expectedDeviceId, temperature, humidity, uptimeMillis, water, linkage, sendCount, rssi);
         EspEntity saved = espService.saveData(entity);
-        sensorWebSocketHandler.broadcastToOwner(
-                saved.getOwnerUsername(), objectMapper.writeValueAsString(saved));
+        sensorWebSocketHandler.broadcastToDevice(
+                saved.getDeviceId(), objectMapper.writeValueAsString(saved));
     }
 
     // 严格读取有限数值，拒绝必需字段缺失及所有显式空值或类型错误。
@@ -320,8 +320,8 @@ public class MqttMessageService implements MqttCallbackExtended {
             Long uptimeMillis = timestampText == null ? 0L : Long.parseLong(timestampText);
             EspEntity saved = espService.saveData(
                     new EspEntity(deviceId, temperature, humidity, uptimeMillis));
-            sensorWebSocketHandler.broadcastToOwner(
-                    saved.getOwnerUsername(), objectMapper.writeValueAsString(saved));
+            sensorWebSocketHandler.broadcastToDevice(
+                    saved.getDeviceId(), objectMapper.writeValueAsString(saved));
             return true;
         } catch (Exception exception) {
             logger.debug("Plain text MQTT parsing failed: {}", exception.getMessage());

@@ -1,5 +1,6 @@
 package com.ruoyi.iotsystem.config;
 
+import com.ruoyi.iotsystem.service.DeviceService;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -8,11 +9,18 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.io.IOException;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.Set;
 
 @Component
 public class SensorWebSocketHandler extends TextWebSocketHandler {
 
-    private static final CopyOnWriteArrayList<WebSocketSession> sessions = new CopyOnWriteArrayList<>();
+    private final CopyOnWriteArrayList<WebSocketSession> sessions = new CopyOnWriteArrayList<>();
+    private final DeviceService deviceService;
+
+    // 注入设备级授权查询，连接不缓存可访问设备集合。
+    public SensorWebSocketHandler(DeviceService deviceService) {
+        this.deviceService = deviceService;
+    }
 
     // WebSocket连接建立，加入会话池
     @Override
@@ -30,19 +38,19 @@ public class SensorWebSocketHandler extends TextWebSocketHandler {
         sessions.remove(session);
     }
 
-    // 仅向拥有目标设备的已认证用户推送实时消息，避免跨用户泄露遥测数据
-    public void broadcastToOwner(String ownerUsername, String message) {
-        if (ownerUsername == null || ownerUsername.trim().isEmpty()) {
-            return;
-        }
+    // 按当前设备授权分发，新增和撤销共享对已有连接的下一条消息生效。
+    public void broadcastToDevice(String deviceId, String message) {
+        Set<String> recipients = deviceService.getTelemetryRecipients(deviceId);
         for (WebSocketSession session : sessions) {
             try {
                 Object authenticatedUsername = session.getAttributes().get("authenticatedUsername");
-                if (ownerUsername.equals(authenticatedUsername) && session.isOpen()) {
-                    session.sendMessage(new TextMessage(message));
+                if (authenticatedUsername instanceof String && recipients.contains(authenticatedUsername)) {
+                    synchronized (session) {
+                        if (session.isOpen()) session.sendMessage(new TextMessage(message));
+                    }
                 }
-            } catch (IOException e) {
-                // Ignore failure for specific session
+            } catch (IOException | IllegalStateException e) {
+                sessions.remove(session);
             }
         }
     }

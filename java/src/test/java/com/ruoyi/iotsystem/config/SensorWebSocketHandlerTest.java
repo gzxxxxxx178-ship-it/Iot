@@ -4,9 +4,11 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.WebSocketSession;
+import com.ruoyi.iotsystem.service.DeviceService;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Collections;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -16,11 +18,12 @@ import static org.mockito.Mockito.when;
 
 class SensorWebSocketHandlerTest {
 
-    private final SensorWebSocketHandler handler = new SensorWebSocketHandler();
+    private final DeviceService devices = mock(DeviceService.class);
+    private final SensorWebSocketHandler handler = new SensorWebSocketHandler(devices);
     private final WebSocketSession aliceSession = sessionFor("alice");
     private final WebSocketSession bobSession = sessionFor("bob");
 
-    // 清理静态会话池，避免影响其他测试用例
+    // 清理测试会话池。
     @AfterEach
     void tearDown() throws Exception {
         handler.afterConnectionClosed(aliceSession, CloseStatus.NORMAL);
@@ -29,11 +32,12 @@ class SensorWebSocketHandlerTest {
 
     // 验证实时遥测只推送给设备所属用户
     @Test
-    void broadcastToOwner_设备归属为Alice_仅向Alice推送() throws Exception {
+    void broadcastToDevice_设备归属为Alice_仅向Alice推送() throws Exception {
         handler.afterConnectionEstablished(aliceSession);
         handler.afterConnectionEstablished(bobSession);
 
-        handler.broadcastToOwner("alice", "{\"deviceId\":\"device001\"}");
+        when(devices.getTelemetryRecipients("device001")).thenReturn(Collections.singleton("alice"));
+        handler.broadcastToDevice("device001", "{\"deviceId\":\"device001\"}");
 
         verify(aliceSession).sendMessage(any());
         verify(bobSession, never()).sendMessage(any());
@@ -41,10 +45,11 @@ class SensorWebSocketHandlerTest {
 
     // 验证未归属的历史遥测不发送给任何会话
     @Test
-    void broadcastToOwner_缺少设备归属_不推送() throws Exception {
+    void broadcastToDevice_缺少设备归属_不推送() throws Exception {
         handler.afterConnectionEstablished(aliceSession);
 
-        handler.broadcastToOwner(null, "{\"deviceId\":\"legacy\"}");
+        when(devices.getTelemetryRecipients("legacy")).thenReturn(Collections.emptySet());
+        handler.broadcastToDevice("legacy", "{\"deviceId\":\"legacy\"}");
 
         verify(aliceSession, never()).sendMessage(any());
     }
