@@ -37,7 +37,7 @@ test('生产环境使用 Pages 同源代理并覆盖认证与实时连接路由'
 
   assert.match(productionEnv, /^VITE_API_BASE_URL=$/m)
   assert.match(productionEnv, /^VITE_WS_BASE_URL=$/m)
-  assert.match(proxySource, /const IOT_ORIGIN = 'https:\/\/node\.61153652\.xyz:8443'/)
+  assert.match(proxySource, /env\.IOT_ORIGIN/)
   for (const file of functionFiles) {
     const source = readFileSync(resolve(repositoryRoot, file), 'utf8')
     assert.match(source, /proxyIotRequest/)

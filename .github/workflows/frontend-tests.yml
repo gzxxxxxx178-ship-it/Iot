@@ -4,10 +4,12 @@ on:
   push:
     paths:
       - 'vue/IoT/**'
+      - 'functions/**'
       - '.github/workflows/frontend-tests.yml'
   pull_request:
     paths:
       - 'vue/IoT/**'
+      - 'functions/**'
       - '.github/workflows/frontend-tests.yml'
 
 jobs:

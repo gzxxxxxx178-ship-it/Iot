@@ -35,8 +35,9 @@ cd vue/IoT && npm install && npm run dev
 
 ```
 # .env.development
-VITE_API_BASE_URL=http://localhost:8080
-VITE_WS_BASE_URL=ws://localhost:8080
+VITE_API_BASE_URL=
+VITE_WS_BASE_URL=
+# 留空时两条链路共同使用localhost:8080
 
 # .env.production (留空使用同源地址)
 ```
@@ -288,11 +289,11 @@ Pay.vue → POST /api/alipay/create {amount, subject}
 
 ### 环境变量
 
-生产环境 `.env.production` 中设置 `VITE_API_BASE_URL` 和 `VITE_WS_BASE_URL` 指向后端 VPS 的 HTTPS 地址，注意使用 `wss://` 协议以支持 WebSocket。
+当前生产 `.env.production` 的两个地址留空，默认通过 Pages 同源 Functions 访问后端。开发默认 HTTP/WS 都使用 localhost:8080；独立后端及相对路径配置详见 [README.md](README.md)。
 
-- `request.js` 生产环境使用 `VITE_API_BASE_URL`（不为空），不再走同源
-- `Login.vue` Google 登录从 `VITE_API_BASE_URL` 推导后端地址
-- `useWebSocket.js` 使用 `VITE_WS_BASE_URL` 连接 WSS
+- `request.js`、`Login.vue` 和 `useWebSocket.js` 共同使用 `backendUrls.js`。
+- `VITE_API_BASE_URL` 覆盖 HTTP/OAuth 后端，WS 未显式设置时自动沿用并转换协议。
+- `VITE_WS_BASE_URL` 可独立覆盖实时服务；Pages 服务端 `IOT_ORIGIN` 可覆盖同源代理上游。
 
 ### VPS 端口架构
 

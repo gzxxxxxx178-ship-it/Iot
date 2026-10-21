@@ -4,6 +4,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { User, Lock } from '@element-plus/icons-vue'
 import { ElMessage } from '../utils/message'
 import { useAuthStore } from '../stores/auth'
+import { getBackendUrls } from '../utils/backendUrls'
 
 import { onMounted } from 'vue'
 
@@ -31,7 +32,7 @@ onMounted(() => {
 
 // Google OAuth2 登录：跳转到后端 /oauth2/authorization/google 触发 Spring Security 授权流程
 function googleLogin() {
-  const base = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:8080' : window.location.origin)
+  const base = getBackendUrls().apiBaseUrl
   window.location.href = base + '/oauth2/authorization/google'
 }
 

@@ -1,5 +1,6 @@
 import { ref, onUnmounted } from 'vue'
 import { createWebSocketTicket } from '../api/websocket'
+import { getBackendUrls } from '../utils/backendUrls'
 
 // WebSocket 连接管理 composable
 // 参数 onMessage: 收到消息时的回调函数
@@ -25,12 +26,11 @@ export function useWebSocket(onMessage) {
     connecting = true
     status.value = 'connecting'
 
-    const apiBase = import.meta.env.VITE_API_BASE_URL || window.location.origin
-    const wsBase = import.meta.env.VITE_WS_BASE_URL || apiBase
     try {
+      const { webSocketBaseUrl } = getBackendUrls()
       const ticketResponse = await createWebSocketTicket()
       if (stopped) return
-      const wsUrl = wsBase.replace(/^http/, 'ws')
+      const wsUrl = webSocketBaseUrl
         + `/ws/sensor?ticket=${encodeURIComponent(ticketResponse.ticket)}`
       socket = new WebSocket(wsUrl)
 

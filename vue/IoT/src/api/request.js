@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { ElMessage } from '../utils/message'
 import { removeToken, removeUsername } from '../utils/auth'
+import { getBackendUrls } from '../utils/backendUrls'
 
 let unauthorizedHandler = null
 let memoryAccessToken = ''
@@ -15,9 +16,9 @@ export function setMemoryAccessToken(token) {
   memoryAccessToken = token || ''
 }
 
-// 创建 axios 实例：开发环境走 VITE_API_BASE_URL 或 localhost:8080，生产环境取环境变量
+// 创建axios实例，与OAuth和WebSocket共用后端地址配置。
 const request = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:8080' : ''),
+  baseURL: getBackendUrls().apiBaseUrl,
   timeout: 10000,
   withCredentials: true,
   xsrfCookieName: 'XSRF-TOKEN',
