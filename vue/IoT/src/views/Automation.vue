@@ -72,6 +72,8 @@ function metricLabel(metric) {
 function statusLabel(status) {
   return {
     SUCCESS: '成功',
+    PENDING: '待下发',
+    DISPATCHING: '正在派发',
     DISPATCHED: '等待设备确认',
     ACKNOWLEDGED: '设备已确认',
     TIMED_OUT: '设备超时',
@@ -83,7 +85,7 @@ function statusLabel(status) {
 // 根据命令执行状态选择与实际结果匹配的标签颜色
 function statusType(status) {
   if (status === 'SUCCESS' || status === 'ACKNOWLEDGED') return 'success'
-  if (status === 'DISPATCHED') return 'warning'
+  if (['PENDING', 'DISPATCHING', 'DISPATCHED'].includes(status)) return 'warning'
   return 'danger'
 }
 

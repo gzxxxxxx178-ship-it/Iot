@@ -274,7 +274,7 @@ watch(() => session.generation, () => {
 // 离线、禁用、待回执与发送中的设备均不可再次控制。
 const canControl = computed(() => {
   const d = detailDevice.value
-  return d && d.status === 'online' && !sending.value && session.token && d.enabled !== false && d.lifecycleStatus !== 'ARCHIVED' && !live.commands.some((c) => c.deviceId === d.id && ['PENDING', 'DISPATCHED'].includes(c.status))
+  return d && d.status === 'online' && !sending.value && session.token && d.enabled !== false && d.lifecycleStatus !== 'ARCHIVED' && !live.commands.some((c) => c.deviceId === d.id && ['PENDING', 'DISPATCHING', 'DISPATCHED'].includes(c.status))
 })
 
 // 按筛选条件过滤设备列表

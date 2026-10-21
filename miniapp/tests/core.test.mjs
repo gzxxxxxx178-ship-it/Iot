@@ -73,6 +73,10 @@ test('只使用真实接口，旧演示配置仅迁移地址且拒绝切回演�
 })
 
 test('自动化命令等待设备确认使用警示状态，状态文字与 Web 一致', () => {
+  assert.equal(automationStatusLabel('PENDING'), '待下发')
+  assert.equal(automationStatusLabel('DISPATCHING'), '正在派发')
+  assert.equal(automationStatusClass('PENDING'), 'is-pending')
+  assert.equal(automationStatusClass('DISPATCHING'), 'is-pending')
   assert.equal(automationStatusLabel('DISPATCHED'), '等待设备确认')
   assert.equal(automationStatusClass('DISPATCHED'), 'is-pending')
   assert.equal(automationStatusLabel('ACKNOWLEDGED'), '设备已确认')
@@ -322,6 +326,7 @@ test('设备DTO保持零值和缺测，控制不乐观改变运行状态', async
   e.reply(e.pending.shift(), { commandId: 'one', status: 'DISPATCHED' }); await control
   assert.equal(device.controlled, false)
   assert.match(e.store.commandStatus('DISPATCHED'), /等待/)
+  assert.match(e.store.commandStatus('DISPATCHING'), /正在派发/)
   assert.equal(e.store.commandStatus('ACKNOWLEDGED'), '设备已确认')
   device.status = 'offline'; await assert.rejects(e.store.issueCommand('d', 'start'), /不可控制/)
   const sharedDevice = e.store.mapDevice({ deviceId: 'shared', status: 'online', ownedByCurrentUser: false })

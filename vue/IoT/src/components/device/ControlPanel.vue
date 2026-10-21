@@ -24,7 +24,7 @@
 		status.value = `正在发送 ${label} 指令...`
 		try {
 			await controlDevice(cmd, props.deviceId)
-			status.value = `${label} 指令已发送`
+			status.value = `${label} 指令已受理，等待设备确认`
 			emit('command-sent', cmd)
 		} catch (e) {
 			status.value = `发送失败: ${e.message}`

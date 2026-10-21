@@ -209,4 +209,4 @@ export function removeDeviceShare(deviceId, username) {
 }
 
 // 翻译命令状态，保留下发与设备确认的区别。
-export function commandStatus(status) { return ({ PENDING: '待下发', DISPATCHED: '已下发，等待设备确认', ACKNOWLEDGED: '设备已确认', REJECTED: '设备拒绝执行', FAILED: '下发失败', TIMED_OUT: '设备确认超时' })[status] || status || '未知状态' }
+export function commandStatus(status) { return ({ PENDING: '待下发', DISPATCHING: '正在派发，等待设备确认', DISPATCHED: '已下发，等待设备确认', ACKNOWLEDGED: '设备已确认', REJECTED: '设备拒绝执行', FAILED: '下发失败', TIMED_OUT: '命令超时，执行结果需核查' })[status] || status || '未知状态' }

@@ -117,7 +117,7 @@ const controlDeviceIndex = computed(() => Math.max(0, live.devices.findIndex((de
 const canControl = computed(() => {
   const device = selectedControlDevice.value
   return Boolean(device && session.token && device.status === 'online' && device.enabled !== false && device.lifecycleStatus !== 'ARCHIVED' && !controlBusy.value
-    && !live.commands.some((item) => item.deviceId === device.id && ['PENDING', 'DISPATCHED'].includes(item.status)))
+    && !live.commands.some((item) => item.deviceId === device.id && ['PENDING', 'DISPATCHING', 'DISPATCHED'].includes(item.status)))
 })
 
 // 页面显示时加载历史基线、刷新设备统计并建立实时连接。

@@ -175,7 +175,7 @@ async function restoreDevice(device) {
 async function sendCommand(device, command) {
   await controlDevice(command, device.deviceId)
   const labels = { start: '开始上报', stop: '停止上报', read: '立即读取', status: '查询状态' }
-  ElMessage.success(`${labels[command]}指令已发送`)
+  ElMessage.success(`${labels[command]}指令已受理，请查看设备回执`)
   await loadCommands()
 }
 

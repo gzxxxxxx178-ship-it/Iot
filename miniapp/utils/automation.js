@@ -2,6 +2,8 @@
 export function automationStatusLabel(status) {
   return {
     SUCCESS: '成功',
+    PENDING: '待下发',
+    DISPATCHING: '正在派发',
     DISPATCHED: '等待设备确认',
     ACKNOWLEDGED: '设备已确认',
     TIMED_OUT: '设备超时',
@@ -13,7 +15,7 @@ export function automationStatusLabel(status) {
 // 按命令真实进度选择成功、等待确认或失败的状态样式。
 export function automationStatusClass(status) {
   if (status === 'SUCCESS' || status === 'ACKNOWLEDGED') return 'is-enabled'
-  if (status === 'DISPATCHED') return 'is-pending'
+  if (['PENDING', 'DISPATCHING', 'DISPATCHED'].includes(status)) return 'is-pending'
   return 'is-failed'
 }
 
