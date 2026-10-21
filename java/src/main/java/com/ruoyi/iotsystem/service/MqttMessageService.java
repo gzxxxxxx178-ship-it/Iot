@@ -226,6 +226,9 @@ public class MqttMessageService implements MqttCallbackExtended {
             }
         } catch (JsonProcessingException ignored) {
             // 非JSON消息继续尝试兼容纯文本协议。
+        } catch (IllegalArgumentException exception) {
+            logger.warn("Rejected malformed MQTT telemetry for device {}: {}", expectedDeviceId, exception.getMessage());
+            return;
         } catch (Exception exception) {
             logger.error("Failed to persist JSON MQTT message: {}", exception.getMessage());
             return;
@@ -243,21 +246,65 @@ public class MqttMessageService implements MqttCallbackExtended {
                     expectedDeviceId, deviceNode == null ? "missing" : deviceNode.asText());
             return;
         }
-        Double temperature = jsonNode.has("temperature") ? jsonNode.get("temperature").asDouble() : null;
-        Double humidity = jsonNode.has("humidity") ? jsonNode.get("humidity").asDouble() : null;
+        Double temperature = readDoubleField(jsonNode, "temperature", true);
+        Double humidity = readDoubleField(jsonNode, "humidity", true);
         Long uptimeMillis = jsonNode.has("uptimeMillis")
-                ? jsonNode.get("uptimeMillis").asLong()
-                : (jsonNode.has("timestamp") ? jsonNode.get("timestamp").asLong() : 0L);
-        Double water = jsonNode.has("water") ? jsonNode.get("water").asDouble() : null;
-        Boolean linkage = jsonNode.has("linkage") ? jsonNode.get("linkage").asBoolean() : null;
-        Integer sendCount = jsonNode.has("sendCount") ? jsonNode.get("sendCount").asInt() : null;
-        Integer rssi = jsonNode.has("rssi") ? jsonNode.get("rssi").asInt() : null;
+                ? readUptimeField(jsonNode.get("uptimeMillis"), "uptimeMillis")
+                : (jsonNode.has("timestamp") ? readUptimeField(jsonNode.get("timestamp"), "timestamp") : 0L);
+        Double water = readDoubleField(jsonNode, "water", false);
+        Boolean linkage = readBooleanField(jsonNode, "linkage");
+        Integer sendCount = readIntegerField(jsonNode, "sendCount");
+        Integer rssi = readIntegerField(jsonNode, "rssi");
 
         EspEntity entity = new EspEntity(
                 expectedDeviceId, temperature, humidity, uptimeMillis, water, linkage, sendCount, rssi);
         EspEntity saved = espService.saveData(entity);
         sensorWebSocketHandler.broadcastToOwner(
                 saved.getOwnerUsername(), objectMapper.writeValueAsString(saved));
+    }
+
+    // 严格读取有限数值，拒绝必需字段缺失及所有显式空值或类型错误。
+    private Double readDoubleField(JsonNode object, String field, boolean required) {
+        JsonNode value = object.get(field);
+        if (value == null && !required) {
+            return null;
+        }
+        if (value == null || !value.isNumber() || !Double.isFinite(value.doubleValue())) {
+            throw new IllegalArgumentException(field + "必须是有限JSON数值");
+        }
+        return value.doubleValue();
+    }
+
+    // 可选整数字段缺失时保留缺测，存在时禁止字符串、小数、空值和溢出转换。
+    private Integer readIntegerField(JsonNode object, String field) {
+        JsonNode value = object.get(field);
+        if (value == null) {
+            return null;
+        }
+        if (!value.isIntegralNumber() || !value.canConvertToInt()) {
+            throw new IllegalArgumentException(field + "必须是32位JSON整数");
+        }
+        return value.intValue();
+    }
+
+    // 设备运行时长必须是非负且不溢出的64位整数，兼容旧timestamp字段。
+    private Long readUptimeField(JsonNode value, String field) {
+        if (!value.isIntegralNumber() || !value.canConvertToLong() || value.longValue() < 0) {
+            throw new IllegalArgumentException(field + "必须是非负64位JSON整数");
+        }
+        return value.longValue();
+    }
+
+    // 可选联动字段缺失时保留缺测，存在时只接受JSON布尔值。
+    private Boolean readBooleanField(JsonNode object, String field) {
+        JsonNode value = object.get(field);
+        if (value == null) {
+            return null;
+        }
+        if (!value.isBoolean()) {
+            throw new IllegalArgumentException(field + "必须是JSON布尔值");
+        }
+        return value.booleanValue();
     }
 
     // 兼容旧纯文本协议并拒绝Topic与载荷设备不一致的数据

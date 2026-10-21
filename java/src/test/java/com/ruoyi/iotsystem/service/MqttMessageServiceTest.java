@@ -11,12 +11,15 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -74,6 +77,81 @@ class MqttMessageServiceTest {
         verify(espService).saveData(captor.capture());
         assertEquals("device001", captor.getValue().getDeviceId());
         verify(sensorWebSocketHandler).broadcastToOwner(eq("owner"), any(String.class));
+    }
+
+    // 验证空值、错误类型、缺少必需值、非有限数值和整数溢出均在入库前拒绝。
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "{\"temperature\":null,\"humidity\":60}",
+            "{\"temperature\":\"bad\",\"humidity\":60}",
+            "{\"temperature\":\"25\",\"humidity\":60}",
+            "{\"temperature\":{},\"humidity\":60}",
+            "{\"temperature\":[],\"humidity\":60}",
+            "{\"temperature\":true,\"humidity\":60}",
+            "{\"humidity\":60}",
+            "{\"temperature\":25}",
+            "{\"temperature\":25,\"humidity\":null}",
+            "{\"temperature\":25,\"humidity\":\"bad\"}",
+            "{\"temperature\":1e999,\"humidity\":60}",
+            "{\"temperature\":25,\"humidity\":60,\"water\":null}",
+            "{\"temperature\":25,\"humidity\":60,\"water\":\"bad\"}",
+            "{\"temperature\":25,\"humidity\":60,\"sendCount\":2147483648}",
+            "{\"temperature\":25,\"humidity\":60,\"sendCount\":1.5}",
+            "{\"temperature\":25,\"humidity\":60,\"rssi\":null}",
+            "{\"temperature\":25,\"humidity\":60,\"rssi\":\"-60\"}",
+            "{\"temperature\":25,\"humidity\":60,\"linkage\":\"false\"}",
+            "{\"temperature\":25,\"humidity\":60,\"linkage\":null}",
+            "{\"temperature\":25,\"humidity\":60,\"uptimeMillis\":null}",
+            "{\"temperature\":25,\"humidity\":60,\"uptimeMillis\":1.5}",
+            "{\"temperature\":25,\"humidity\":60,\"uptimeMillis\":9223372036854775808}",
+            "{\"temperature\":25,\"humidity\":60,\"uptimeMillis\":-1}",
+            "{\"temperature\":25,\"humidity\":60,\"timestamp\":\"bad\"}"
+    })
+    void messageArrived_无效字段_不得生成伪零值或触发入库(String fields) {
+        String payload = "{\"deviceId\":\"device001\"," + fields.substring(1);
+
+        service.messageArrived("agri/device001/data", new MqttMessage(payload.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+
+        verify(espService, never()).saveData(any(EspEntity.class));
+        verify(sensorWebSocketHandler, never()).broadcastToOwner(any(), any(String.class));
+    }
+
+    // 验证真实零值和缺省可选字段不会被误判为转换失败。
+    @Test
+    void messageArrived_真实零值与缺省可选字段_应保持原始语义() {
+        when(espService.saveData(any(EspEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.messageArrived("agri/device001/data", new MqttMessage(
+                "{\"deviceId\":\"device001\",\"temperature\":0,\"humidity\":0,\"uptimeMillis\":0}".getBytes()));
+
+        ArgumentCaptor<EspEntity> captor = ArgumentCaptor.forClass(EspEntity.class);
+        verify(espService).saveData(captor.capture());
+        EspEntity reading = captor.getValue();
+        assertEquals(0.0, reading.getTemperature());
+        assertEquals(0.0, reading.getHumidity());
+        assertEquals(0L, reading.getUptimeMillis());
+        assertNull(reading.getWater());
+        assertNull(reading.getSendCount());
+        assertNull(reading.getRssi());
+        assertNull(reading.getLinkage());
+    }
+
+    // 验证格式正确的越界值保留原值，交给既有质量标记逻辑而非静默改写。
+    @Test
+    void messageArrived_数值越界_应交给质量治理保留原值() {
+        when(espService.saveData(any(EspEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.messageArrived("agri/device001/data", new MqttMessage(
+                ("{\"deviceId\":\"device001\",\"temperature\":120,\"humidity\":101,"
+                        + "\"water\":1024,\"sendCount\":-1,\"rssi\":-121,\"linkage\":false}").getBytes()));
+
+        ArgumentCaptor<EspEntity> captor = ArgumentCaptor.forClass(EspEntity.class);
+        verify(espService).saveData(captor.capture());
+        assertEquals(120.0, captor.getValue().getTemperature());
+        assertEquals(101.0, captor.getValue().getHumidity());
+        assertEquals(1024.0, captor.getValue().getWater());
+        assertEquals(-1, captor.getValue().getSendCount());
+        assertEquals(-121, captor.getValue().getRssi());
     }
 
     // 验证载荷冒用其他设备身份时不会进入数据库
