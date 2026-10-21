@@ -4,6 +4,8 @@
 #include <DHT.h>
 #include <time.h>
 #include "secrets.h"
+#include "CommandProtocol.h"
+#include "SensorSampleState.h"
 
 /* WiFi与MQTT凭据由本地secrets.h提供，该文件不会提交到Git */
 
@@ -63,9 +65,38 @@ const unsigned long MQTT_RECONNECT_MAX_DELAY = 60000;
 float temperature = 0.0;
 float humidity = 0.0;
 int waterValue = 0;
-bool sensorError = false;
+SensorSampleState sampleState;
 String sensorErrorMessage = "";
 bool linkageAlarm = false;
+
+// 声明命令适配器调用的采样与状态发布接口。
+bool readSensorData();
+bool sendSensorData();
+bool sendStatusUpdate();
+
+struct DeviceCommandAdapter {
+  // 返回实时MQTT连接状态，离线时保留待发送回执。
+  bool connected() { return client.connected(); }
+  // 命令回执不保留，发布失败交由处理器在主循环重试。
+  bool publish(const char* payload) { return client.publish(topicStatus.c_str(), payload, false); }
+  // 仅操作周期上报状态，当前硬件不包含泵阀执行器。
+  bool execute(const char* command) {
+    if (strcmp(command, "start") == 0) {
+      if (!isSending) lastSendTime = millis();
+      isSending = true;
+      return true;
+    }
+    if (strcmp(command, "stop") == 0) {
+      isSending = false;
+      return true;
+    }
+    if (strcmp(command, "read") == 0) return sendSensorData();
+    if (strcmp(command, "status") == 0) return sendStatusUpdate();
+    return false;
+  }
+};
+CommandProtocol commandProtocol(DEVICE_ID);
+DeviceCommandAdapter commandAdapter;
 
 /* ================= WiFi连接 ================= */
 /* 仅诊断目标网络是否可见，不输出周边 SSID，便于定位 2.4 GHz 或热点兼容性问题。 */
@@ -104,7 +135,7 @@ void setupWiFi() {
   Serial.printf("\nWiFi连接成功，IP=%s\n", WiFi.localIP().toString().c_str());
 }
 
-/* ================= TLS时间与证书 ================= */
+/* 校时后配置CA信任，失败时重启，禁止跳过TLS身份验证。 */
 void setupTls() {
   configTime(0, 0, "pool.ntp.org", "time.cloudflare.com");
   time_t now = time(nullptr);
@@ -122,50 +153,10 @@ void setupTls() {
   secureClient.setTrustAnchors(&trustAnchor);
 }
 
-/* ================= MQTT回调 ================= */
+/* 仅处理本设备控制主题，解析、去重与回执由有界协议处理器维护。 */
 void callback(char* topic, byte* payload, unsigned int length) {
-  String message;
-  for (unsigned int i = 0; i < length; i++) {
-    message += (char)payload[i];
-  }
-  if (String(topic) != topicControl) return;
-
-  String commandId = "";
-  if (message.startsWith("{")) {
-    int commandStart = message.indexOf("\"command\":\"");
-    int commandIdStart = message.indexOf("\"commandId\":\"");
-    if (commandStart < 0 || commandIdStart < 0) return;
-    commandStart += 11;
-    commandIdStart += 13;
-    int commandEnd = message.indexOf('"', commandStart);
-    int commandIdEnd = message.indexOf('"', commandIdStart);
-    if (commandEnd < 0 || commandIdEnd < 0) return;
-    commandId = message.substring(commandIdStart, commandIdEnd);
-    message = message.substring(commandStart, commandEnd);
-  }
-
-  if (message.equalsIgnoreCase("start")) {
-    isSending = true;
-    lastSendTime = millis();
-    sendCount = 0;
-    client.publish(topicStatus.c_str(), "{\"status\":\"started\"}", true);
-  } else if (message.equalsIgnoreCase("stop")) {
-    isSending = false;
-    client.publish(topicStatus.c_str(), "{\"status\":\"stopped\"}", true);
-  } else if (message.equalsIgnoreCase("read")) {
-    readSensorData();
-    sendSensorData();
-  } else if (message.equalsIgnoreCase("status")) {
-    sendStatusUpdate();
-  }
-
-  if (commandId.length() > 0 && client.connected()) {
-    String ack = String("{\"deviceId\":\"") + DEVICE_ID
-      + "\",\"commandId\":\"" + commandId
-      + "\",\"command\":\"" + message
-      + "\",\"status\":\"ACKNOWLEDGED\"}";
-    client.publish(topicStatus.c_str(), ack.c_str(), false);
-  }
+  if (strcmp(topic, topicControl.c_str()) != 0) return;
+  commandProtocol.receive(payload, length, static_cast<uint32_t>(millis()), commandAdapter);
 }
 
 /* ================= 非阻塞指数退避重连 ================= */
@@ -186,6 +177,7 @@ bool connectMqttTls() {
   return false;
 }
 
+/* 在主循环中按退避时间恢复TLS与MQTT连接，不阻塞等待重试间隔。 */
 void ensureMqttConnected() {
   if (client.connected()) return;
   if ((long)(millis() - nextMqttReconnectAt) < 0) return;
@@ -231,7 +223,7 @@ void ensureMqttConnected() {
   }
 }
 
-/* ================= 读取水位传感器 ================= */
+/* 平均十次ADC读数，保持原始ADC单位，不换算为水深。 */
 void readWaterSensor() {
   long sum = 0;
   for (int i = 0; i < 10; i++) {
@@ -241,33 +233,31 @@ void readWaterSensor() {
   waterValue = sum / 10;
 }
 
-/* ================= 读取温湿度传感器 ================= */
-void readSensorData() {
-  static unsigned long lastReadTime = 0;
-  if (millis() - lastReadTime < 2000) return;
+/* 首次调用立即采样，后续尝试间隔至少两秒；失败或尚未采样时禁止发送初始零值。 */
+bool readSensorData() {
+  if (!sampleState.beginAttempt(static_cast<uint32_t>(millis()))) return sampleState.isValid();
   float h = dht.readHumidity();
   float t = dht.readTemperature();
   if (isnan(h) || isnan(t)) {
-    sensorError = true;
+    sampleState.finishAttempt(false);
     sensorErrorMessage = "DHT读取失败";
-    return;
+    return false;
   }
-  sensorError = false;
   temperature = t;
   humidity = h;
-  lastReadTime = millis();
   readWaterSensor();
+  sampleState.finishAttempt(true);
+  return true;
 }
 
-/* ================= 联动判断 ================= */
+/* 计算传感器条件标志，仅上报数据，不驱动泵阀。 */
 void checkLinkage() {
   linkageAlarm = temperature > TEMP_THRESHOLD && waterValue > WATER_THRESHOLD;
 }
 
-/* ================= 发送传感器数据 ================= */
-void sendSensorData() {
-  readSensorData();
-  if (sensorError || !client.connected()) return;
+/* 采样有效且遥测成功写出时返回true，单次读取不受周期上报开关限制。 */
+bool sendSensorData() {
+  if (!readSensorData() || !client.connected()) return false;
   checkLinkage();
 
   String json = String("{\"deviceId\":\"") + DEVICE_ID + "\",";
@@ -281,24 +271,27 @@ void sendSensorData() {
 
   if (client.publish(topicData.c_str(), json.c_str())) {
     sendCount++;
+    return true;
   }
+  return false;
 }
 
-/* ================= 发送设备状态 ================= */
-void sendStatusUpdate() {
-  if (!client.connected()) return;
+/* 上报周期采集开关与采样质量；未取得有效样本的读数明确为null。 */
+bool sendStatusUpdate() {
+  if (!client.connected()) return false;
   String status = String("{\"deviceId\":\"") + DEVICE_ID + "\",";
   status += "\"sending\":" + String(isSending ? "true" : "false") + ",";
-  status += "\"temperature\":" + String(temperature, 1) + ",";
-  status += "\"humidity\":" + String(humidity, 1) + ",";
-  status += "\"water\":" + String(waterValue) + ",";
-  status += "\"linkage\":" + String(linkageAlarm ? "true" : "false") + ",";
+  status += "\"sampleValid\":" + String(sampleState.isValid() ? "true" : "false") + ",";
+  status += "\"temperature\":" + (sampleState.isValid() ? String(temperature, 1) : String("null")) + ",";
+  status += "\"humidity\":" + (sampleState.isValid() ? String(humidity, 1) : String("null")) + ",";
+  status += "\"water\":" + (sampleState.isValid() ? String(waterValue) : String("null")) + ",";
+  status += "\"linkage\":" + (sampleState.isValid() ? String(linkageAlarm ? "true" : "false") : String("null")) + ",";
   status += "\"rssi\":" + String(WiFi.RSSI()) + ",";
   status += "\"uptime\":" + String(millis() / 1000) + "}";
-  client.publish(topicStatus.c_str(), status.c_str(), true);
+  return client.publish(topicStatus.c_str(), status.c_str(), true);
 }
 
-/* ================= 初始化 ================= */
+/* 初始化传感器、Wi-Fi和TLS，命令处理器使用静态容量且不加载持久化命令。 */
 void setup() {
   Serial.begin(9600);
   Serial.println("\n===== 智慧农业IoT - ESP8266 TLS =====");
@@ -312,12 +305,13 @@ void setup() {
   readSensorData();
 }
 
-/* ================= 主循环 ================= */
+/* 维护连接、回执重试和周期上报，停止上报不切断MQTT控制连接。 */
 void loop() {
   ensureMqttConnected();
   if (client.connected()) {
     client.loop();
   }
+  commandProtocol.retry(static_cast<uint32_t>(millis()), commandAdapter);
   if (isSending && client.connected() && millis() - lastSendTime > SEND_INTERVAL) {
     sendSensorData();
     lastSendTime = millis();

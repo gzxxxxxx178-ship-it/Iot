@@ -6,7 +6,7 @@
       <button class="btn-primary action-button" @tap="goLogin">前往登录</button>
     </view>
     <template v-else>
-      <view class="notice-card"><text class="notice-text">启动或停止动作会在条件满足时向设备发送硬件命令。规则按连续命中次数和冷却时间执行。</text></view>
+      <view class="notice-card"><text class="notice-text">按连续命中次数和冷却时间控制设备周期上报，或记录通知。</text></view>
       <view class="section-heading">
         <text class="section-title">规则列表</text>
         <view class="heading-actions">
@@ -87,7 +87,7 @@
         <picker :range="actionOptions" range-key="label" :value="form.actionIndex" @change="selectAction">
           <view class="picker-field">{{ actionOptions[form.actionIndex].label }}　›</view>
         </picker>
-        <text v-if="form.actionIndex < 2" class="control-warning">启用后会在条件连续命中时自动向设备下发{{ form.actionIndex === 0 ? '启动' : '停止' }}命令。</text>
+        <text v-if="form.actionIndex < 2" class="control-warning">启用后会在条件连续命中时自动向设备下发{{ form.actionIndex === 0 ? '开始上报' : '停止上报' }}命令。</text>
         <text class="field-label">连续命中次数（1–20）</text>
         <input class="text-field" type="number" v-model="form.debounceCount" />
         <text class="field-label">冷却时间（秒，0–86400）</text>
@@ -115,7 +115,7 @@ import { automationStatusClass, automationStatusLabel, filterAutomationTargets }
 
 const metricOptions = [{ value: 'temperature', label: '温度（℃）' }, { value: 'humidity', label: '湿度（%）' }, { value: 'water', label: '水位（ADC）' }]
 const operatorOptions = [{ value: 'gt', label: '大于（>）' }, { value: 'lt', label: '小于（<）' }, { value: 'eq', label: '接近（容差±0.05）' }]
-const actionOptions = [{ value: 'start', label: '启动设备' }, { value: 'stop', label: '停止设备' }, { value: 'notify', label: '记录通知' }]
+const actionOptions = [{ value: 'start', label: '开始上报' }, { value: 'stop', label: '停止上报' }, { value: 'notify', label: '记录通知' }]
 const rules = ref([])
 const executions = ref([])
 const loading = ref(false)
@@ -253,7 +253,7 @@ async function saveRule() {
 // 对会自动控制硬件的规则展示二次确认。
 function confirmHardwareAutomation() {
   return new Promise((resolve) => {
-    uni.showModal({ title: '确认自动控制设备', content: '规则启用后，后端会在条件连续命中时自动向所选设备发送启动或停止命令。确定继续吗？', confirmText: '启用规则', success: (result) => resolve(result.confirm), fail: () => resolve(false) })
+    uni.showModal({ title: '确认自动控制设备', content: '规则启用后，后端会在条件连续命中时自动控制所选设备开始或停止周期上报。确定继续吗？', confirmText: '启用规则', success: (result) => resolve(result.confirm), fail: () => resolve(false) })
   })
 }
 

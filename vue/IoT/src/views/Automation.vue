@@ -33,8 +33,8 @@ const metricOptions = [
 ]
 
 const actionOptions = [
-  { label: '启动设备', value: 'start' },
-  { label: '停止设备', value: 'stop' },
+  { label: '开始上报', value: 'start' },
+  { label: '停止上报', value: 'stop' },
   { label: '记录通知', value: 'notify' },
 ]
 

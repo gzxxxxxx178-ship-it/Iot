@@ -17,9 +17,9 @@
 	const status = ref('')
 	const loading = ref(false)
 
-	// 发送设备控制指令（start/stop），通过 MQTT 下发到 ESP32
+	// 向ESP8266发送周期采集上报的启停指令。
 	async function sendCommand(cmd) {
-		const label = cmd === 'start' ? '启动' : '停止'
+		const label = cmd === 'start' ? '开始上报' : '停止上报'
 		loading.value = true
 		status.value = `正在发送 ${label} 指令...`
 		try {
@@ -41,10 +41,10 @@
 		</template>
 		<div class="control-buttons">
 			<el-button type="success" :icon="VideoPlay" :loading="loading" @click="sendCommand('start')">
-				启动设备
+				开始上报
 			</el-button>
 			<el-button type="danger" :icon="VideoPause" :loading="loading" @click="sendCommand('stop')">
-				停止设备
+				停止上报
 			</el-button>
 		</div>
 

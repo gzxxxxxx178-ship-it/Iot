@@ -61,7 +61,7 @@
     <view v-if="live.commands.length" class="card">
       <text class="section-title">控制回执</text>
       <view v-for="receipt in displayedReceipts" :key="receipt.commandId" class="receipt">
-        <text>{{ receipt.deviceId }} · {{ ({ start: '启动', stop: '停止', read: '立即读取', status: '查询状态' })[receipt.command] || receipt.command }}</text>
+        <text>{{ receipt.deviceId }} · {{ ({ start: '开始上报', stop: '停止上报', read: '立即读取', status: '查询状态' })[receipt.command] || receipt.command }}</text>
         <text>{{ commandStatus(receipt.status) }}</text>
         <text class="hint">{{ receipt.message }}</text>
       </view>
@@ -92,8 +92,8 @@
         <text class="hint measurement-note">水位为传感器 ADC 原始读数，尚未换算为实际高度。</text>
         <text v-if="!detailDevice.ownedByCurrentUser" class="shared-access-note">这是共享设备。你可以查看数据并发送设备控制指令；设备档案和共享名单由所有者管理。</text>
         <view v-if="detailDevice.lifecycleStatus !== 'ARCHIVED'" class="ds-actions">
-          <button class="btn-primary ds-btn" :disabled="!canControl" @tap="startDevice">启动</button>
-          <button class="btn-danger ds-btn" :disabled="!canControl" @tap="stopDevice">停止</button>
+          <button class="btn-primary ds-btn" :disabled="!canControl" @tap="startDevice">开始上报</button>
+          <button class="btn-danger ds-btn" :disabled="!canControl" @tap="stopDevice">停止上报</button>
           <button class="btn-secondary ds-btn" :disabled="!canControl" @tap="readDevice">立即读取</button>
           <button class="btn-secondary ds-btn" :disabled="!canControl" @tap="queryDeviceStatus">查询状态</button>
         </view>
@@ -298,7 +298,7 @@ function closeDetail() {
   detailId.value = null
 }
 
-// 打开启动命令确认。
+// 打开开始周期上报的命令确认。
 function startDevice() {
   confirmControl('start')
 }
@@ -319,7 +319,7 @@ function confirmControl(command) {
   const device = detailDevice.value
   if (!device || !canControl.value) return
   const generation = session.generation
-  const labels = { start: '启动', stop: '停止', read: '立即读取', status: '查询状态' }
+  const labels = { start: '开始上报', stop: '停止上报', read: '立即读取', status: '查询状态' }
   sending.value = true
   uni.showModal({
     title: '设备控制',

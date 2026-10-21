@@ -42,12 +42,12 @@
         <EmptyState v-else text="暂无可访问设备" />
         <text v-if="selectedControlDevice" class="hint control-device-state">{{ selectedControlDevice.status === 'online' ? '在线，可发送控制指令' : '设备离线，暂不可控制' }}{{ selectedControlDevice.enabled === false ? ' · 已停用' : '' }}</text>
         <view v-if="live.devices.length" class="control-actions">
-          <button class="btn-primary control-button" :disabled="!canControl" @tap="confirmMonitorCommand('start')">启动设备</button>
-          <button class="btn-danger control-button" :disabled="!canControl" @tap="confirmMonitorCommand('stop')">停止设备</button>
+          <button class="btn-primary control-button" :disabled="!canControl" @tap="confirmMonitorCommand('start')">开始上报</button>
+          <button class="btn-danger control-button" :disabled="!canControl" @tap="confirmMonitorCommand('stop')">停止上报</button>
         </view>
         <text v-if="controlError" class="error-text control-message">{{ controlError }}</text>
         <view v-if="controlReceipt" class="control-receipt">
-          <text class="receipt-title">{{ controlReceipt.deviceId }} · {{ controlReceipt.command === 'start' ? '启动' : '停止' }} · {{ commandStatus(controlReceipt.status) }}</text>
+          <text class="receipt-title">{{ controlReceipt.deviceId }} · {{ controlReceipt.command === 'start' ? '开始上报' : '停止上报' }} · {{ commandStatus(controlReceipt.status) }}</text>
           <text class="hint">{{ controlReceipt.message }}</text>
         </view>
         <button class="btn-secondary action-button" @tap="goDevices">打开设备管理与完整回执</button>
@@ -248,12 +248,12 @@ function selectControlDevice(event) {
   controlError.value = ''; controlReceipt.value = null
 }
 
-// 二次确认后向选中的在线设备发送启动或停止指令。
+// 二次确认后向选中的在线设备发送周期上报启停指令。
 function confirmMonitorCommand(command) {
   const device = selectedControlDevice.value
   if (!device || !canControl.value || !['start', 'stop'].includes(command)) return
   const generation = session.generation
-  const label = command === 'start' ? '启动' : '停止'
+  const label = command === 'start' ? '开始上报' : '停止上报'
   controlBusy.value = true; controlError.value = ''; controlReceipt.value = null
   uni.showModal({
     title: '确认设备控制',
